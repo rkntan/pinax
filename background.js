@@ -1,0 +1,211 @@
+// Background worker: right-click "Save for later", Alt+Shift+S, reminders, daily resurface, auto-tidy.
+importScripts("core.js", "tidy.js");
+
+const TIDY_ALARM = "auto-tidy";
+const RESURFACE_ALARM = "resurface";
+const REVIEW_ALARM = "weekly-review";
+
+function next10am() {
+  const d = new Date();
+  d.setHours(10, 0, 0, 0);
+  if (d <= new Date()) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+async function syncAlarms() {
+  await migrate();
+  await pruneSessions();
+  if (!(await chrome.alarms.get(REVIEW_ALARM))) {
+    chrome.alarms.create(REVIEW_ALARM, { when: nextReviewTime(), periodInMinutes: 7 * 24 * 60 });
+  }
+  const { autoTidy } = await tidySettings();
+  if (!autoTidy) await chrome.alarms.clear(TIDY_ALARM);
+  else if (!(await chrome.alarms.get(TIDY_ALARM))) chrome.alarms.create(TIDY_ALARM, { delayInMinutes: 1, periodInMinutes: 60 });
+
+  const { resurface = true } = await chrome.storage.local.get("resurface");
+  if (!resurface) await chrome.alarms.clear(RESURFACE_ALARM);
+  else if (!(await chrome.alarms.get(RESURFACE_ALARM))) chrome.alarms.create(RESURFACE_ALARM, { when: next10am(), periodInMinutes: 24 * 60 });
+
+  // Re-create reminder alarms (they are lost if the extension is reloaded).
+  for (const it of await getItems()) {
+    if (it.remindAt && it.status !== "done" && !(await chrome.alarms.get("remind:" + it.id))) {
+      chrome.alarms.create("remind:" + it.id, { when: Math.max(it.remindAt, Date.now() + 60_000) });
+    }
+  }
+  refreshBadge();
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({ id: "save-page", title: "Save page for later", contexts: ["page"] });
+  chrome.contextMenus.create({ id: "save-link", title: "Save link for later", contexts: ["link"] });
+  chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"] });
+  syncAlarms();
+});
+chrome.runtime.onStartup.addListener(syncAlarms);
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.autoTidy || changes.resurface) syncAlarms();
+  if (changes.items) refreshBadge();
+});
+
+function toast(title, message) {
+  chrome.notifications.create({ type: "basic", iconUrl: "icons/icon128.png", title, message, priority: 0 });
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "save-link") {
+    await saveForLater({ url: info.linkUrl, title: info.selectionText || info.linkUrl });
+    toast("Saved for later", info.selectionText || info.linkUrl);
+  } else if (info.menuItemId === "save-page" && tab) {
+    await saveForLater(tab);
+    toast("Saved for later", tab.title);
+  } else if (info.menuItemId === "pin-site" && tab) {
+    await pinSite({ url: tab.url, title: tab.title });
+    toast("Pinned", hostOf(tab.url));
+  }
+});
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== "save-page") return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !/^https?:/.test(tab.url)) return;
+  await saveForLater(tab);
+  toast("Saved for later", tab.title);
+});
+
+// ---------- alarms ----------
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === TIDY_ALARM) {
+    const { autoTidy, tidyDays } = await tidySettings();
+    if (autoTidy) await tidyTabs(tidyDays);
+  } else if (alarm.name === RESURFACE_ALARM) {
+    await pruneSessions();
+    await resurfaceOne();
+  } else if (alarm.name === REVIEW_ALARM) {
+    const n = forReview(await getItems()).length;
+    if (n) {
+      chrome.notifications.create("review", {
+        type: "basic",
+        iconUrl: "icons/icon128.png",
+        title: "Weekly review",
+        message: `${n} page${n > 1 ? "s" : ""} in your Inbox. Keep, discard or push to next week.`,
+        buttons: [{ title: "Review now" }],
+        requireInteraction: true,
+      });
+    }
+  } else if (alarm.name.startsWith("remind:")) {
+    await remind(alarm.name.slice(7));
+  }
+});
+
+async function remind(id) {
+  const it = (await getItems()).find((x) => x.id === id);
+  if (!it || it.status === "done") return;
+  const extra = it.progress ? ` · unit ${it.progress.done + 1} of ${it.progress.total}` : "";
+  chrome.notifications.create("item:" + id, {
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: `Reminder: ${it.type.toLowerCase()} to continue`,
+    message: it.title + extra,
+    contextMessage: it.why || hostOf(it.url),
+    buttons: [{ title: "Open" }, { title: "Snooze 1 day" }],
+    requireInteraction: true,
+  });
+  if (it.repeat === "weekly") {
+    const when = Date.now() + 7 * DAY_MS;
+    chrome.alarms.create("remind:" + id, { when });
+    await updateItem(id, { remindAt: when });
+  }
+  refreshBadge();
+}
+
+// Once a day: bring back one forgotten kept page (saved 3+ days ago, not done, no reminder).
+// Inbox pages are left for the weekly review.
+async function resurfaceOne() {
+  const old = (await getItems()).filter(
+    (x) => x.stage === "kept" && x.status !== "done" && !x.remindAt && x.created < Date.now() - 3 * DAY_MS
+  );
+  if (!old.length) return;
+  const it = old[Math.floor(Math.random() * old.length)];
+  chrome.notifications.create("item:" + it.id, {
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: "From your Later list",
+    message: it.title,
+    contextMessage: `${it.type} · saved ${stamp(it.created)}`,
+    buttons: [{ title: "Open" }, { title: "Remind me tomorrow" }],
+  });
+}
+
+async function openItem(id) {
+  const it = (await getItems()).find((x) => x.id === id);
+  if (!it) return;
+  chrome.tabs.create({ url: it.url });
+  // Opening a reminder clears it (unless it repeats weekly).
+  if (it.repeat !== "weekly") await updateItem(id, { remindAt: null, status: it.status === "todo" ? "doing" : it.status });
+}
+
+function openReview() {
+  chrome.tabs.create({ url: chrome.runtime.getURL("library.html#review") });
+}
+
+chrome.notifications.onClicked.addListener((nid) => {
+  if (nid.startsWith("item:")) openItem(nid.slice(5));
+  if (nid === "review") openReview();
+  chrome.notifications.clear(nid);
+});
+
+chrome.notifications.onButtonClicked.addListener(async (nid, button) => {
+  if (nid === "review") { openReview(); chrome.notifications.clear(nid); return; }
+  if (!nid.startsWith("item:")) return;
+  const id = nid.slice(5);
+  if (button === 0) await openItem(id);
+  else await setReminder(id, "tomorrow");
+  chrome.notifications.clear(nid);
+});
+
+// ---------- auto-session when a window closes ----------
+// Chrome gives no tab list once a window is gone, so keep a snapshot of each normal window
+// (in session storage) and turn it into a temporary session when the window closes.
+
+const snapTimers = {};
+
+function scheduleSnap(windowId) {
+  if (windowId == null || windowId < 0) return;
+  clearTimeout(snapTimers[windowId]);
+  snapTimers[windowId] = setTimeout(() => snapWindow(windowId), 1500);
+}
+
+async function snapWindow(windowId) {
+  let win;
+  try { win = await chrome.windows.get(windowId, { populate: true }); } catch { return; }
+  if (win.type !== "normal" || win.incognito) return;
+  const tabs = win.tabs.filter((t) => /^https?:/.test(t.url));
+  const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
+  winSnaps[windowId] = await snapshotTabs(tabs);
+  await chrome.storage.session.set({ winSnaps });
+}
+
+chrome.tabs.onCreated.addListener((t) => scheduleSnap(t.windowId));
+chrome.tabs.onUpdated.addListener((id, change, t) => { if (change.status === "complete" || change.title || change.groupId !== undefined) scheduleSnap(t.windowId); });
+chrome.tabs.onMoved.addListener((id, info) => scheduleSnap(info.windowId));
+chrome.tabs.onAttached.addListener((id, info) => scheduleSnap(info.newWindowId));
+chrome.tabs.onDetached.addListener((id, info) => scheduleSnap(info.oldWindowId));
+chrome.tabs.onRemoved.addListener((id, info) => { if (!info.isWindowClosing) scheduleSnap(info.windowId); });
+chrome.tabGroups.onUpdated.addListener((g) => scheduleSnap(g.windowId));
+
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  clearTimeout(snapTimers[windowId]);
+  const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
+  const snap = winSnaps[windowId];
+  delete winSnaps[windowId];
+  await chrome.storage.session.set({ winSnaps });
+  const { autoSession = true } = await chrome.storage.local.get("autoSession");
+  if (autoSession && snap && snap.length >= 2) {
+    await addSession(snap, "auto", `closed window · ${snap.length} tabs`, true);
+  }
+});
+
+// Snapshot windows that were already open when the worker started.
+chrome.windows.getAll({ windowTypes: ["normal"] }).then((wins) => wins.forEach((w) => scheduleSnap(w.id)));

@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library · Tab Organiser</title>
+  <link rel="icon" href="icons/icon32.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="library.css">
+</head>
+<body>
+  <!-- Pins dock: favourite sites, drag to reorder -->
+  <aside class="pins" aria-label="Pinned sites">
+    <div id="pins" class="pin-list"></div>
+    <button id="pin-add" class="pin-add" title="Pin a site">+</button>
+  </aside>
+
+  <nav class="side">
+    <div class="brand">
+      <img src="icons/icon32.png" width="22" height="22" alt="">
+      <h1>Library</h1>
+    </div>
+
+    <div class="nav-group">
+      <button class="nav" data-view="inbox" data-drop="inbox">Inbox <span class="n" id="n-inbox"></span></button>
+      <button class="nav" data-view="review">Weekly review <span class="n hot" id="n-review"></span></button>
+      <button class="nav" data-view="all">All pages <span class="n" id="n-all"></span></button>
+      <button class="nav" data-view="map">Mind map</button>
+    </div>
+
+    <div class="nav-head">
+      <span>Collections</span>
+      <button id="col-add" class="mini" title="New collection">+</button>
+    </div>
+    <div id="tree" class="tree"></div>
+
+    <div class="nav-head">
+      <span>Workspaces</span>
+      <button id="ws-add" class="mini" title="New workspace from this window">+</button>
+    </div>
+    <div id="ws-list" class="nav-group"></div>
+
+    <div class="nav-group">
+      <button class="nav" data-view="sessions">Sessions <span class="n" id="n-sessions"></span></button>
+      <button class="nav" data-view="archive">Archive <span class="n" id="n-archive"></span></button>
+    </div>
+
+    <div class="side-foot">
+      <div id="ai-line" class="muted small"></div>
+      <label class="small check"><input id="resurface" type="checkbox"> Daily nudge at 10:00</label>
+      <div class="small">
+        <button id="export" class="link">Export</button> ·
+        <label class="link">Import<input id="import" type="file" accept="application/json" hidden></label>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="bar">
+      <div class="crumbs">
+        <h2 id="title">Inbox</h2>
+        <span id="subtitle" class="muted small"></span>
+      </div>
+      <input id="search" class="input" type="search" placeholder="Search" spellcheck="false">
+      <form id="add" class="add">
+        <input id="add-url" class="input" type="url" placeholder="Paste a link" required>
+        <button class="btn primary">Save</button>
+      </form>
+      <div class="seg" id="density" title="Layout">
+        <button data-d="rows">Rows</button>
+        <button data-d="cards">Cards</button>
+      </div>
+    </div>
+    <div id="tools" class="tools"></div>
+    <div id="content"></div>
+  </main>
+
+  <datalist id="paths"></datalist>
+
+  <script src="core.js"></script>
+  <script src="tidy.js"></script>
+  <script src="library.js"></script>
+</body>
+</html>

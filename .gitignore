@@ -1,0 +1,6 @@
+# Backups exported from the Library (may hold your saved pages)
+tab-organiser-backup-*.json
+# Packed builds
+*.zip
+*.crx
+*.pem

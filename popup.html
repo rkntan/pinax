@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" width="22" height="22" alt="">
+    <h1>Tab Organiser</h1>
+    <span id="ai-status" class="status" title="Local AI status"></span>
+    <button id="open-library" class="lib-btn" title="Open the Library">Library ↗</button>
+  </header>
+
+  <div id="pins" class="pins"></div>
+
+  <section class="page">
+    <div class="current">
+      <img id="cur-fav" alt="">
+      <div class="cur-text">
+        <div id="cur-title" class="cur-title">…</div>
+        <div id="cur-where" class="muted small"></div>
+      </div>
+      <button id="pin-cur" class="star" title="Pin to dock">☆</button>
+    </div>
+
+    <div class="dest" id="dest" role="tablist">
+      <button data-dest="inbox" class="on">Inbox</button>
+      <button data-dest="collection">Collection</button>
+      <button data-dest="workspace">Workspace</button>
+    </div>
+
+    <div class="dest-body" data-for="inbox">
+      <select id="remind" title="Reminder"></select>
+      <span class="muted small">review on Friday</span>
+    </div>
+    <div class="dest-body" data-for="collection" hidden>
+      <input id="col-input" class="input" list="paths" placeholder="e.g. AI › Agents › Papers" spellcheck="false">
+      <datalist id="paths"></datalist>
+    </div>
+    <div class="dest-body" data-for="workspace" hidden>
+      <select id="ws-select"></select>
+      <input id="ws-new" class="input" placeholder="New workspace name" hidden>
+    </div>
+
+    <div class="go">
+      <button id="save" class="btn primary">Save to Inbox</button>
+      <label class="small check"><input id="close-after" type="checkbox"> close tab</label>
+    </div>
+  </section>
+
+  <section class="win">
+    <div class="sec-head"><h2>This window</h2><span id="summary" class="muted small"></span></div>
+    <button id="organise" class="btn dark wide"><span class="spark">✦</span> Organise with AI</button>
+    <div class="actions">
+      <button id="dedupe" class="act">Close duplicates</button>
+      <button id="ungroup" class="act">Ungroup</button>
+      <button id="save-session" class="act" title="Temporary, kept 30 days">Save session</button>
+      <button id="save-ws" class="act">Save as workspace</button>
+    </div>
+    <form id="ws-form" class="ws-form" hidden>
+      <input id="ws-name" class="input" placeholder="Workspace name" required>
+      <button class="btn primary">Save</button>
+    </form>
+    <div id="ws" class="ws"></div>
+  </section>
+
+  <footer>
+    <button id="go-inbox" class="foot-btn">Inbox <b id="n-inbox">0</b></button>
+    <span id="due-chip" class="chip lime" hidden></span>
+    <button id="go-review" class="foot-btn review" hidden>Review now</button>
+    <span id="msg" class="small muted"></span>
+  </footer>
+
+  <script src="core.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
