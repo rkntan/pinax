@@ -14,7 +14,7 @@ function progressEl(it) {
     const { done, total } = it.progress;
     const step = (d) => {
       const n = Math.max(0, Math.min(total, done + d));
-      updateItem(it.id, { progress: { done: n, total }, status: n >= total ? "done" : n > 0 ? "doing" : it.status });
+      updateItem(it.id, { progress: { done: n, total }, ...(n >= total ? { read: true, readAt: Date.now() } : {}) });
     };
     return h("span", { class: "progress" },
       h("button", { class: "icon-btn", title: "Back one unit", onclick: () => step(-1) }, "−"),
@@ -48,9 +48,8 @@ function detailEl(it) {
     quotesFor(it.url).length
       ? h("div", { class: "quotes" }, quotesFor(it.url).map((q) => h("blockquote", { title: stamp(q.created) }, q.text)))
       : null,
-    h("label", {}, "Status",
-      h("select", { onchange: (e) => updateItem(it.id, { status: e.target.value }) },
-        [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]].map(([v, l]) => h("option", { value: v, selected: it.status === v }, l)))),
+    h("label", { class: "check", title: "Pages are marked read after 2 minutes of viewing" }, "Read",
+      h("input", { type: "checkbox", checked: !!it.read, onchange: (e) => updateItem(it.id, { read: e.target.checked, readAt: e.target.checked ? Date.now() : null }) })),
     h("label", {}, "Type",
       h("select", { onchange: (e) => updateItem(it.id, { type: e.target.value }) },
         TYPES.map((t) => h("option", { value: t, selected: it.type === t }, t)))),
@@ -69,7 +68,7 @@ function rowEl(it, pinned) {
   const inbox = it.stage === "inbox";
   const suggested = inbox && it.path !== UNSORTED;
   const row = h("div", {
-    class: `row t-${it.type}${open ? " open" : ""}${it.status === "done" ? " done" : ""}`,
+    class: `row t-${it.type}${open ? " open" : ""}${it.read ? " read" : " unread"}`,
     draggable: "true",
     ondragstart: (e) => { e.dataTransfer.setData("text/item", it.id); e.currentTarget.classList.add("dragging"); },
     ondragend: (e) => e.currentTarget.classList.remove("dragging"),
@@ -120,11 +119,11 @@ function typeChips(base) {
 }
 
 function statusSeg() {
-  return h("div", { class: "seg" }, [["active", "Active"], ["done", "Done"], ["all", "All"]].map(([v, l]) =>
+  return h("div", { class: "seg" }, [["all", "All"], ["unread", "Unread"], ["read", "Read"]].map(([v, l]) =>
     h("button", { class: state.status === v ? "on" : null, onclick: () => { state.status = v; render(); } }, l)));
 }
 
-const byStatus = (it) => state.status === "all" || (state.status === "done" ? it.status === "done" : it.status !== "done");
+const byStatus = (it) => state.status === "all" || (state.status === "read" ? !!it.read : !it.read);
 const byType = (it) => state.type === "All" || it.type === state.type;
 
 function emptyEl(title, text) {

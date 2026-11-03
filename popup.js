@@ -210,6 +210,22 @@ $("organise").onclick = async () => {
   }
 };
 
+// Everything into the Inbox, then close: a snapshot also goes to History (with groups) just in case.
+$("all-inbox").onclick = async () => {
+  busy(true);
+  try {
+    const tabs = (await chrome.tabs.query({ currentWindow: true })).filter((t) => isWeb(t) && !t.pinned);
+    if (!tabs.length) return msg("No web tabs to send");
+    await addSession(tabs, "saved", `${tabs.length} tabs sent to Inbox`);
+    // the AI sorts them one by one when the Library opens (not 30 at once here)
+    for (const t of tabs) await saveForLater(t, "", { sort: false });
+    await chrome.tabs.create({ url: chrome.runtime.getURL("library.html#inbox"), windowId: tab.windowId });
+    await chrome.tabs.remove(tabs.map((t) => t.id));
+  } finally {
+    busy(false);
+  }
+};
+
 $("dedupe").onclick = async () => {
   const tabs = await chrome.tabs.query({ currentWindow: true });
   const seen = new Set(), dupes = [];

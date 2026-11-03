@@ -109,7 +109,7 @@ async function setReminder(id, key) {
 }
 
 function isDue(item, now = Date.now()) {
-  return item.status !== "done" && item.remindAt && item.remindAt <= now;
+  return !item.read && item.remindAt && item.remindAt <= now;
 }
 
 const OLD_INBOX_MS = 14 * 24 * 60 * 60 * 1000;
@@ -147,6 +147,17 @@ async function updateItem(id, patch) {
   return it;
 }
 
+// Marks a saved page read (auto after real viewing, see background.js). True if it changed.
+async function markReadByUrl(url) {
+  const items = await getItems();
+  const it = items.find((x) => x.url === url && !x.read);
+  if (!it) return false;
+  it.read = true;
+  it.readAt = Date.now();
+  await setItems(items);
+  return true;
+}
+
 async function deleteItem(id) {
   await chrome.alarms.clear("remind:" + id);
   await setItems((await getItems()).filter((x) => x.id !== id));
@@ -178,7 +189,7 @@ function guessType(url, title = "") {
 // Saves a page into the Inbox (dedupes by URL) and returns at once. The AI sort runs after,
 // without blocking; if it can't finish here (popup closed, no AI in the worker) the Library
 // page sorts it on next open. `sorted` resolves when the AI is done (or skipped).
-async function saveForLater({ url, title, favIconUrl }, remindKey = "") {
+async function saveForLater({ url, title, favIconUrl }, remindKey = "", { sort = true } = {}) {
   const items = await getItems();
   let it = items.find((x) => x.url === url);
   if (!it) {
@@ -192,7 +203,8 @@ async function saveForLater({ url, title, favIconUrl }, remindKey = "") {
       path: UNSORTED,
       tags: [],
       why: "",
-      status: "todo",
+      read: false,
+      readAt: null,
       progress: null,
       remindAt: null,
       repeat: "none",
@@ -204,7 +216,7 @@ async function saveForLater({ url, title, favIconUrl }, remindKey = "") {
     await setItems(items);
   }
   if (remindKey) await setReminder(it.id, remindKey);
-  it.sorted = it.needsAi
+  it.sorted = it.needsAi && sort
     ? aiAvailability().then((a) => (a === "available" ? classifyItem(it.id) : null)).catch((e) => console.warn("AI sort failed", e))
     : Promise.resolve();
   return it;
@@ -369,8 +381,9 @@ async function isPinned(url) {
 // archive mixed in `library`.  v3: `library` split into `projects` (was workspaces) and
 // `history` (sessions + archive).  v4: everything in history expires after 30 days; tidied
 // entries from before v4 get 30 days from the upgrade (`keepFrom`) instead of vanishing.
+// v5: page `status` (todo / doing / done) replaced by `read` (done = read).
 
-const SCHEMA = 4;
+const SCHEMA = 5;
 const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library"];
 
 function sessionKind(s) {
@@ -413,6 +426,16 @@ function migrateData(input, now = Date.now()) {
   if (schema < 4) {
     for (const s of d.history || []) if (sessionKind(s) === "tidied" && !s.keepFrom) s.keepFrom = now;
     schema = 4;
+  }
+  if (schema < 5) {
+    for (const it of d.items || []) {
+      if (!("read" in it)) {
+        it.read = it.status === "done";
+        it.readAt = it.read ? it.readAt || now : null;
+      }
+      delete it.status;
+    }
+    schema = 5;
   }
   d.schema = schema;
   return d;

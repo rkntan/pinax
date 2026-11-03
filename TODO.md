@@ -7,9 +7,9 @@ Goal: make the core loop excellent before adding more:
 ## Now
 
 1. [ ] **Run TESTING.md in Chrome** and fix what breaks (Erkan tests, Claude fixes).
-2. [ ] **Read / Unread instead of Status.** Bold until read; auto-read after ~2 min of real
+2. [x] **Read / Unread instead of Status.** Bold until read; auto-read after ~2 min of real
    viewing; manual toggle. To do / In progress / Done go away (existing "done" = read).
-3. [ ] **All tabs → Inbox** in the popup: saves every tab of the window and closes them.
+3. [x] **All tabs → Inbox** in the popup: saves every tab of the window and closes them.
 4. [ ] **Page notes (v1)**: see the design below. Highlights, notes and quotes on any page,
    in a side panel next to the page; one page record joins link + highlights + notes.
 5. [ ] **Inbox triage with AI bundles**: "7 pages → AI › Agents [Keep all]", "duplicates /

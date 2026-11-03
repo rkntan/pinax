@@ -83,9 +83,9 @@ test("weekly review is the next Friday 16:00", () => {
 
 test("due, old and review filters", () => {
   const now = Date.now();
-  assert.equal(core.isDue({ status: "todo", remindAt: now - 1 }, now), true);
-  assert.equal(core.isDue({ status: "done", remindAt: now - 1 }, now), false);
-  assert.ok(!core.isDue({ status: "todo", remindAt: null }, now));
+  assert.equal(core.isDue({ read: false, remindAt: now - 1 }, now), true);
+  assert.equal(core.isDue({ read: true, remindAt: now - 1 }, now), false);
+  assert.ok(!core.isDue({ read: false, remindAt: null }, now));
   assert.equal(core.isOld({ stage: "inbox", created: now - 15 * DAY }, now), true);
   assert.equal(core.isOld({ stage: "kept", created: now - 15 * DAY }, now), false);
   const list = [{ stage: "inbox" }, { stage: "inbox", reviewAfter: now + DAY }, { stage: "kept" }];
@@ -125,7 +125,8 @@ test("migrateData: v1 -> v3", () => {
     ],
   };
   const out = plain(core.migrateData(v1, 1000));
-  assert.equal(out.schema, 4);
+  assert.equal(out.schema, 5);
+  assert.equal(out.items[0].read, false);
   assert.equal(out.items[0].stage, "inbox");
   assert.equal(out.items[0].path, "ai agents");
   assert.equal("topic" in out.items[0], false);
@@ -158,8 +159,14 @@ test("migrateData: v2 workspaces become projects, sessions and archive become hi
 test("migrateData: v3 -> v4 only adds keepFrom to tidied entries", () => {
   const v3 = { schema: 3, history: [{ id: "t", kind: "tidied", saved: 5, tabs: [] }, { id: "a", kind: "auto", saved: 6, tabs: [] }] };
   const out = plain(core.migrateData(v3, 777));
-  assert.equal(out.schema, 4);
+  assert.equal(out.schema, 5);
   assert.deepEqual(out.history.map((s) => s.keepFrom), [777, undefined]);
+});
+
+test("migrateData: v4 -> v5 turns status into read", () => {
+  const v4 = { schema: 4, items: [{ id: "a", status: "done" }, { id: "b", status: "doing" }, { id: "c", status: "todo", readAt: 5 }] };
+  const out = plain(core.migrateData(v4, 999));
+  assert.deepEqual(out.items.map((i) => [i.read, i.readAt, "status" in i]), [[true, 999, false], [false, null, false], [false, null, false]]);
 });
 
 test("migrateData is safe to run twice and leaves current data alone", () => {

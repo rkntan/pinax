@@ -28,7 +28,7 @@ async function syncAlarms() {
 
   // Re-create reminder alarms (they are lost if the extension is reloaded).
   for (const it of await getItems()) {
-    if (it.remindAt && it.status !== "done" && !(await chrome.alarms.get("remind:" + it.id))) {
+    if (it.remindAt && !it.read && !(await chrome.alarms.get("remind:" + it.id))) {
       chrome.alarms.create("remind:" + it.id, { when: Math.max(it.remindAt, Date.now() + 60_000) });
     }
   }
@@ -149,7 +149,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 async function remind(id) {
   const it = (await getItems()).find((x) => x.id === id);
-  if (!it || it.status === "done") return;
+  if (!it || it.read) return;
   const extra = it.progress ? ` · unit ${it.progress.done + 1} of ${it.progress.total}` : "";
   chrome.notifications.create("item:" + id, {
     type: "basic",
@@ -172,7 +172,7 @@ async function remind(id) {
 // Inbox pages are left for the weekly review.
 async function resurfaceOne() {
   const old = (await getItems()).filter(
-    (x) => x.stage === "kept" && x.status !== "done" && !x.remindAt && x.created < Date.now() - 3 * DAY_MS
+    (x) => x.stage === "kept" && !x.read && !x.remindAt && x.created < Date.now() - 3 * DAY_MS
   );
   if (!old.length) return;
   const it = old[Math.floor(Math.random() * old.length)];
@@ -191,7 +191,7 @@ async function openItem(id) {
   if (!it) return;
   chrome.tabs.create({ url: it.url });
   // Opening a reminder clears it (unless it repeats weekly).
-  if (it.repeat !== "weekly") await updateItem(id, { remindAt: null, status: it.status === "todo" ? "doing" : it.status });
+  if (it.repeat !== "weekly") await updateItem(id, { remindAt: null });
 }
 
 function openReview() {
@@ -318,3 +318,43 @@ chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) showWorkingBadge(w
 chrome.storage.session.onChanged?.addListener?.((c) => {
   if (c.workingOn) chrome.windows.getLastFocused().then((w) => showWorkingBadge(w.id)).catch(() => {});
 });
+
+// ---------- auto "read": a saved page counts as read after 2 minutes of real viewing ----------
+// Time only counts while the page is the active tab of a focused window and you are not idle.
+
+const READ_AFTER_MS = 2 * 60 * 1000;
+const READ_TICK = "read-tick";
+let idleState = "active";
+let viewQueue = Promise.resolve();
+const serialView = (fn) => (viewQueue = viewQueue.then(fn).catch((e) => console.warn("read tracking", e)));
+
+async function currentViewUrl() {
+  if (idleState !== "active") return null;
+  const win = await chrome.windows.getLastFocused().catch(() => null);
+  if (!win?.focused) return null;
+  const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
+  return tab && /^https?:/.test(tab.url) ? tab.url : null;
+}
+
+// Adds the time since the last check to the page being viewed, then starts timing `next`.
+function trackView() {
+  return serialView(async () => {
+    const next = await currentViewUrl();
+    const { viewing = null, viewTime = {} } = await chrome.storage.session.get(["viewing", "viewTime"]);
+    const now = Date.now();
+    if (viewing?.url) {
+      const total = (viewTime[viewing.url] || 0) + Math.min(now - viewing.since, 5 * 60 * 1000);
+      viewTime[viewing.url] = total;
+      if (total >= READ_AFTER_MS) await markReadByUrl(viewing.url);
+    }
+    await chrome.storage.session.set({ viewing: next ? { url: next, since: now } : null, viewTime });
+  });
+}
+
+chrome.idle.setDetectionInterval(60);
+chrome.idle.onStateChanged.addListener((s) => { idleState = s; trackView(); });
+chrome.tabs.onActivated.addListener(trackView);
+chrome.windows.onFocusChanged.addListener(trackView);
+chrome.tabs.onUpdated.addListener((id, change, tab) => { if (change.url && tab.active) trackView(); });
+chrome.alarms.get(READ_TICK).then((a) => a || chrome.alarms.create(READ_TICK, { periodInMinutes: 1 }));
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === READ_TICK) trackView(); });

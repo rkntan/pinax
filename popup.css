@@ -90,3 +90,5 @@ footer { display: flex; align-items: center; gap: 8px; padding: 2px 14px 12px; m
 .park-form select, .park-form .input { font-size: 12px; padding: 5px 8px; }
 .park-go { display: flex; justify-content: space-between; align-items: center; }
 .park-go .btn { padding: 5px 14px; }
+
+.all-inbox { grid-column: span 2; border-color: color-mix(in srgb, var(--violet) 45%, var(--line)); color: var(--violet); font-weight: 600; }

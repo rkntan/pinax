@@ -7,7 +7,7 @@ const view = { x: 0, y: 0, w: 1200, h: 800 };
 let mapFitted = false;
 
 function mapTree() {
-  const live = data.items.filter((it) => it.status !== "done" && matches(it));
+  const live = data.items.filter((it) => matches(it));
   const tree = buildTree();
   const toNode = (t) => {
     const pages = live.filter((it) => it.stage === "kept" && it.path === t.path);
@@ -121,7 +121,7 @@ function nodeEl(n, toggle) {
     const it = n.item;
     const label = it.title.length > 46 ? it.title.slice(0, 45) + "…" : it.title;
     return svg("g", {
-      class: `leaf${isDue(it) ? " due" : ""}`, style: `--type:${MAP_COLORS[it.type]}`,
+      class: `leaf${isDue(it) ? " due" : ""}${it.read ? " read" : ""}`, style: `--type:${MAP_COLORS[it.type]}`,
       transform: `translate(${n.x} ${n.y})`, onclick: () => window.open(it.url, "_blank"),
     },
       svg("title", {}, `${it.title}\n${pathLabel(it.path)} · ${it.type}${it.why ? "\n" + it.why : ""}${it.tags?.length ? "\n#" + it.tags.join(" #") : ""}`),
