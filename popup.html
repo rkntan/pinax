@@ -15,6 +15,26 @@
 
   <div id="pins" class="pins"></div>
 
+  <!-- shown when this tab is a source of a project: sort it, then read the next one -->
+  <section id="src-card" class="srccard" hidden>
+    <div class="src-top"><span class="small muted">Reading for</span> <b id="src-proj"></b><span id="src-prog" class="small muted"></span></div>
+    <div class="src-btns">
+      <button data-st="useful" class="sbtn ok">✓ Useful</button>
+      <button data-st="later" class="sbtn">Later</button>
+      <button data-st="skip" class="sbtn no">✕ Not needed</button>
+    </div>
+    <div id="prune" class="prune" hidden>
+      <span class="small"></span>
+      <button id="prune-one" class="sbtn">Only this</button>
+      <button id="prune-all" class="sbtn no">This + those</button>
+    </div>
+    <input id="src-note" class="input" placeholder="Note: why it matters (optional)">
+    <div class="src-bottom">
+      <label class="small check"><input id="src-auto" type="checkbox" checked> then open the next one here</label>
+      <button id="src-next" class="btn">Next ▶</button>
+    </div>
+  </section>
+
   <section class="page">
     <div class="current">
       <img id="cur-fav" alt="">
@@ -52,16 +72,25 @@
 
   <section class="win">
     <div class="sec-head"><h2>This window</h2><span id="summary" class="muted small"></span></div>
+    <div class="working" title="New pages you open in this window join the project's trail">
+      <span class="small muted">Working on</span>
+      <select id="working"></select>
+      <input id="working-new" class="input" placeholder="New project name, Enter" hidden>
+    </div>
     <button id="organise" class="btn dark wide"><span class="spark">✦</span> Organise with AI</button>
     <div class="actions">
       <button id="dedupe" class="act">Close duplicates</button>
       <button id="ungroup" class="act">Ungroup</button>
       <button id="save-session" class="act" title="Temporary, kept 30 days">Save session</button>
-      <button id="save-ws" class="act">Save as project</button>
+      <button id="park" class="act" title="Save all tabs as a project's sources, then read them slowly">Park this window</button>
     </div>
-    <form id="ws-form" class="ws-form" hidden>
-      <input id="ws-name" class="input" placeholder="Project name" required>
-      <button class="btn primary">Save</button>
+    <form id="park-form" class="park-form" hidden>
+      <select id="park-proj"></select>
+      <input id="park-name" class="input" placeholder="New project name">
+      <div class="park-go">
+        <label class="small check"><input id="park-close" type="checkbox" checked> close the tabs</label>
+        <button class="btn primary">Park</button>
+      </div>
     </form>
     <div id="ws" class="ws"></div>
   </section>

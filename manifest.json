@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Organiser (local AI)",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Groups your tabs with Chrome's built-in Gemini Nano, saves pages for later with reminders, and keeps a library.",
   "minimum_chrome_version": "138",
   "permissions": ["tabs", "tabGroups", "storage", "alarms", "notifications", "contextMenus", "favicon", "scripting", "activeTab"],

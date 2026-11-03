@@ -252,3 +252,64 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
 
 // Snapshot windows that were already open when the worker started.
 chrome.windows.getAll({ windowTypes: ["normal"] }).then((wins) => wins.forEach((w) => scheduleSnap(w.id)));
+
+// ---------- research trail: pages opened in a "working on" window join that project ----------
+// tabSource[tabId] = the source that tab shows now; openerOf[tabId] = the tab it was opened
+// from. Both live in session storage, so they survive the worker sleeping, not a restart.
+
+// One trail update at a time, so quick page loads don't overwrite each other.
+let trailQueue = Promise.resolve();
+const serial = (fn) => (trailQueue = trailQueue.then(fn).catch((e) => console.warn("trail", e)));
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.openerTabId == null) return;
+  serial(async () => {
+    const { openerOf = {} } = await chrome.storage.session.get("openerOf");
+    openerOf[tab.id] = tab.openerTabId;
+    await chrome.storage.session.set({ openerOf });
+  });
+});
+
+chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
+  serial(async () => {
+    const projectId = (await getWorkingOn())[tab.windowId];
+    if (!projectId) return;
+    const p = (await getProjects()).find((x) => x.id === projectId);
+    if (!p || p.status === "finished") return;
+    const { tabSource = {}, openerOf = {} } = await chrome.storage.session.get(["tabSource", "openerOf"]);
+    const prev = tabSource[tabId];                             // same tab, previous page
+    const parent = prev ?? tabSource[openerOf[tabId]] ?? null; // or the tab it came from
+    delete openerOf[tabId];
+    if (isSearchPage(tab.url)) {
+      // a search page is a step: the next page found from it hangs under the page before
+      if (parent) tabSource[tabId] = parent;
+    } else {
+      const src = await addSource(projectId, tab, parent);
+      tabSource[tabId] = src.id;
+    }
+    await chrome.storage.session.set({ tabSource, openerOf });
+  });
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  serial(async () => {
+    const { tabSource = {}, openerOf = {} } = await chrome.storage.session.get(["tabSource", "openerOf"]);
+    delete tabSource[tabId];
+    delete openerOf[tabId];
+    await chrome.storage.session.set({ tabSource, openerOf });
+  });
+});
+
+chrome.windows.onRemoved.addListener((windowId) => serial(() => setWorkingOn(windowId, null)));
+
+// Badge "●" on the icon while the current window is working on a project.
+async function showWorkingBadge(windowId) {
+  const on = (await getWorkingOn())[windowId];
+  const due = (await getItems()).filter((i) => isDue(i)).length;
+  if (!due) chrome.action.setBadgeText({ text: on ? "●" : "" });
+}
+chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) showWorkingBadge(w); });
+chrome.storage.session.onChanged?.addListener?.((c) => {
+  if (c.workingOn) chrome.windows.getLastFocused().then((w) => showWorkingBadge(w.id)).catch(() => {});
+});

@@ -730,3 +730,230 @@ async function enrichPendingPhrases(onProgress) {
   for (const p of pending) { await enrichPhrase(p.id); onProgress?.(++n, pending.length); }
   return n;
 }
+
+// ---------- project sources: the research trail ----------
+// A project's `sources` are the pages of a research trail. `parent` is the source the page
+// was opened from (Chrome's "opener", or the previous page in the same tab).
+// status: "unread" | "useful" | "later" (sent to Inbox) | "skip" (not needed).
+// `tabs` stay the project's working tabs ("Open all").
+
+const SOURCE_STATUS = ["unread", "useful", "later", "skip"];
+
+// Search result pages are steps, not sources: they are skipped but keep the chain going.
+function isSearchPage(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    return (/^google\./.test(host) && u.pathname === "/search")
+      || (host === "bing.com" && u.pathname === "/search")
+      || (host === "duckduckgo.com" && u.searchParams.has("q"))
+      || host === "search.brave.com";
+  } catch { return false; }
+}
+
+// Pure: sources in trail order (depth-first, oldest first) with their depth.
+// Sources whose parent is missing become roots.
+function sourceTree(sources = []) {
+  const ids = new Set(sources.map((s) => s.id));
+  const kids = {};
+  for (const s of sources) (kids[s.parent && ids.has(s.parent) ? s.parent : "_root"] ||= []).push(s);
+  Object.values(kids).forEach((l) => l.sort((a, b) => a.added - b.added));
+  const out = [];
+  const seen = new Set(); // guards against loops
+  const walk = (key, depth) => {
+    for (const s of kids[key] || []) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      out.push({ s, depth, children: (kids[s.id] || []).length });
+      walk(s.id, depth + 1);
+    }
+  };
+  walk("_root", 0);
+  return out;
+}
+
+// Pure: ids of everything opened from `id`, at any depth.
+function descendants(sources, id) {
+  const out = [];
+  const walk = (pid) => sources.filter((s) => s.parent === pid && !out.includes(s.id)).forEach((s) => { out.push(s.id); walk(s.id); });
+  walk(id);
+  return out;
+}
+
+// Next unread source in trail order, starting after `afterId` and wrapping around.
+function nextUnread(sources = [], afterId = null) {
+  const order = sourceTree(sources).map((n) => n.s);
+  const start = afterId ? order.findIndex((s) => s.id === afterId) + 1 : 0;
+  return [...order.slice(start), ...order.slice(0, start)].find((s) => s.status === "unread" && s.id !== afterId) || null;
+}
+
+function projectProgress(p) {
+  const c = { total: 0, unread: 0, useful: 0, later: 0, skip: 0 };
+  for (const s of p.sources || []) { c.total++; c[s.status] = (c[s.status] || 0) + 1; }
+  c.sorted = c.total - c.unread;
+  return c;
+}
+
+// Pure: adds a page as a source (or returns the existing one with that URL).
+function withSource(p, { url, title, favIconUrl }, parent = null, now = Date.now()) {
+  const sources = p.sources || [];
+  const found = sources.find((s) => s.url === url);
+  if (found) return { project: p, source: found, added: false };
+  const source = {
+    id: crypto.randomUUID(), url, title: title || url, favIconUrl: favIconUrl || "",
+    parent: parent && sources.some((s) => s.id === parent) ? parent : null,
+    status: "unread", note: "", added: now,
+  };
+  return { project: { ...p, sources: [...sources, source] }, source, added: true };
+}
+
+// Pure: Markdown list of the useful sources, with notes and saved quotes.
+function projectMarkdown(p, quotes = [], now = Date.now()) {
+  const c = projectProgress(p);
+  const useful = sourceTree(p.sources).map((n) => n.s).filter((s) => s.status === "useful");
+  const date = new Date(p.finishedAt || now).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const lines = [
+    `# ${p.name}`,
+    "",
+    `${p.status === "finished" ? "Finished" : "Exported"} ${date} · ${c.useful} useful of ${c.total} pages`,
+    "",
+    "## Sources",
+    "",
+  ];
+  for (const s of useful) {
+    lines.push(`- [${s.title.replace(/[[\]]/g, "")}](${s.url})${s.note ? " — " + s.note : ""}`);
+    for (const q of quotes.filter((x) => x.url === s.url)) lines.push(`  > ${q.text}`);
+  }
+  if (!useful.length) lines.push("_No useful sources marked yet._");
+  return lines.join("\n") + "\n";
+}
+
+async function addSource(projectId, page, parent = null) {
+  let result = null;
+  await editProject(projectId, (p) => {
+    const r = withSource(p, page, parent);
+    p.sources = r.project.sources;
+    result = r.source;
+  });
+  return result;
+}
+
+// Marks a source; "later" also saves the page to the Inbox. `prune` gives the same "skip"
+// to the unread pages opened from it.
+async function setSourceStatus(projectId, sourceId, status, prune = false) {
+  let page = null;
+  await editProject(projectId, (p) => {
+    const s = (p.sources || []).find((x) => x.id === sourceId);
+    if (!s) return;
+    s.status = status;
+    s.readAt = Date.now();
+    page = { url: s.url, title: s.title, favIconUrl: s.favIconUrl };
+    if (prune && status === "skip") {
+      const ids = new Set(descendants(p.sources, sourceId));
+      p.sources.forEach((x) => { if (ids.has(x.id) && x.status === "unread") x.status = "skip"; });
+    }
+  });
+  if (status === "later" && page) await saveForLater(page);
+}
+
+async function setSourceNote(projectId, sourceId, note) {
+  await editProject(projectId, (p) => {
+    const s = (p.sources || []).find((x) => x.id === sourceId);
+    if (s) s.note = note;
+  });
+}
+
+async function removeSource(projectId, sourceId) {
+  await editProject(projectId, (p) => {
+    const gone = (p.sources || []).find((x) => x.id === sourceId);
+    if (!gone) return;
+    // children move up to the removed page's parent
+    p.sources = p.sources.filter((x) => x.id !== sourceId).map((x) => (x.parent === sourceId ? { ...x, parent: gone.parent } : x));
+  });
+}
+
+// Puts a source in or out of the project's working tabs.
+async function toggleWorkingTab(projectId, source) {
+  await editProject(projectId, (p) => {
+    const i = p.tabs.findIndex((t) => t.url === source.url);
+    if (i >= 0) p.tabs.splice(i, 1);
+    else p.tabs.push({ url: source.url, title: source.title, favIconUrl: source.favIconUrl || "", group: "", color: "" });
+  });
+}
+
+// Pure: turns window tabs into sources, keeping who-opened-whom (Chrome's openerTabId).
+function parkedSources(p, tabs, now = Date.now()) {
+  const web = tabs.filter((t) => /^https?:/.test(t.url) && !isSearchPage(t.url));
+  const byId = new Map(web.map((t) => [t.id, t]));
+  const srcOfTab = {};
+  let proj = p, count = 0, i = 0;
+  const add = (t) => {
+    if (t.id in srcOfTab) return srcOfTab[t.id];
+    srcOfTab[t.id] = null; // mark as in progress (stops opener loops)
+    const opener = byId.get(t.openerTabId);
+    const parent = opener ? add(opener) : null;
+    const r = withSource(proj, t, parent, now + i++); // +i keeps the window's order
+    proj = r.project;
+    if (r.added) count++;
+    return (srcOfTab[t.id] = r.source.id);
+  };
+  web.forEach(add);
+  return { sources: proj.sources || [], count };
+}
+
+async function parkTabs(projectId, tabs) {
+  let count = 0;
+  await editProject(projectId, (p) => {
+    const r = parkedSources(p, tabs);
+    p.sources = r.sources;
+    count = r.count;
+  });
+  return count;
+}
+
+// Finishes a project: files useful sources into collections, handles what is left, and
+// makes it read-only. filing: { [sourceId]: "AI/Agents" }; rest: "skip" | "inbox".
+async function finishProject(projectId, filing = {}, rest = "skip") {
+  const p = (await getProjects()).find((x) => x.id === projectId);
+  if (!p) return;
+  for (const s of p.sources || []) {
+    if (s.status === "useful" && filing[s.id]) {
+      const it = await saveForLater(s);
+      await keepItem(it.id, filing[s.id]);
+      if (s.note) await updateItem(it.id, { why: s.note, needsAi: false });
+    }
+    if (s.status === "unread" && rest === "inbox") await saveForLater(s);
+  }
+  await editProject(projectId, (x) => {
+    (x.sources || []).forEach((s) => { if (s.status === "unread") s.status = rest === "inbox" ? "later" : "skip"; });
+    x.status = "finished";
+    x.finishedAt = Date.now();
+  });
+}
+
+async function reopenProject(projectId) {
+  await editProject(projectId, (x) => { x.status = "active"; delete x.finishedAt; });
+}
+
+// Finds the active project source for a URL (for the popup's reading card).
+function sourceForUrl(projects, url) {
+  for (const p of projects) {
+    if (p.status === "finished") continue;
+    const s = (p.sources || []).find((x) => x.url === url);
+    if (s) return { project: p, source: s };
+  }
+  return null;
+}
+
+// "Working on": which project each window's new pages go to (cleared when Chrome restarts).
+async function getWorkingOn() {
+  const { workingOn = {} } = await chrome.storage.session.get("workingOn");
+  return workingOn;
+}
+
+async function setWorkingOn(windowId, projectId) {
+  const workingOn = await getWorkingOn();
+  if (projectId) workingOn[windowId] = projectId;
+  else delete workingOn[windowId];
+  await chrome.storage.session.set({ workingOn });
+}

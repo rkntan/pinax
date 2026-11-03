@@ -1,6 +1,6 @@
 # Tab Organiser: plan v0.6 to v1.0
 
-Status: approved 2026-11-03. Phase 1 done (v0.6.0), Phase 2 done (v0.7.0); next: Phase 3 (Projects).
+Status: approved 2026-11-03. Phase 1 done (v0.6.0), Phase 2 done (v0.7.0), Phase 3 done (v0.8.0); next: Phase 4 (History).
 
 ## Where we are (v0.5.0, commit 259a5e1)
 
@@ -56,7 +56,7 @@ Done when: tests pass, the extension looks and works as v0.5 after migration, co
 
 Done when: save from a real page with context, language detected, review step works, commit.
 
-## Phase 3: Projects (replaces Workspaces)
+## Phase 3: Projects (replaces Workspaces) - DONE v0.8.0
 
 1. Background **trail tracking**: remembers which tab opened which (Chrome "opener"), per window,
    only on this laptop.

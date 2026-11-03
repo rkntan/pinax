@@ -21,7 +21,7 @@ function tabSetEl(s, mode) {
     targets.length
       ? h("select", {
           title: "Add to a project",
-          onchange: (e) => { if (e.target.value) addTabToProject(e.target.value, t); e.target.value = ""; },
+          onchange: (e) => { if (e.target.value) addSource(e.target.value, t); e.target.value = ""; },
         }, h("option", { value: "" }, "→ Project"), targets.map((w) => h("option", { value: w.id }, w.name)))
       : null,
     h("button", { class: "link small", onclick: () => saveForLater(t) }, "To Inbox"),
@@ -46,11 +46,9 @@ function tabSetEl(s, mode) {
         mode === "archive" ? "Restore all" : isProject ? "Open all" : "Restore"),
       mode === "session" ? h("button", { class: "btn", onclick: promote }, "Make project") : null,
       isProject ? null : h("button", { class: "link small", onclick: toggle }, open ? "Hide" : "Show tabs"),
-      mode !== "archive" ? h("button", { class: "link small", onclick: () => { const n = prompt("Name", s.name); if (n) edit((x) => (x.name = n)); } }, "Rename") : null,
-      h("button", {
-        class: "link small",
-        onclick: async () => { if (confirm(`Delete "${s.name}"?`)) { await remove(); if (isProject) go("sessions"); } },
-      }, "Delete")),
+      // a project's own header has Rename / Delete
+      mode === "session" ? h("button", { class: "link small", onclick: () => { const n = prompt("Name", s.name); if (n) edit((x) => (x.name = n)); } }, "Rename") : null,
+      isProject ? null : h("button", { class: "link small", onclick: async () => { if (confirm(`Delete "${s.name}"?`)) await remove(); } }, "Delete")),
     Object.keys(counts).length ? h("div", { class: "chips" }, Object.entries(counts).map(([g, n]) => h("span", { class: "chip" }, `${g} ${n}`))) : null,
     open ? h("div", { class: "tablist" },
       s.tabs.length ? s.tabs.map(tabRow) : h("div", { class: "muted small" }, "No tabs yet. Use “Update from this window”, drag pages here from a list, or add from a session.")) : null);

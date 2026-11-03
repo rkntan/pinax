@@ -24,6 +24,18 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   reorder; pin via the star, the popup, or right-click › "Pin this site to Library".
 - Rows / Cards toggle for a compact or visual list.
 
+## Projects: research trails
+- **Working on** (popup, per window): every page you open in that window joins the project's
+  trail, under the page it was opened from (search result pages are skipped).
+- **Park this window** (popup): all tabs become the project's sources, keeping who-opened-whom;
+  optionally closes them and opens the project in the Library.
+- Project view: the trail as an indented tree, statuses ✓ Useful / Later (also to Inbox) /
+  ✕ Not needed (offers to prune the pages opened from it), notes, ▣ working tabs, progress bar.
+- **Reading mode**: "Read next" in the Library, then in the popup: mark the page and the same
+  tab moves on to the next unread source.
+- **Finish**: file useful sources into collections, handle what is left, export Markdown
+  (title, link, note, saved quotes). Finished projects are read-only and can be reopened.
+
 ## Projects, sessions, mind map
 - **Sessions** are temporary (30 days): "Save window" in the popup, or made automatically when you
   close a window with 2+ tabs (switch off in Library › Sessions). **Make project** keeps one forever.

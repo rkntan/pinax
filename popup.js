@@ -41,7 +41,7 @@ async function openLibrary(hash = "") {
 
 async function showPage() {
   const [items, cols, projects] = await Promise.all([getItems(), getCollections(), getProjects()]);
-  projectList = projects.sort((a, b) => a.name.localeCompare(b.name));
+  projectList = projects.filter((x) => x.status !== "finished").sort((a, b) => a.name.localeCompare(b.name));
   existing = isWeb(tab) ? items.find((x) => x.url === tab.url) : null;
 
   $("cur-title").textContent = isWeb(tab) ? tab.title : "This page can't be saved";
@@ -49,7 +49,7 @@ async function showPage() {
   const where = $("cur-where");
   where.replaceChildren();
   if (isWeb(tab)) {
-    const inWs = projectList.filter((w) => w.tabs.some((t) => t.url === tab.url)).map((w) => w.name);
+    const inWs = projectList.filter((w) => w.tabs.some((t) => t.url === tab.url) || (w.sources || []).some((x) => x.url === tab.url)).map((w) => w.name);
     const bits = [hostOf(tab.url)];
     if (existing) bits.push(existing.stage === "kept" ? `in ${pathLabel(existing.path)}` : "in Inbox");
     if (inWs.length) bits.push(`in ${inWs.join(", ")}`);
@@ -125,10 +125,11 @@ $("save").onclick = async () => {
       if (id === "__new") {
         const name = $("ws-new").value.trim();
         if (!name) { msg("Name the new project"); $("ws-new").focus(); return; }
-        id = (await addProject(name, [tab])).id;
+        id = (await addProject(name, [], true)).id;
+        await addSource(id, tab);
         msg(`Project "${name}" created`);
       } else {
-        await addTabToProject(id, tab);
+        await addSource(id, tab);
         msg(`Added to ${projectList.find((w) => w.id === id)?.name}`);
       }
       ui.set("project", id);
@@ -312,8 +313,9 @@ $("save-session").onclick = async () => {
   }
 };
 
+// Chips that open a project's working tabs.
 async function showProjects() {
-  const list = (await getProjects()).sort((a, b) => a.name.localeCompare(b.name));
+  const list = (await getProjects()).filter((p) => p.tabs.length && p.status !== "finished").sort((a, b) => a.name.localeCompare(b.name));
   $("ws").replaceChildren(...list.map((s) => {
     const b = document.createElement("button");
     b.title = `Open ${s.tabs.length} tabs in a new window`;
@@ -326,23 +328,132 @@ async function showProjects() {
   }));
 }
 
-$("save-ws").onclick = () => {
-  $("ws-form").hidden = !$("ws-form").hidden;
-  if (!$("ws-form").hidden) $("ws-name").focus();
+// ---------- projects: working on, park, reading ----------
+
+function projectOptions(sel, current, noneLabel) {
+  sel.replaceChildren(
+    ...(noneLabel ? [new Option(noneLabel, "")] : []),
+    ...projectList.map((p) => new Option(p.name, p.id)),
+    new Option("+ New project…", "__new"));
+  sel.value = current && projectList.some((p) => p.id === current) ? current : noneLabel ? "" : projectList[0]?.id || "__new";
+}
+
+async function showWorking() {
+  const current = (await getWorkingOn())[tab.windowId] || "";
+  projectOptions($("working"), current, "Not tracking");
+  $("working").classList.toggle("on", !!$("working").value);
+}
+
+$("working").onchange = async () => {
+  const v = $("working").value;
+  $("working-new").hidden = v !== "__new";
+  if (v === "__new") return $("working-new").focus();
+  await setWorkingOn(tab.windowId, v || null);
+  msg(v ? "New pages in this window join the trail" : "Stopped tracking");
+  showWorking();
 };
 
-$("ws-form").onsubmit = async (e) => {
-  e.preventDefault();
-  const name = $("ws-name").value.trim();
-  if (!name) return;
-  const tabs = (await chrome.tabs.query({ currentWindow: true })).filter(isWeb);
-  await addProject(name, tabs);
-  msg(`Project "${name}" saved`);
-  $("ws-name").value = "";
-  $("ws-form").hidden = true;
-  showProjects();
-  showPage();
+$("working-new").onkeydown = async (e) => {
+  if (e.key !== "Enter" || !$("working-new").value.trim()) return;
+  const p = await addProject($("working-new").value.trim(), [], true);
+  await setWorkingOn(tab.windowId, p.id);
+  $("working-new").hidden = true;
+  $("working-new").value = "";
+  await showPage();
+  showWorking();
+  msg(`Tracking “${p.name}”`);
 };
+
+$("park").onclick = () => {
+  $("park-form").hidden = !$("park-form").hidden;
+  projectOptions($("park-proj"), ui.get("project"));
+  $("park-name").hidden = $("park-proj").value !== "__new";
+};
+$("park-proj").onchange = () => {
+  $("park-name").hidden = $("park-proj").value !== "__new";
+  if (!$("park-name").hidden) $("park-name").focus();
+};
+
+$("park-form").onsubmit = async (e) => {
+  e.preventDefault();
+  let id = $("park-proj").value;
+  if (id === "__new") {
+    const name = $("park-name").value.trim();
+    if (!name) return $("park-name").focus();
+    id = (await addProject(name, [], true)).id;
+  }
+  ui.set("project", id);
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const n = await parkTabs(id, tabs);
+  if ($("park-close").checked) {
+    // open the project in the Library first, so the window stays open
+    await chrome.tabs.create({ url: chrome.runtime.getURL(`library.html#project:${id}`), windowId: tab.windowId });
+    await chrome.tabs.remove(tabs.filter((t) => isWeb(t) && !t.pinned).map((t) => t.id));
+  } else {
+    await setWorkingOn(tab.windowId, id);
+    msg(`Parked ${n} page${n === 1 ? "" : "s"}; tracking this window`);
+    $("park-form").hidden = true;
+    showWorking();
+  }
+};
+
+// Reading card: the current tab is a source of an active project.
+let reading = null; // { project, source }
+
+async function showSource() {
+  reading = isWeb(tab) ? sourceForUrl(await getProjects(), tab.url) : null;
+  $("src-card").hidden = !reading;
+  if (!reading) return;
+  const { project: p, source: s } = reading;
+  const c = projectProgress(p);
+  $("src-proj").textContent = p.name;
+  $("src-prog").textContent = ` · ${c.sorted}/${c.total} sorted`;
+  $("src-note").value = s.note || "";
+  $("src-auto").checked = ui.get("autoNext", true);
+  document.querySelectorAll(".sbtn").forEach((b) => b.classList.toggle("on", b.dataset.st === s.status));
+  $("src-next").disabled = !nextUnread(p.sources, s.id);
+}
+
+// Read & close: this tab moves on to the next unread source.
+async function openNext() {
+  const p = (await getProjects()).find((x) => x.id === reading.project.id);
+  const next = p && nextUnread(p.sources, reading.source.id);
+  if (!next) { msg("All sorted in this project"); await showSource(); return; }
+  await chrome.tabs.update(tab.id, { url: next.url });
+  window.close();
+}
+
+document.querySelectorAll(".sbtn").forEach((b) => (b.onclick = async () => {
+  if (!reading) return;
+  const { project: p, source: s } = reading;
+  const note = $("src-note").value.trim();
+  if (note !== (s.note || "")) await setSourceNote(p.id, s.id, note);
+  if (b.dataset.st === "skip") {
+    const kids = descendants(p.sources, s.id).filter((id) => p.sources.find((x) => x.id === id)?.status === "unread").length;
+    if (kids) {
+      // ask inline (popups can't show confirm boxes reliably)
+      $("prune").hidden = false;
+      $("prune").firstElementChild.textContent = `${kids} unread page${kids > 1 ? "s were" : " was"} opened from it.`;
+      $("prune-one").onclick = () => mark("skip", false);
+      $("prune-all").onclick = () => mark("skip", true);
+      return;
+    }
+  }
+  mark(b.dataset.st, false);
+}));
+
+async function mark(status, prune) {
+  const { project: p, source: s } = reading;
+  await setSourceStatus(p.id, s.id, status, prune);
+  $("prune").hidden = true;
+  if ($("src-auto").checked) return openNext();
+  msg(`Marked: ${status === "skip" ? "not needed" : status}`);
+  showSource();
+}
+
+$("src-note").onchange = () => reading && setSourceNote(reading.project.id, reading.source.id, $("src-note").value.trim());
+$("src-auto").onchange = () => ui.set("autoNext", $("src-auto").checked);
+$("src-next").onclick = () => reading && openNext();
 
 // ---------- header / footer ----------
 
@@ -387,6 +498,8 @@ $("go-words").onclick = () => openLibrary("#phrases");
   showPins();
   showFooter();
   showProjects();
+  showWorking();
+  showSource();
   showSummary();
   showAiStatus();
 })();

@@ -64,3 +64,29 @@ footer { display: flex; align-items: center; gap: 8px; padding: 2px 14px 12px; m
 .foot-btn b { background: var(--lav); border-radius: 999px; padding: 0 6px; margin-left: 2px; }
 .foot-btn.review { background: var(--lime); color: var(--lime-ink); border-radius: 999px; padding: 2px 9px; }
 #msg { margin-left: auto; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+
+/* reading card (current tab is a project source) */
+.srccard { border-color: #12b886; box-shadow: 0 6px 20px rgba(18, 184, 134, 0.1); display: flex; flex-direction: column; gap: 8px; }
+.srccard[hidden] { display: none; }
+.src-top { display: flex; align-items: baseline; gap: 6px; }
+.src-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.sbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 4px; font-size: 12px; font-weight: 600; }
+.sbtn:hover { border-color: var(--violet); color: var(--violet); }
+.sbtn.on { background: var(--violet); color: #fff; border-color: var(--violet); }
+.sbtn.ok.on { background: #12b886; border-color: #12b886; }
+.sbtn.no.on { background: var(--muted); border-color: var(--muted); }
+.prune { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
+.prune[hidden] { display: none; }
+.srccard .input { font-size: 12px; padding: 5px 8px; }
+.src-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.src-bottom .btn { padding: 5px 12px; }
+
+.working { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.working select, .working .input { flex: 1; min-width: 0; font-size: 12px; padding: 4px 6px; }
+.working select.on { border-color: #12b886; color: #0b8a63; font-weight: 600; }
+.park-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.park-form[hidden] { display: none; }
+.park-form select, .park-form .input { font-size: 12px; padding: 5px 8px; }
+.park-go { display: flex; justify-content: space-between; align-items: center; }
+.park-go .btn { padding: 5px 14px; }
