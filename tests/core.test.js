@@ -100,16 +100,20 @@ test("guessType recognises common sites", () => {
   assert.equal(core.guessType("https://example.com/", "Home"), "Other");
 });
 
-test("temporary sessions expire after 30 days, tidied ones stay", () => {
+test("everything in History expires after 30 days; keepFrom gives a grace period", () => {
   const now = Date.now();
   assert.equal(core.expiresInDays({ saved: now }, now), 30);
   assert.equal(core.expiresInDays({ saved: now - 31 * DAY }, now), 0);
+  assert.equal(core.expiresInDays({ saved: now - 300 * DAY, keepFrom: now - 2 * DAY }, now), 28);
   const list = [
     { kind: "saved", saved: now - 31 * DAY },
     { kind: "auto", saved: now - DAY },
     { kind: "tidied", saved: now - 300 * DAY },
+    { kind: "tidied", saved: now - 300 * DAY, keepFrom: now },
   ];
   assert.deepEqual(plain(core.freshHistory(list, now)).map((s) => s.kind), ["auto", "tidied"]);
+  assert.equal(core.isTemporary({ kind: "tidied" }), true);
+  assert.equal(core.isTemporary({ kind: "workspace" }), false);
 });
 
 test("migrateData: v1 -> v3", () => {
@@ -120,13 +124,15 @@ test("migrateData: v1 -> v3", () => {
       { id: "t1", name: "old", saved: 2, tidied: true, tabs: [{ url: "x" }] },
     ],
   };
-  const out = plain(core.migrateData(v1));
-  assert.equal(out.schema, 3);
+  const out = plain(core.migrateData(v1, 1000));
+  assert.equal(out.schema, 4);
   assert.equal(out.items[0].stage, "inbox");
   assert.equal(out.items[0].path, "ai agents");
   assert.equal("topic" in out.items[0], false);
   assert.deepEqual(out.collections, ["ai agents"]);
   assert.deepEqual(out.history.map((s) => s.kind), ["saved", "tidied"]);
+  assert.equal(out.history[1].keepFrom, 1000, "old tidied tabs get 30 days from the upgrade");
+  assert.equal("keepFrom" in out.history[0], false);
   assert.deepEqual(out.projects, []);
   assert.equal("library" in out, false);
   assert.equal(v1.items[0].topic, "ai agents", "input must not change");
@@ -149,7 +155,14 @@ test("migrateData: v2 workspaces become projects, sessions and archive become hi
   assert.equal(out.items[0].path, "AI");
 });
 
-test("migrateData is safe to run twice and leaves v3 data alone", () => {
+test("migrateData: v3 -> v4 only adds keepFrom to tidied entries", () => {
+  const v3 = { schema: 3, history: [{ id: "t", kind: "tidied", saved: 5, tabs: [] }, { id: "a", kind: "auto", saved: 6, tabs: [] }] };
+  const out = plain(core.migrateData(v3, 777));
+  assert.equal(out.schema, 4);
+  assert.deepEqual(out.history.map((s) => s.keepFrom), [777, undefined]);
+});
+
+test("migrateData is safe to run twice and leaves current data alone", () => {
   const v2 = { schema: 2, library: [{ id: "w", kind: "workspace", name: "W", saved: 1, tabs: [] }] };
   const once = plain(core.migrateData(v2));
   const twice = plain(core.migrateData(once));

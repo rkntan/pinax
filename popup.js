@@ -305,7 +305,7 @@ $("save-session").onclick = async () => {
     const tabs = await chrome.tabs.query({ currentWindow: true });
     msg("Naming session…");
     const s = await addSession(tabs, "saved", await aiTitle(tabs));
-    msg(`Session saved for ${SESSION_DAYS} days`);
+    msg(`Session saved to History for ${SESSION_DAYS} days`);
     $("msg").title = s.name;
   } finally {
     busy(false);

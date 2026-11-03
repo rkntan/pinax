@@ -37,8 +37,8 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   (title, link, note, saved quotes). Finished projects are read-only and can be reopened.
 
 ## Projects, sessions, mind map
-- **Sessions** are temporary (30 days): "Save window" in the popup, or made automatically when you
-  close a window with 2+ tabs (switch off in Library › Sessions). **Make project** keeps one forever.
+- **History** keeps closed windows, saved sessions and tidied tabs for 30 days. **Make project**
+  keeps an entry forever.
 - **Projects** (formerly Workspaces): named tab sets in the sidebar and the popup; one click opens them all in a new
   window with their groups. Update from the current window, add/remove single tabs, drag a page
   row onto a project to add it.
@@ -65,11 +65,14 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - Daily at 10:00 one forgotten page comes back (switch off in the Library footer).
 - **Library page** (popup -> Open Later library): filters, search, due strip, **Mind map** by topic.
 
-## Sessions and Archive
-- **Save window** stores every tab with its groups as "3 Nov 14:20 · <AI name>" (Library -> Sessions).
-- **Tidy** closes tabs idle for N days (pinned, active, audio and non-web tabs are skipped) and
-  stores them first in Library -> **Archive**, grouped by day: restore all, restore one, or move
-  one to Later. "Tidy automatically" checks hourly.
+## History (30 days)
+- One timeline, grouped by day: **closed windows** (2+ tabs, switch off in History), **saved
+  sessions** ("Save session" in the popup, named "3 Nov 14:20 · <AI name>") and **tidied** tabs.
+- **Tidy** (settings in History) closes tabs idle for N days; pinned, active, audio and non-web
+  tabs are skipped. "Automatically" checks hourly.
+- Per entry: Restore all, Make project, Rename, Delete. Per tab: Restore, → Inbox, → Project,
+  → Collection, Pin. A tab moved somewhere leaves History.
+- Everything expires after 30 days. Tidied tabs from before v0.9 got 30 days from the upgrade.
 
 ## Backup
 Library footer -> **Export backup** / **Import backup** (JSON, merges without duplicates).
@@ -79,6 +82,6 @@ Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
 
 ## Development
 - Plain JavaScript, no build step. Library page scripts: `core.js`, `tidy.js`, `ui.js`, `views/*.js`, `library.js`.
-- Data lives in `chrome.storage.local` (schema 3: `items`, `collections`, `pins`, `projects`, `history`, `phrases`).
+- Data lives in `chrome.storage.local` (schema 4: `items`, `collections`, `pins`, `projects`, `history`, `phrases`).
   Upgrades run in `migrate()`; the previous data is kept once in `backupV2`.
 - Tests (pure logic in `core.js`): `node --test "tests/*.test.js"`

@@ -344,9 +344,10 @@ async function isPinned(url) {
 // ---------- storage schema and migration ----------
 // v1: items with `topic`.  v2: Inbox + collection paths; sessions, workspaces and the
 // archive mixed in `library`.  v3: `library` split into `projects` (was workspaces) and
-// `history` (sessions + archive).
+// `history` (sessions + archive).  v4: everything in history expires after 30 days; tidied
+// entries from before v4 get 30 days from the upgrade (`keepFrom`) instead of vanishing.
 
-const SCHEMA = 3;
+const SCHEMA = 4;
 const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library"];
 
 function sessionKind(s) {
@@ -356,7 +357,7 @@ function sessionKind(s) {
 const byIdUnique = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
 
 // Pure: upgrades stored data to the current schema; never changes its input.
-function migrateData(input) {
+function migrateData(input, now = Date.now()) {
   const d = structuredClone(input);
   let schema = d.schema || 1;
   if (schema < 2) {
@@ -385,6 +386,10 @@ function migrateData(input) {
     ]);
     delete d.library;
     schema = 3;
+  }
+  if (schema < 4) {
+    for (const s of d.history || []) if (sessionKind(s) === "tidied" && !s.keepFrom) s.keepFrom = now;
+    schema = 4;
   }
   d.schema = schema;
   return d;
@@ -442,13 +447,16 @@ async function addSession(tabs, kind, label, snap = false) {
   return entry;
 }
 
-// Temporary sessions ("saved" and "auto") expire; tidied tabs stay (until Phase 4).
+// Everything in History is temporary: 30 days, unless you move it somewhere (a project,
+// the Inbox, a collection).
 const SESSION_DAYS = 30;
+const HISTORY_KINDS = { auto: "Closed window", saved: "Saved session", tidied: "Tidied" };
 function isTemporary(s) {
-  return ["saved", "auto"].includes(sessionKind(s));
+  return sessionKind(s) in HISTORY_KINDS;
 }
 function expiresInDays(s, now = Date.now()) {
-  return Math.max(0, Math.ceil((s.saved + SESSION_DAYS * 864e5 - now) / 864e5));
+  const from = Math.max(s.saved || 0, s.keepFrom || 0);
+  return Math.max(0, Math.ceil((from + SESSION_DAYS * 864e5 - now) / 864e5));
 }
 function freshHistory(list, now = Date.now()) {
   return list.filter((s) => !isTemporary(s) || expiresInDays(s, now) > 0);

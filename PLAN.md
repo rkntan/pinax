@@ -1,6 +1,6 @@
 # Tab Organiser: plan v0.6 to v1.0
 
-Status: approved 2026-11-03. Phase 1 done (v0.6.0), Phase 2 done (v0.7.0), Phase 3 done (v0.8.0); next: Phase 4 (History).
+Status: approved 2026-11-03. Phase 1 done (v0.6.0), Phase 2 done (v0.7.0), Phase 3 done (v0.8.0), Phase 4 done (v0.9.0); next: Phase 5 (Polish).
 
 ## Where we are (v0.5.0, commit 259a5e1)
 
@@ -75,7 +75,7 @@ Done when: save from a real page with context, language detected, review step wo
 
 Done when: park a 20+ tab window, triage it in reading mode, finish and export, commit.
 
-## Phase 4: History (Sessions + Archive merged)
+## Phase 4: History (Sessions + Archive merged) - DONE v0.9.0
 
 1. One timeline grouped by day: closed windows, saved sessions, tidied tabs.
 2. Restore all / one tab, move a tab to Inbox, a project or a collection.
