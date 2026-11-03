@@ -35,11 +35,18 @@ function aiSupported() {
   return typeof LanguageModel !== "undefined";
 }
 
+// Chrome asks every session to declare its languages (supported outputs: de, en, es, fr, ja).
+// All prompts and answers are English; page titles in other languages still work as input.
+const AI_LANGS = {
+  expectedInputs: [{ type: "text", languages: ["en"] }],
+  expectedOutputs: [{ type: "text", languages: ["en"] }],
+};
+
 let aiAvail = null;
 async function aiAvailability() {
   if (!aiSupported()) return "unsupported";
   if (aiAvail === "available") return aiAvail; // cached once ready
-  try { aiAvail = await LanguageModel.availability(); } catch { aiAvail = "unsupported"; }
+  try { aiAvail = await LanguageModel.availability(AI_LANGS); } catch { aiAvail = "unsupported"; }
   return aiAvail;
 }
 
@@ -47,10 +54,10 @@ async function aiAvailability() {
 // hand out cheap clones for each prompt.
 let aiBase = null;
 async function aiSession(options) {
-  if (options) return LanguageModel.create(options);
-  aiBase ||= LanguageModel.create();
+  if (options) return LanguageModel.create({ ...AI_LANGS, ...options });
+  aiBase ||= LanguageModel.create(AI_LANGS);
   const base = await aiBase;
-  try { return await base.clone(); } catch { return LanguageModel.create(); }
+  try { return await base.clone(); } catch { return LanguageModel.create(AI_LANGS); }
 }
 
 // ---------- reminders ----------
