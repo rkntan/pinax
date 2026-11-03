@@ -1,6 +1,6 @@
 # Tab Organiser: plan v0.6 to v1.0
 
-Status: approved 2026-11-03. Phase 1 done (v0.6.0), Phase 2 done (v0.7.0), Phase 3 done (v0.8.0), Phase 4 done (v0.9.0), Phase 5 done (v1.0.0). All phases done.
+Status: all phases done (v1.0.0). Follow-up work is in TODO.md.
 
 ## Where we are (v0.5.0, commit 259a5e1)
 
