@@ -40,7 +40,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   chrome.contextMenus.create({ id: "save-page", title: "Save page for later", contexts: ["page"] });
   chrome.contextMenus.create({ id: "save-link", title: "Save link for later", contexts: ["link"] });
   chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"] });
+  chrome.contextMenus.create({ id: "highlight", title: "Highlight (page notes)", contexts: ["selection"] });
   chrome.contextMenus.create({ id: "save-phrase", title: "Save “%s” to Phrasebook", contexts: ["selection"] });
+  chrome.contextMenus.create({ id: "notes-panel", title: "Open notes for this page", contexts: ["page"] });
   syncAlarms();
 });
 chrome.runtime.onStartup.addListener(syncAlarms);
@@ -66,6 +68,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     toast("Pinned", hostOf(tab.url));
   } else if (info.menuItemId === "save-phrase" && tab) {
     await saveSelection(tab, info.selectionText);
+  } else if (info.menuItemId === "highlight" && tab) {
+    chrome.sidePanel.open({ tabId: tab.id }).catch(() => {}); // must run right after the click
+    await highlightSelection(tab, info.selectionText);
+  } else if (info.menuItemId === "notes-panel" && tab) {
+    chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
   }
 });
 
@@ -99,6 +106,7 @@ async function saveSelection(tab, fallbackText = "") {
     console.warn("cannot read this page, saving the selection only", e); // e.g. Chrome pages, PDFs
   }
   if (!got.text) return toast("Nothing selected", "Select a word or phrase first.");
+  if (phraseKind(got.text) === "quote") return highlightSelection(tab, got.text);
   const p = await savePhrase({ ...got, url: tab.url, title: tab.title });
   enrichPhrase(p.id).catch(() => {}); // AI may not exist in the worker; the Library finishes it
   toast(p.kind === "quote" ? "Quote saved" : p.seen > 1 ? `Seen again (${p.seen}×)` : "Saved to Phrasebook",
@@ -114,6 +122,10 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
   if (!tab || !/^https?:/.test(tab.url)) return;
   if (command === "save-phrase") return saveSelection(tab);
+  if (command === "highlight") {
+    chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+    return highlightSelection(tab);
+  }
   if (command !== "save-page") return;
   await saveForLater(tab);
   toast("Saved for later", tab.title);
@@ -358,3 +370,26 @@ chrome.windows.onFocusChanged.addListener(trackView);
 chrome.tabs.onUpdated.addListener((id, change, tab) => { if (change.url && tab.active) trackView(); });
 chrome.alarms.get(READ_TICK).then((a) => a || chrome.alarms.create(READ_TICK, { periodInMinutes: 1 }));
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === READ_TICK) trackView(); });
+
+// ---------- page notes: highlight the selection, show highlights again ----------
+
+async function highlightSelection(tab, fallbackText = "") {
+  let got = null;
+  try { got = await inPage(tab, readHighlight, [], false); } catch (e) { console.warn("cannot read this page", e); }
+  if (!got?.text) got = { text: fallbackText, prefix: "", suffix: "" };
+  if (!got.text) return toast("Nothing selected", "Select some text first.");
+  await addHighlight(tab, got);
+  const n = await noteFor(tab.url);
+  inPage(tab, markHighlights, [markList(n)], false).catch(() => {});
+}
+
+// With "always show highlights" on (and site access given), mark them when a page loads.
+chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
+  if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
+  const { autoHighlights = false } = await chrome.storage.local.get("autoHighlights");
+  if (!autoHighlights) return;
+  const n = await noteFor(tab.url);
+  if (!n?.highlights.length) return;
+  if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
+  inPage(tab, markHighlights, [markList(n)], false).catch(() => {});
+});

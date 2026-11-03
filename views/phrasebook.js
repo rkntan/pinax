@@ -1,4 +1,4 @@
-// Phrasebook: words, phrases and quotes saved from pages, grouped by week.
+// Phrasebook: words and phrases saved from pages, grouped by week (quotes live in page notes).
 
 function phraseHit(p) {
   const q = state.q;
@@ -51,17 +51,6 @@ function wordCard(p, fresh) {
       h("button", { class: "link small", title: "Delete", onclick: () => withUndo(`Deleted “${p.text}”`, ["phrases"], () => deletePhrase(p.id)) }, "×")));
 }
 
-function quoteCard(p) {
-  return h("article", { class: "phrase quote" },
-    h("blockquote", { class: "ph-quote" }, p.text),
-    noteEl(p),
-    h("div", { class: "ph-foot" },
-      sourceEl(p),
-      h("span", { class: "spacer" }),
-      h("button", { class: "link small", onclick: () => navigator.clipboard.writeText(`"${p.text}" (${p.title || ""} ${p.url})`) }, "Copy"),
-      h("button", { class: "link small", title: "Delete", onclick: () => withUndo("Quote deleted", ["phrases"], () => deletePhrase(p.id)) }, "×")));
-}
-
 function byWeek(list, render) {
   const out = [];
   const thisWeek = weekStart();
@@ -84,13 +73,10 @@ function byWeek(list, render) {
 function viewPhrasebook() {
   const all = data.phrases;
   const vocab = all.filter((p) => p.kind !== "quote");
-  const quotes = all.filter((p) => p.kind === "quote");
   const thisWeek = vocab.filter((p) => p.created >= weekStart()).length;
-  setHead("Phrasebook", `${vocab.length} words · ${quotes.length} quotes · ${thisWeek} this week`);
+  setHead("Phrasebook", `${vocab.length} words · ${thisWeek} this week`);
 
-  const kindSeg = h("div", { class: "seg" }, [["vocab", "Words"], ["quotes", "Quotes"]].map(([v, l]) =>
-    h("button", { class: state.pkind === v ? "on" : null, onclick: () => { state.pkind = v; state.lang = "All"; render(); } }, l)));
-  const base = (state.pkind === "quotes" ? quotes : vocab).filter(phraseHit);
+  const base = vocab.filter(phraseHit);
   const langs = {};
   base.forEach((p) => (langs[p.lang] = (langs[p.lang] || 0) + 1));
   const langChips = Object.keys(langs).length > 1
@@ -108,7 +94,7 @@ function viewPhrasebook() {
       if (p) enrichPhrase(p.id);
     },
   }, addIn, h("button", { class: "btn" }, "Add"));
-  $("tools").replaceChildren(kindSeg, ...langChips, h("span", { class: "spacer" }),
+  $("tools").replaceChildren(...langChips, h("span", { class: "spacer" }),
     forReviewWords().length ? h("button", { class: "btn primary", onclick: () => { state.rtab = "words"; go("review"); } }, `Quiz ${forReviewWords().length} words`) : null,
     add);
 
@@ -119,7 +105,7 @@ function viewPhrasebook() {
   }
   // the 10 newest words saved this week get highlighted
   const fresh = new Set(list.filter((p) => p.created >= weekStart()).slice(0, 10).map((p) => p.id));
-  return h("div", {}, byWeek(list, (p) => (p.kind === "quote" ? quoteCard(p) : wordCard(p, fresh.has(p.id)))));
+  return h("div", {}, byWeek(list, (p) => wordCard(p, fresh.has(p.id))));
 }
 
 function forReviewWords() {

@@ -45,6 +45,17 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - **Mind map**: left-to-right tree, Library › collections › sub-collections › pages. Click a branch
   to open it, double-click to open its list; dotted lines join pages that share a tag.
 
+## Page notes (highlights + your notes)
+- Select text → right-click **Highlight (page notes)**, or the **✎ Notes** button in the popup
+  (opens Chrome's side panel next to the page). Pick a colour, add comments, write your own
+  notes (saved as you type). Long selections saved with Alt+Shift+W become highlights too.
+- **Show on page** marks your highlights in the text again (found by the passage and the words
+  around it). Chrome asks once per site; "Always show highlights" asks for all sites, only if
+  you switch it on.
+- Library › **Notes** lists every annotated page; page details show their highlights; Ctrl+K
+  and search look inside highlights and notes. Export one page or all as Markdown.
+- Pages are marked **read** after 2 minutes of real viewing (bold = unread, like mail).
+
 ## Phrasebook
 - Select a word, phrase or sentence on any page -> right-click **Save "…" to Phrasebook**, or **Alt+Shift+W**.
 - Stored with the sentence it appeared in, the page, the date and the language (Chrome's offline
@@ -95,6 +106,6 @@ Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
 
 ## Development
 - Plain JavaScript, no build step. Library page scripts: `core.js`, `tidy.js`, `ui.js`, `views/*.js`, `library.js`.
-- Data lives in `chrome.storage.local` (schema 4: `items`, `collections`, `pins`, `projects`, `history`, `phrases`).
+- Data lives in `chrome.storage.local` (schema 6: `items`, `collections`, `pins`, `projects`, `history`, `phrases`, `notes`).
   Upgrades run in `migrate()`; the previous data is kept once in `backupV2`.
 - Tests (pure logic in `core.js`): `node --test "tests/*.test.js"`

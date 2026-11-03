@@ -382,9 +382,10 @@ async function isPinned(url) {
 // `history` (sessions + archive).  v4: everything in history expires after 30 days; tidied
 // entries from before v4 get 30 days from the upgrade (`keepFrom`) instead of vanishing.
 // v5: page `status` (todo / doing / done) replaced by `read` (done = read).
+// v6: Phrasebook quotes move into page notes (`notes`) as highlights.
 
-const SCHEMA = 5;
-const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library"];
+const SCHEMA = 6;
+const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library", "phrases", "notes"];
 
 function sessionKind(s) {
   return s.kind || (s.tidied ? "tidied" : "saved");
@@ -436,6 +437,19 @@ function migrateData(input, now = Date.now()) {
       delete it.status;
     }
     schema = 5;
+  }
+  if (schema < 6) {
+    const notes = d.notes || {};
+    for (const q of (d.phrases || []).filter((p) => p.kind === "quote")) {
+      const k = pageKey(q.url || "");
+      const n = (notes[k] ||= { url: k, title: q.title || k, favIconUrl: "", highlights: [], text: "", created: q.created, updated: q.created });
+      if (!n.highlights.some((x) => x.id === q.id)) {
+        n.highlights.push({ id: q.id, text: q.text, prefix: "", suffix: "", color: "yellow", comment: q.note || "", created: q.created });
+      }
+    }
+    if (d.phrases) d.phrases = d.phrases.filter((p) => p.kind !== "quote");
+    if (Object.keys(notes).length) d.notes = notes;
+    schema = 6;
   }
   d.schema = schema;
   return d;
@@ -876,7 +890,7 @@ function projectMarkdown(p, quotes = [], now = Date.now()) {
   ];
   for (const s of useful) {
     lines.push(`- [${s.title.replace(/[[\]]/g, "")}](${s.url})${s.note ? " — " + s.note : ""}`);
-    for (const q of quotes.filter((x) => x.url === s.url)) lines.push(`  > ${q.text}`);
+    for (const q of quotes.filter((x) => pageKey(x.url) === pageKey(s.url))) lines.push(`  > ${q.text}`);
   }
   if (!useful.length) lines.push("_No useful sources marked yet._");
   return lines.join("\n") + "\n";
@@ -1092,4 +1106,201 @@ async function openLibraryTab(hash = "") {
   } else {
     await chrome.tabs.create({ url: url + hash });
   }
+}
+
+// ---------- page notes: highlights + your own notes, one record per page ----------
+// notes = { [pageKey]: { url, title, favIconUrl, highlights: [...], text, created, updated } }
+// A highlight keeps a little text before and after it (prefix / suffix) so it can be found
+// again on the page even if the page changes a bit.
+
+const HL_COLORS = { yellow: "#ffe066", green: "#b2f2bb", blue: "#a5d8ff", pink: "#fcc2d7" };
+
+// The page without its #fragment: one record per article, wherever you scrolled.
+function pageKey(url) {
+  try { const u = new URL(url); u.hash = ""; return u.href; } catch { return String(url || ""); }
+}
+
+async function getNotes() {
+  const { notes = {} } = await chrome.storage.local.get("notes");
+  return notes;
+}
+
+async function setNotes(notes) {
+  await chrome.storage.local.set({ notes });
+}
+
+async function noteFor(url) {
+  return (await getNotes())[pageKey(url)] || null;
+}
+
+// Edits (or creates) a page's record; an empty record is removed.
+async function editNote(page, fn) {
+  const notes = await getNotes();
+  const k = pageKey(page.url);
+  const now = Date.now();
+  const n = (notes[k] ||= { url: k, title: page.title || k, favIconUrl: page.favIconUrl || "", highlights: [], text: "", created: now, updated: now });
+  if (page.title && page.title !== k) n.title = page.title;
+  if (page.favIconUrl) n.favIconUrl = page.favIconUrl;
+  fn(n);
+  n.updated = now;
+  if (!n.highlights.length && !n.text.trim()) delete notes[k];
+  await setNotes(notes);
+  return notes[k] || null;
+}
+
+async function addHighlight(page, { text, prefix = "", suffix = "", color = "yellow", comment = "" }) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim().slice(0, 5000);
+  if (!clean) return null;
+  let added = null;
+  await editNote(page, (n) => {
+    added = n.highlights.find((x) => x.text === clean && x.prefix === prefix);
+    if (added) return; // same passage saved twice
+    added = { id: crypto.randomUUID(), text: clean, prefix, suffix, color, comment, created: Date.now() };
+    n.highlights.push(added);
+  });
+  return added;
+}
+
+async function updateHighlight(url, id, patch) {
+  await editNote({ url }, (n) => Object.assign(n.highlights.find((x) => x.id === id) || {}, patch));
+}
+
+async function deleteHighlight(url, id) {
+  await editNote({ url }, (n) => (n.highlights = n.highlights.filter((x) => x.id !== id)));
+}
+
+async function setNoteText(page, text) {
+  await editNote(page, (n) => (n.text = String(text)));
+}
+
+// Pure: one page's notes as Markdown (title, link, highlights as quotes, your notes).
+function noteMarkdown(n, heading = "##") {
+  const lines = [`${heading} [${String(n.title).replace(/[[\]]/g, "")}](${n.url})`, ""];
+  for (const hl of n.highlights) {
+    lines.push(...hl.text.split("\n").map((l) => `> ${l}`));
+    if (hl.comment) lines.push(">", `> — ${hl.comment}`);
+    lines.push("");
+  }
+  if (n.text.trim()) lines.push(n.text.trim(), "");
+  return lines.join("\n");
+}
+
+function noteHit(n, q) {
+  return !q || [n.title, n.url, n.text, ...n.highlights.flatMap((x) => [x.text, x.comment])].join(" ").toLowerCase().includes(q);
+}
+
+// ---------- functions injected into pages (must be self-contained) ----------
+
+// The selection plus ~48 characters before and after it, for finding it again later.
+function readHighlight() {
+  const sel = getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  const norm = (s) => s.replace(/\s+/g, " ");
+  const before = document.createRange();
+  before.setStart(document.body, 0);
+  before.setEnd(r.startContainer, r.startOffset);
+  const after = document.createRange();
+  after.setStart(r.endContainer, r.endOffset);
+  after.setEnd(document.body, document.body.childNodes.length);
+  return {
+    text: norm(sel.toString()).trim(),
+    prefix: norm(before.toString()).slice(-48),
+    suffix: norm(after.toString()).slice(0, 48),
+    title: document.title,
+  };
+}
+
+// Marks highlights in the page: [{ id, text, prefix, suffix, color, comment }].
+// Returns how many were found. `scrollTo` scrolls to one of them.
+function markHighlights(list, scrollTo) {
+  // remove earlier marks
+  document.querySelectorAll("mark[data-tohl]").forEach((m) => {
+    const parent = m.parentNode;
+    m.replaceWith(...m.childNodes);
+    parent.normalize();
+  });
+  // the page text with whitespace collapsed, and where each character lives
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.parentElement && !n.parentElement.closest("script, style, noscript, textarea") ? 1 : 2),
+  });
+  let text = "";
+  const map = [];
+  let space = true;
+  for (let n; (n = walker.nextNode());) {
+    const v = n.nodeValue;
+    for (let i = 0; i < v.length; i++) {
+      const ws = /\s/.test(v[i]);
+      if (ws && space) continue;
+      text += ws ? " " : v[i];
+      map.push([n, i]);
+      space = ws;
+    }
+  }
+  const tailMatch = (a, b) => { let k = 0; while (k < a.length && k < b.length && a[a.length - 1 - k] === b[b.length - 1 - k]) k++; return k; };
+  const headMatch = (a, b) => { let k = 0; while (k < a.length && k < b.length && a[k] === b[k]) k++; return k; };
+  const found = [];
+  for (const hl of list) {
+    const needle = hl.text.replace(/\s+/g, " ").trim();
+    if (!needle) continue;
+    let best = -1, bestScore = -1;
+    for (let i = text.indexOf(needle); i >= 0; i = text.indexOf(needle, i + 1)) {
+      const score = tailMatch(text.slice(Math.max(0, i - 60), i), hl.prefix || "") + headMatch(text.slice(i + needle.length, i + needle.length + 60), hl.suffix || "");
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    if (best >= 0) found.push({ hl, start: best, end: best + needle.length });
+  }
+  // wrap from the end of the page backwards, so earlier positions stay valid
+  found.sort((a, b) => b.start - a.start);
+  let limit = Infinity;
+  for (const f of found) {
+    if (f.end > limit) continue; // overlaps a later highlight
+    limit = f.start;
+    const segs = [];
+    for (let i = f.start; i < f.end; i++) {
+      const [node, off] = map[i];
+      const last = segs[segs.length - 1];
+      if (last && last[0] === node) last[2] = off + 1;
+      else segs.push([node, off, off + 1]);
+    }
+    for (let j = segs.length - 1; j >= 0; j--) {
+      const [node, from, to] = segs[j];
+      let mid = from > 0 ? node.splitText(from) : node;
+      if (to - from < mid.nodeValue.length) mid.splitText(to - from);
+      const m = document.createElement("mark");
+      m.dataset.tohl = f.hl.id;
+      m.style.cssText = `background:${f.hl.color};color:inherit;border-radius:2px;padding:0 1px;box-shadow:0 1px 0 rgba(0,0,0,.15);`;
+      if (f.hl.comment) m.title = f.hl.comment;
+      mid.replaceWith(m);
+      m.append(mid);
+    }
+  }
+  if (scrollTo) {
+    const m = document.querySelector(`mark[data-tohl="${scrollTo}"]`);
+    if (m) {
+      m.scrollIntoView({ block: "center", behavior: "smooth" });
+      m.animate([{ outline: "3px solid #8959ff" }, { outline: "3px solid transparent" }], { duration: 1600 });
+    }
+  }
+  return found.length;
+}
+
+// Runs a function in a tab. If the extension may not touch that site yet, asks Chrome for
+// access to just that site (only works right after a click). Returns the result or throws.
+async function inPage(tab, func, args = [], askAccess = true) {
+  try {
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func, args });
+    return r?.result;
+  } catch (e) {
+    if (!askAccess || !/^https?:/.test(tab.url || "")) throw e;
+    const origins = [new URL(tab.url).origin + "/*"];
+    if (!(await chrome.permissions.request({ origins }))) throw e;
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func, args });
+    return r?.result;
+  }
+}
+
+// Highlights for the page marker, with colours resolved.
+function markList(n) {
+  return (n?.highlights || []).map((x) => ({ id: x.id, text: x.text, prefix: x.prefix, suffix: x.suffix, comment: x.comment, color: HL_COLORS[x.color] || HL_COLORS.yellow }));
 }

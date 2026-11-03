@@ -45,6 +45,8 @@ async function showPage() {
     const bits = [hostOf(tab.url)];
     if (existing) bits.push(existing.stage === "kept" ? `in ${pathLabel(existing.path)}` : "in Inbox");
     if (inWs.length) bits.push(`in ${inWs.join(", ")}`);
+    const n = await noteFor(tab.url);
+    if (n) bits.push(`${n.highlights.length} highlight${n.highlights.length === 1 ? "" : "s"}${n.text.trim() ? " + notes" : ""}`);
     where.textContent = bits.join(" · ");
   }
 
@@ -158,6 +160,11 @@ async function showPins() {
   $("pin-cur").textContent = on ? "★" : "☆";
   $("pin-cur").title = on ? "Unpin" : "Pin to dock";
 }
+
+$("notes-cur").onclick = () => {
+  chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {}); // must run right after the click
+  window.close();
+};
 
 $("pin-cur").onclick = async () => {
   if (!isWeb(tab)) return;

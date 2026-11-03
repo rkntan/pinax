@@ -1,4 +1,4 @@
-# Tab Organiser v1.0: Chrome test checklist
+# Tab Organiser v1.2: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -59,6 +59,19 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5.7 **+ Note** adds your own note; **×** deletes with Undo.
 - [ ] 5.8 Weekly review → **Words** tab: Space shows the meaning, → Got it, ← Again; done screen counts them.
 - [ ] 5.9 On a Chrome page (e.g. the Web Store) saving a word still works, just without a sentence.
+
+## 5b. Page notes and read / unread (v1.2)
+
+- [ ] 5b.1 On a long article select a paragraph → right-click **Highlight (page notes)**: the side panel opens, the passage is marked yellow on the page.
+- [ ] 5b.2 Pick another colour in the panel, select more text → **Highlight selection** (Chrome may ask for access to this site once).
+- [ ] 5b.3 Add a comment to a highlight; type notes in **My notes**; reload the page: everything is still in the panel.
+- [ ] 5b.4 Reload the page → **Show on page**: highlights are marked again; clicking a highlight in the panel scrolls to it.
+- [ ] 5b.5 Switch tabs: the panel follows the active tab.
+- [ ] 5b.6 Library → **Notes**: the page with its highlights and notes; **Export** downloads a .md; Ctrl+K finds a word from a highlight.
+- [ ] 5b.7 Popup on that page shows "N highlights + notes" and a **✎ Notes** button that opens the panel.
+- [ ] 5b.8 Old Phrasebook quotes (if you had any) now appear as highlights in Notes.
+- [ ] 5b.9 Save a page to the Inbox: its row is **bold** (unread). Read it for 2+ minutes in the front tab: the row turns normal (read). Tick/untick **Read** in its details.
+- [ ] 5b.10 Popup **All tabs → Inbox**: every tab is saved, the window shows the Inbox, and History has a "N tabs sent to Inbox" snapshot.
 
 ## 6. Projects and research trails
 

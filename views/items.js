@@ -32,11 +32,6 @@ function progressEl(it) {
   }, "Track units");
 }
 
-// Quotes you saved from this page (Phrasebook).
-function quotesFor(url) {
-  return data.phrases.filter((q) => q.kind === "quote" && q.url === url);
-}
-
 function detailEl(it) {
   const pathIn = h("input", { class: "input", list: "paths", value: it.path === UNSORTED ? "" : pathLabel(it.path), placeholder: "Collection, e.g. AI › Agents" });
   const tagsIn = h("input", {
@@ -45,8 +40,11 @@ function detailEl(it) {
   });
   return h("div", { class: "detail" },
     it.why ? h("p", { class: "why-full" }, it.why) : null,
-    quotesFor(it.url).length
-      ? h("div", { class: "quotes" }, quotesFor(it.url).map((q) => h("blockquote", { title: stamp(q.created) }, q.text)))
+    notesForUrl(it.url)
+      ? h("div", { class: "quotes" },
+          highlightsEl(notesForUrl(it.url)),
+          notesForUrl(it.url).text.trim() ? h("div", { class: "note-text" }, notesForUrl(it.url).text) : null,
+          h("button", { class: "link small", onclick: () => openWithNotes(notesForUrl(it.url)) }, "Open with notes"))
       : null,
     h("label", { class: "check", title: "Pages are marked read after 2 minutes of viewing" }, "Read",
       h("input", { type: "checkbox", checked: !!it.read, onchange: (e) => updateItem(it.id, { read: e.target.checked, readAt: e.target.checked ? Date.now() : null }) })),
@@ -82,6 +80,7 @@ function rowEl(it, pinned) {
         h("a", { class: "title", href: it.url, target: "_blank", title: it.url }, it.title),
         h("span", { class: "why" }, it.why || hostOf(it.url))),
       h("div", { class: "right" },
+        notesForUrl(it.url) ? h("span", { class: "small", title: "Has highlights / notes" }, "✎") : null,
         isOld(it) ? h("span", { class: "chip", title: "In the Inbox for more than 2 weeks" }, "old") : null,
         isDue(it) ? h("span", { class: "chip lime" }, "due") : null,
         it.remindAt && !isDue(it) ? h("span", { class: "small remind-on", title: "Reminder" }, shortWhen(it.remindAt)) : null,

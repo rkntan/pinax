@@ -282,3 +282,16 @@ a.title:hover { color: var(--violet); }
 .row.read .title { font-weight: 500; }
 .row.read .fav { opacity: 0.75; }
 #map .leaf.read { opacity: 0.55; }
+
+/* ---------- notes ---------- */
+.notes { display: flex; flex-direction: column; gap: 10px; max-width: 860px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.note-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.note-head img { width: 16px; height: 16px; border-radius: 3px; align-self: center; }
+.note-head .title { font-size: 14px; }
+.nhl { display: flex; flex-direction: column; gap: 6px; }
+.nhl blockquote { margin: 0; padding: 4px 10px; border-left: 4px solid var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); border-radius: 0 6px 6px 0; font-size: 13px; line-height: 1.45; }
+.nhl-c { margin-top: 3px; font-size: 12px; color: var(--muted); }
+.note-text { white-space: pre-wrap; font-size: 13px; background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.note-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.note-foot .spacer { flex: 1; }

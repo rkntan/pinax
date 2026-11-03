@@ -7,13 +7,14 @@ function setHead(title, sub) {
 }
 
 async function load() {
-  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases"]);
+  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases", "notes"]);
   data.items = r.items || [];
   data.cols = r.collections || [];
   data.pins = r.pins || [];
   data.projects = r.projects || [];
   data.history = r.history || [];
   data.phrases = r.phrases || [];
+  data.notes = r.notes || {};
 }
 
 // Many storage writes can land at once (AI sorting, drag and drop): redraw once per frame.
@@ -34,6 +35,7 @@ async function renderNow() {
   $("n-inbox").textContent = inbox || "";
   $("n-review").textContent = review || "";
   $("n-all").textContent = data.items.length || "";
+  $("n-notes").textContent = Object.keys(data.notes).length || "";
   $("n-history").textContent = data.history.filter(isTemporary).length || "";
   $("n-phrases").textContent = data.phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length || "";
   document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
@@ -44,7 +46,7 @@ async function renderNow() {
   renderTree();
   renderProjects();
   reviewKeys = null;
-  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, project: viewProject, phrases: viewPhrasebook };
+  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, notes: viewNotes, project: viewProject, phrases: viewPhrasebook };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
   $("content").replaceChildren((views[state.view] || viewInbox)());
   if (keepFocus) $(keepFocus)?.focus();
@@ -65,7 +67,7 @@ $("add").onsubmit = async (e) => {
 };
 
 $("export").onclick = async () => {
-  const d = await chrome.storage.local.get(["schema", "items", "collections", "pins", "projects", "history", "phrases"]);
+  const d = await chrome.storage.local.get(["schema", "items", "collections", "pins", "projects", "history", "phrases", "notes"]);
   const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: 4, exported: Date.now(), ...d }, null, 2)], { type: "application/json" });
   const a = h("a", { href: URL.createObjectURL(blob), download: `tab-organiser-backup-${new Date().toISOString().slice(0, 10)}.json` });
   a.click();
@@ -84,13 +86,23 @@ $("import").onchange = async (e) => {
       const ids = new Set(mine.map((x) => x[key]));
       return [...mine, ...(theirs || []).filter((x) => x[key] && !ids.has(x[key]))];
     };
-    const cur = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases"]);
+    const cur = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases", "notes"]);
     const next = {
       items: merge(cur.items, d.items),
       pins: merge(cur.pins, d.pins, "url"),
       projects: merge(cur.projects, d.projects),
       history: merge(cur.history, d.history),
       phrases: merge(cur.phrases, d.phrases),
+      // notes merge per page: keep yours, add highlights you don't have
+      notes: Object.entries(d.notes || {}).reduce((acc, [k, n]) => {
+        const mine = acc[k];
+        if (!mine) acc[k] = n;
+        else {
+          mine.highlights = merge(mine.highlights, n.highlights);
+          if (!mine.text.trim()) mine.text = n.text || "";
+        }
+        return acc;
+      }, { ...(cur.notes || {}) }),
       collections: sortPaths([...(cur.collections || []), ...(d.collections || [])]),
     };
     await chrome.storage.local.set(next);
@@ -124,14 +136,14 @@ async function showAi() {
 
 chrome.storage.onChanged.addListener((c) => {
   if (c.tidyDays || c.autoTidy) tidySettings().then((t) => (tidyPrefs = t));
-  if (c.items || c.projects || c.history || c.collections || c.pins || c.phrases || c.tidyDays) render();
+  if (c.items || c.projects || c.history || c.collections || c.pins || c.phrases || c.notes || c.tidyDays) render();
 });
 
 function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const i = hash.indexOf(":");
   if (["col", "project", "ws"].includes(hash.slice(0, i))) [state.view, state.col] = [hash.slice(0, i).replace("ws", "project"), hash.slice(i + 1)];
-  else if (["inbox", "review", "all", "map", "history", "phrases"].includes(hash)) state.view = hash;
+  else if (["inbox", "review", "all", "map", "history", "phrases", "notes"].includes(hash)) state.view = hash;
   else if (hash === "sessions" || hash === "archive") state.view = "history"; // old links
 }
 // the popup reuses an open Library tab and just changes its #view
