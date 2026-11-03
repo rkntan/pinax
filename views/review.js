@@ -34,9 +34,10 @@ function reviewPages(queue, wordsLeft) {
     onkeydown: (e) => { if (e.key === "Enter") act("keep"); },
   });
   const act = async (what) => {
-    if (what === "keep") await keepItem(it.id, reviewPath.value || UNSORTED);
-    else if (what === "discard") await deleteItem(it.id);
-    else if (what === "later") await laterItem(it.id);
+    const path = reviewPath.value || UNSORTED;
+    if (what === "keep") await withUndo(`Kept in ${pathLabel(cleanPath(path))}`, ["items", "collections"], () => keepItem(it.id, path));
+    else if (what === "discard") await withUndo(`Discarded “${it.title}”`, ["items"], () => deleteItem(it.id));
+    else if (what === "later") await withUndo("Pushed to next week", ["items"], () => laterItem(it.id));
     else if (what === "pin") await (pinned ? unpinSite(it.url) : pinSite(it));
   };
   reviewKeys = { ArrowRight: () => act("keep"), ArrowLeft: () => act("discard"), ArrowDown: () => act("later"), p: () => act("pin"), P: () => act("pin") };

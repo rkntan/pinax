@@ -64,3 +64,40 @@ function go(view, col = "") {
   history.replaceState(null, "", "#" + (view === "col" || view === "project" ? `${view}:${encodeURIComponent(col)}` : view));
   render();
 }
+
+// Undo: remember the storage keys an action changes, then offer to put them back for 8 s
+// (button or Ctrl+Z). Small deletes use this instead of "Are you sure?" boxes.
+let undoTimer = null, undoFn = null;
+async function withUndo(label, keys, fn) {
+  const before = await chrome.storage.local.get(keys);
+  await fn();
+  showToast(label, () => chrome.storage.local.set(before));
+}
+
+function showToast(text, undo) {
+  document.querySelector(".toast")?.remove();
+  clearTimeout(undoTimer);
+  undoFn = undo || null;
+  const close = () => { el.remove(); undoFn = null; };
+  const el = h("div", { class: "toast", role: "status" },
+    h("span", {}, text),
+    undo ? h("button", { class: "link", onclick: async () => { const fn = undoFn; close(); await fn?.(); } }, "Undo") : null,
+    h("button", { class: "x", title: "Close", onclick: close }, "×"));
+  document.body.append(el);
+  undoTimer = setTimeout(close, 8000);
+}
+
+document.addEventListener("keydown", async (e) => {
+  if (!undoFn || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z" || e.target.matches("input, textarea")) return;
+  e.preventDefault();
+  const fn = undoFn;
+  document.querySelector(".toast")?.remove();
+  undoFn = null;
+  await fn();
+});
+
+// Fills the top search box (used when jumping to a word from quick search).
+function setSearch(q) {
+  $("search").value = q;
+  state.q = q.toLowerCase();
+}

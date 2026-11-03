@@ -33,7 +33,7 @@ function renderPins() {
       },
     },
       h("img", { src: faviconFor(p.url, 32), alt: "" }),
-      h("button", { class: "x", title: "Unpin", onclick: (e) => { e.stopPropagation(); hideTip(); unpinSite(p.url); } }, "×"));
+      h("button", { class: "x", title: "Unpin", onclick: (e) => { e.stopPropagation(); hideTip(); withUndo(`Unpinned ${hostOf(p.url)}`, ["pins"], () => unpinSite(p.url)); } }, "×"));
     box.append(el);
   }
 }

@@ -48,7 +48,7 @@ function wordCard(p, fresh) {
       sourceEl(p),
       h("span", { class: "spacer" }),
       dictLinks(p.text, p.lang).map(([name, url]) => h("a", { class: "dict", href: url, target: "_blank" }, name)),
-      h("button", { class: "link small", title: "Delete", onclick: () => confirm(`Delete “${p.text}”?`) && deletePhrase(p.id) }, "×")));
+      h("button", { class: "link small", title: "Delete", onclick: () => withUndo(`Deleted “${p.text}”`, ["phrases"], () => deletePhrase(p.id)) }, "×")));
 }
 
 function quoteCard(p) {
@@ -59,7 +59,7 @@ function quoteCard(p) {
       sourceEl(p),
       h("span", { class: "spacer" }),
       h("button", { class: "link small", onclick: () => navigator.clipboard.writeText(`"${p.text}" (${p.title || ""} ${p.url})`) }, "Copy"),
-      h("button", { class: "link small", title: "Delete", onclick: () => confirm("Delete this quote?") && deletePhrase(p.id) }, "×")));
+      h("button", { class: "link small", title: "Delete", onclick: () => withUndo("Quote deleted", ["phrases"], () => deletePhrase(p.id)) }, "×")));
 }
 
 function byWeek(list, render) {

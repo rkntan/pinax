@@ -30,7 +30,9 @@ function sourceRow(p, node, collapsed) {
     const unreadKids = descendants(p.sources, s.id).filter((id) => p.sources.find((x) => x.id === id)?.status === "unread").length;
     const prune = status === "skip" && unreadKids > 0
       && confirm(`Also mark the ${unreadKids} unread page${unreadKids > 1 ? "s" : ""} opened from it as not needed?`);
-    await setSourceStatus(p.id, s.id, s.status === status ? "unread" : status, prune);
+    const next = s.status === status ? "unread" : status;
+    if (prune) await withUndo("Branch marked not needed", ["projects"], () => setSourceStatus(p.id, s.id, next, true));
+    else await setSourceStatus(p.id, s.id, next, false);
   };
   const editNote = () => {
     const n = prompt("Note (why it matters):", s.note || "");
@@ -59,7 +61,7 @@ function sourceRow(p, node, collapsed) {
       h("button", { class: `sb no${s.status === "skip" ? " on" : ""}`, title: "Not needed", onclick: () => mark("skip") }, "✕"),
       h("button", { class: `sb${working ? " on" : ""}`, title: working ? "Remove from working tabs" : "Add to working tabs", onclick: () => toggleWorkingTab(p.id, s) }, "▣"),
       h("button", { class: "sb", title: "Note", onclick: editNote }, "✎"),
-      h("button", { class: "sb", title: "Remove from the trail", onclick: () => removeSource(p.id, s.id) }, "−")));
+      h("button", { class: "sb", title: "Remove from the trail", onclick: () => withUndo("Removed from the trail", ["projects"], () => removeSource(p.id, s.id)) }, "−")));
 }
 
 function finishView(p) {
@@ -154,7 +156,7 @@ function viewProject() {
       ? h("button", { class: "link small", onclick: () => reopenProject(p.id) }, "Reopen")
       : h("button", { class: "link small", onclick: () => { state.finishing = p.id; render(); } }, "Finish…"),
     h("button", { class: "link small", onclick: () => { const n = prompt("Name", p.name); if (n) editProject(p.id, (x) => (x.name = n.trim())); } }, "Rename"),
-    h("button", { class: "link small", onclick: async () => { if (confirm(`Delete project "${p.name}"?`)) { await deleteProject(p.id); go("inbox"); } } }, "Delete"));
+    h("button", { class: "link small", onclick: async () => { if (confirm(`Delete project "${p.name}"?`)) { await withUndo(`Deleted project “${p.name}”`, ["projects"], () => deleteProject(p.id)); go("inbox"); } } }, "Delete"));
 
   if (state.finishing === p.id) return finishView(p);
 

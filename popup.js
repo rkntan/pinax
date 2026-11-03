@@ -24,16 +24,8 @@ function busy(on) {
   document.querySelectorAll("button").forEach((b) => (b.disabled = on));
 }
 
-// Focus an open Library tab instead of opening a new one each time.
 async function openLibrary(hash = "") {
-  const url = chrome.runtime.getURL("library.html");
-  const [open] = await chrome.tabs.query({ url: url + "*" });
-  if (open) {
-    await chrome.tabs.update(open.id, { active: true, url: url + hash });
-    await chrome.windows.update(open.windowId, { focused: true });
-  } else {
-    await chrome.tabs.create({ url: url + hash });
-  }
+  await openLibraryTab(hash);
   window.close();
 }
 
@@ -190,38 +182,6 @@ async function showSummary() {
   $("dedupe").disabled = !dupes;
 }
 
-async function aiGroups(tabs) {
-  const downloading = (await aiAvailability()) !== "available";
-  const session = await aiSession(downloading ? {
-    monitor(m) { m.addEventListener("downloadprogress", (e) => msg(`Downloading AI model… ${Math.round(e.loaded * 100)}%`)); },
-  } : undefined);
-  const list = tabs.map((t, i) => `${i}. ${t.title} — ${hostOf(t.url)}`).join("\n");
-  const schema = {
-    type: "object",
-    properties: {
-      groups: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            color: { type: "string", enum: TAB_COLORS },
-            tabs: { type: "array", items: { type: "integer" } },
-          },
-          required: ["name", "color", "tabs"],
-        },
-      },
-    },
-    required: ["groups"],
-  };
-  const prompt =
-    `Sort these browser tabs into 2-8 groups by topic or task (not just by website).\n` +
-    `Give each group a short name (1-3 words) and a color. Every tab number must appear in exactly one group.\n\n${list}`;
-  const out = await session.prompt(prompt, { responseConstraint: schema });
-  session.destroy();
-  return JSON.parse(out).groups;
-}
-
 async function aiTitle(tabs) {
   try {
     if ((await aiAvailability()) !== "available") return null;
@@ -235,41 +195,11 @@ async function aiTitle(tabs) {
   } catch { return null; }
 }
 
-function domainGroups(tabs) {
-  const by = {};
-  tabs.forEach((t, i) => (by[hostOf(t.url)] ||= []).push(i));
-  return Object.entries(by)
-    .filter(([, idx]) => idx.length > 1)
-    .map(([name, idx], k) => ({ name, color: TAB_COLORS[k % TAB_COLORS.length], tabs: idx }));
-}
-
-async function applyGroups(tabs, groups) {
-  const used = new Set();
-  for (const g of groups) {
-    const ids = g.tabs.filter((i) => tabs[i] && !used.has(i)).map((i) => (used.add(i), tabs[i].id));
-    if (!ids.length) continue;
-    const groupId = await chrome.tabs.group({ tabIds: ids });
-    await chrome.tabGroups.update(groupId, { title: g.name, color: TAB_COLORS.includes(g.color) ? g.color : "grey" });
-  }
-}
-
 $("organise").onclick = async () => {
   busy(true);
   try {
-    const tabs = (await chrome.tabs.query({ currentWindow: true })).filter((t) => !t.pinned);
-    if (tabs.length < 2) return msg("Not enough tabs to organise");
-    let groups, how;
-    const a = await aiAvailability();
-    if (a === "available" || a === "downloadable" || a === "downloading") {
-      msg("Thinking…");
-      try { groups = await aiGroups(tabs); how = "AI"; }
-      catch (e) { console.warn("AI failed, using domains", e); }
-    }
-    if (!groups) { groups = domainGroups(tabs); how = "site"; }
-    // ungroup only once the new grouping is ready, so the window doesn't flicker while the AI thinks
-    await chrome.tabs.ungroup(tabs.map((t) => t.id)).catch(() => {});
-    await applyGroups(tabs, groups);
-    msg(`${groups.length} groups by ${how}`);
+    const r = await organiseWindow(tab.windowId, msg);
+    msg(r.how === "none" ? "Not enough tabs to organise" : `${r.groups.length} groups by ${r.how}`);
   } catch (e) {
     msg("Error: " + e.message);
   } finally {

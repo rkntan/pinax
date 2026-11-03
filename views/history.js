@@ -56,7 +56,7 @@ function tabSetEl(s, mode) {
       },
     }, h("option", { value: "" }, "→ Collection"), cols.map((c) => h("option", { value: c }, pathLabel(c))), h("option", { value: "__new" }, "+ New…")),
     h("button", { class: "link small", onclick: () => { pinSite(t); flash("Pinned"); } }, "Pin"),
-    h("button", { class: "link small", title: "Remove this tab", onclick: () => edit((x) => x.tabs.splice(i, 1)) }, "×"));
+    h("button", { class: "link small", title: "Remove this tab", onclick: () => withUndo("Tab removed", [isProject ? "projects" : "history"], () => edit((x) => x.tabs.splice(i, 1))) }, "×"));
 
   const promote = async () => {
     const n = prompt("Project name:", s.name.replace(/^.*? · /, "").replace(/^(closed window|\d+ idle tab).*$/, ""));
@@ -76,7 +76,7 @@ function tabSetEl(s, mode) {
       isProject ? null : h("button", { class: "link small", onclick: toggle }, open ? "Hide" : "Show tabs"),
       // a project's own header has Rename / Delete
       isProject ? null : h("button", { class: "link small", onclick: () => { const n = prompt("Name", s.name); if (n) edit((x) => (x.name = n)); } }, "Rename"),
-      isProject ? null : h("button", { class: "link small", onclick: async () => { if (confirm(`Delete "${s.name}"?`)) await remove(); } }, "Delete")),
+      isProject ? null : h("button", { class: "link small", onclick: () => withUndo(`Deleted “${s.name}”`, ["history"], remove) }, "Delete")),
     Object.keys(counts).length ? h("div", { class: "chips" }, Object.entries(counts).map(([g, n]) => h("span", { class: "chip" }, `${g} ${n}`))) : null,
     open ? h("div", { class: "tablist" },
       s.tabs.length ? s.tabs.map(tabRow) : h("div", { class: "muted small" }, "No tabs yet. Use “Update from this window”, or mark sources with ▣ in the trail.")) : null);

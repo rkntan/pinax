@@ -107,6 +107,11 @@ async function saveSelection(tab, fallbackText = "") {
 
 chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (command === "open-library") return openLibraryTab();
+  if (command === "organise-window" && tab) {
+    const r = await organiseWindow(tab.windowId);
+    return toast("Tabs organised", r.how === "none" ? "Not enough tabs" : `${r.groups.length} groups by ${r.how}`);
+  }
   if (!tab || !/^https?:/.test(tab.url)) return;
   if (command === "save-phrase") return saveSelection(tab);
   if (command !== "save-page") return;

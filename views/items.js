@@ -41,7 +41,7 @@ function detailEl(it) {
   const pathIn = h("input", { class: "input", list: "paths", value: it.path === UNSORTED ? "" : pathLabel(it.path), placeholder: "Collection, e.g. AI › Agents" });
   const tagsIn = h("input", {
     class: "input", value: (it.tags || []).join(", "), placeholder: "tags, comma separated",
-    onchange: (e) => updateItem(it.id, { tags: e.target.value.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean) }),
+    onchange: (e) => updateItem(it.id, { tags: mergeTags([], e.target.value.split(",")) }),
   });
   return h("div", { class: "detail" },
     it.why ? h("p", { class: "why-full" }, it.why) : null,
@@ -61,7 +61,7 @@ function detailEl(it) {
     h("label", {}, "Tags", tagsIn),
     h("span", { style: "flex:1" }),
     it.stage === "kept" ? h("button", { class: "link", onclick: () => updateItem(it.id, { stage: "inbox" }) }, "Back to Inbox") : null,
-    h("button", { class: "link", onclick: () => confirm(`Remove "${it.title}"?`) && deleteItem(it.id) }, "Remove"));
+    h("button", { class: "link", onclick: () => withUndo(`Removed “${it.title}”`, ["items"], () => deleteItem(it.id)) }, "Remove"));
 }
 
 function rowEl(it, pinned) {
@@ -99,7 +99,7 @@ function rowEl(it, pinned) {
         h("button", {
           class: `star${pinned ? " on" : ""}`,
           title: pinned ? "Unpin" : "Pin to dock",
-          onclick: () => (pinned ? unpinSite(it.url) : pinSite(it)),
+          onclick: () => (pinned ? withUndo("Unpinned", ["pins"], () => unpinSite(it.url)) : pinSite(it)),
         }, pinned ? "★" : "☆"))),
     open ? detailEl(it) : null);
   return row;

@@ -74,6 +74,19 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   → Collection, Pin. A tab moved somewhere leaves History.
 - Everything expires after 30 days. Tidied tabs from before v0.9 got 30 days from the upgrade.
 
+## Shortcuts and quick search
+| Keys | Does |
+|---|---|
+| Alt+Shift+S | save this page to the Inbox |
+| Alt+Shift+W | save the selected word / phrase / quote to the Phrasebook |
+| Alt+Shift+O | organise this window's tabs into groups |
+| Alt+Shift+L | open the Library |
+| Ctrl+K (Library) | jump to any page, collection, project, source, word or view |
+| Ctrl+Z (Library) | undo the last delete / discard / prune (also the Undo button, 8 s) |
+
+Change the keys at `chrome://extensions/shortcuts`. When the AI sorts a page it also suggests
+up to 2 tags, so related pages in different collections get linked in the mind map.
+
 ## Backup
 Library footer -> **Export backup** / **Import backup** (JSON, merges without duplicates).
 All data stays in `chrome.storage.local` on this machine.

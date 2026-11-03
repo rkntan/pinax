@@ -203,7 +203,19 @@ async function saveForLater({ url, title, favIconUrl }, remindKey = "") {
   return it;
 }
 
-async function aiClassify(item, paths) {
+// Pure: tidies tags ("#Deep Research" -> "deep-research") and merges them, max 5.
+function mergeTags(have = [], add = []) {
+  const clean = (t) => String(t).toLowerCase().replace(/^#/, "").trim().replace(/\s+/g, "-").replace(/[^\p{L}\p{N}-]/gu, "").slice(0, 30);
+  return [...new Set([...have, ...add].map(clean).filter(Boolean))].slice(0, 5);
+}
+
+function allTags(items) {
+  const n = {};
+  items.forEach((it) => (it.tags || []).forEach((t) => (n[t] = (n[t] || 0) + 1)));
+  return Object.keys(n).sort((a, b) => n[b] - n[a]);
+}
+
+async function aiClassify(item, paths, tags = []) {
   const session = await aiSession();
   const schema = {
     type: "object",
@@ -212,8 +224,9 @@ async function aiClassify(item, paths) {
       path: { type: "string" },
       why: { type: "string" },
       units: { type: "integer" },
+      tags: { type: "array", items: { type: "string" }, maxItems: 2 },
     },
-    required: ["type", "path", "why", "units"],
+    required: ["type", "path", "why", "units", "tags"],
   };
   const prompt =
     `A user saved this web page to come back to later.\n` +
@@ -224,7 +237,9 @@ async function aiClassify(item, paths) {
     `page is clearly about a narrower subject. Otherwise make a new path of 1-3 short levels, broad first, ` +
     `e.g. "AI/Agents" or "Electronics/PCB".\n` +
     `- why: max 12 words, what this is and why it is worth coming back to\n` +
-    `- units: if it is a course with a known number of units/lessons, that number, else 0`;
+    `- units: if it is a course with a known number of units/lessons, that number, else 0\n` +
+    `- tags: 0-2 short lowercase tags that link it to related pages in other collections ` +
+    `(reuse these if they fit: ${tags.slice(0, 40).join(", ") || "none yet"}); no tag that only repeats the path`;
   const out = JSON.parse(await session.prompt(prompt, { responseConstraint: schema }));
   session.destroy();
   return out;
@@ -235,13 +250,14 @@ async function classifyItem(id) {
   const it = items.find((x) => x.id === id);
   if (!it) return;
   const paths = (await getCollections()).filter((p) => p !== UNSORTED).slice(0, 60);
-  const r = await aiClassify(it, paths);
+  const r = await aiClassify(it, paths, allTags(items));
   // re-read: the user may have filed it while the AI was thinking
   const now = (await getItems()).find((x) => x.id === id);
   if (!now) return;
   const patch = {
     type: TYPES.includes(r.type) ? r.type : now.type,
     why: (r.why || "").trim().slice(0, 120),
+    tags: mergeTags(now.tags, Array.isArray(r.tags) ? r.tags.slice(0, 2) : []),
     needsAi: false,
   };
   if (now.stage === "inbox") patch.path = cleanPath(r.path || now.path); // never move a page the user filed
@@ -964,4 +980,86 @@ async function setWorkingOn(windowId, projectId) {
   if (projectId) workingOn[windowId] = projectId;
   else delete workingOn[windowId];
   await chrome.storage.session.set({ workingOn });
+}
+
+// ---------- organise a window into tab groups (popup button and Alt+Shift+O) ----------
+
+async function aiGroups(tabs, onProgress) {
+  const downloading = (await aiAvailability()) !== "available";
+  const session = await aiSession(downloading ? {
+    monitor(m) { m.addEventListener("downloadprogress", (e) => onProgress?.(`Downloading AI model… ${Math.round(e.loaded * 100)}%`)); },
+  } : undefined);
+  const list = tabs.map((t, i) => `${i}. ${t.title} — ${hostOf(t.url)}`).join("\n");
+  const schema = {
+    type: "object",
+    properties: {
+      groups: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            color: { type: "string", enum: TAB_COLORS },
+            tabs: { type: "array", items: { type: "integer" } },
+          },
+          required: ["name", "color", "tabs"],
+        },
+      },
+    },
+    required: ["groups"],
+  };
+  const prompt =
+    `Sort these browser tabs into 2-8 groups by topic or task (not just by website).\n` +
+    `Give each group a short name (1-3 words) and a color. Every tab number must appear in exactly one group.\n\n${list}`;
+  const out = await session.prompt(prompt, { responseConstraint: schema });
+  session.destroy();
+  return JSON.parse(out).groups;
+}
+
+// Pure: groups of 2+ tabs from the same site (the fallback without AI).
+function domainGroups(tabs) {
+  const by = {};
+  tabs.forEach((t, i) => (by[hostOf(t.url)] ||= []).push(i));
+  return Object.entries(by)
+    .filter(([, idx]) => idx.length > 1)
+    .map(([name, idx], k) => ({ name, color: TAB_COLORS[k % TAB_COLORS.length], tabs: idx }));
+}
+
+async function applyGroups(tabs, groups) {
+  const used = new Set();
+  for (const g of groups) {
+    const ids = g.tabs.filter((i) => tabs[i] && !used.has(i)).map((i) => (used.add(i), tabs[i].id));
+    if (!ids.length) continue;
+    const groupId = await chrome.tabs.group({ tabIds: ids });
+    await chrome.tabGroups.update(groupId, { title: g.name, color: TAB_COLORS.includes(g.color) ? g.color : "grey" });
+  }
+}
+
+// Groups a window's unpinned tabs with the local AI if it can, else by site.
+async function organiseWindow(windowId, onProgress) {
+  const tabs = (await chrome.tabs.query({ windowId })).filter((t) => !t.pinned);
+  if (tabs.length < 2) return { groups: [], how: "none", count: tabs.length };
+  let groups, how;
+  if (["available", "downloadable", "downloading"].includes(await aiAvailability())) {
+    onProgress?.("Thinking…");
+    try { groups = await aiGroups(tabs, onProgress); how = "AI"; }
+    catch (e) { console.warn("AI failed, using sites", e); }
+  }
+  if (!groups) { groups = domainGroups(tabs); how = "site"; }
+  // ungroup only once the new grouping is ready, so the window doesn't flicker while the AI thinks
+  await chrome.tabs.ungroup(tabs.map((t) => t.id)).catch(() => {});
+  await applyGroups(tabs, groups);
+  return { groups, how, count: tabs.length };
+}
+
+// Focuses an open Library tab (optionally at #view) or opens one.
+async function openLibraryTab(hash = "") {
+  const url = chrome.runtime.getURL("library.html");
+  const [open] = await chrome.tabs.query({ url: url + "*" });
+  if (open) {
+    await chrome.tabs.update(open.id, { active: true, ...(hash ? { url: url + hash } : {}) });
+    await chrome.windows.update(open.windowId, { focused: true });
+  } else {
+    await chrome.tabs.create({ url: url + hash });
+  }
 }

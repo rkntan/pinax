@@ -93,7 +93,7 @@ function viewCollection() {
     statusSeg(),
     h("button", { class: "link small", onclick: async () => { const n = prompt("New sub-collection name:"); if (n) await addCollection(path + "/" + n); } }, "+ Sub"),
     h("button", { class: "link small", onclick: async () => { const n = prompt("Rename or move (e.g. AI › Agents):", pathLabel(path)); if (n) { await renameCollection(path, n); go("col", cleanPath(n)); } } }, "Rename"),
-    h("button", { class: "link small", onclick: async () => { if (confirm(`Delete collection "${pathLabel(path)}"? Its pages move up one level.`)) { await deleteCollection(path); go("inbox"); } } }, "Delete"));
+    h("button", { class: "link small", onclick: async () => { if (confirm(`Delete collection "${pathLabel(path)}"? Its pages move up one level.`)) { await withUndo(`Deleted ${pathLabel(path)}`, ["collections", "items"], () => deleteCollection(path)); go("inbox"); } } }, "Delete"));
   const list = base.filter(byType);
   if (!list.length) return emptyEl("Empty collection", "Drag pages here from the Inbox, or Keep them during the weekly review.");
   // group direct pages first, then each sub-collection
