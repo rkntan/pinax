@@ -45,6 +45,13 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - **Mind map**: left-to-right tree, Library › collections › sub-collections › pages. Click a branch
   to open it, double-click to open its list; dotted lines join pages that share a tag.
 
+## Inbox triage
+- Bundles: pages with the same AI suggestion ("→ AI › Agents · 4 [Keep all]"), duplicates
+  (same page written differently), old & never read, no suggestion yet ("Sort with AI").
+- Tick rows (or X) to select many: Keep here, Keep suggested, → Project, Read / Unread, Discard.
+- Keys: J/K move · X select · E keep · # discard · O open · M read/unread · * all · Esc clear.
+- Every bulk action can be undone (Undo button or Ctrl+Z).
+
 ## Page notes (highlights + your notes)
 - Select text → right-click **Highlight (page notes)**, or the **✎ Notes** button in the popup
   (opens Chrome's side panel next to the page). Pick a colour, add comments, write your own

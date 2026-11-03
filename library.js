@@ -42,6 +42,7 @@ async function renderNow() {
   document.querySelectorAll("#density button").forEach((b) => b.classList.toggle("on", b.dataset.d === prefs.get("density", "rows")));
   $("density").style.visibility = ["inbox", "all", "col"].includes(state.view) ? "visible" : "hidden";
 
+  listOrder = [];
   renderPins();
   renderTree();
   renderProjects();

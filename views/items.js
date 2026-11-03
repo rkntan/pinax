@@ -65,8 +65,11 @@ function rowEl(it, pinned) {
   const open = state.open === it.id;
   const inbox = it.stage === "inbox";
   const suggested = inbox && it.path !== UNSORTED;
+  listOrder.push(it.id);
+  const selected = state.sel.has(it.id);
   const row = h("div", {
-    class: `row t-${it.type}${open ? " open" : ""}${it.read ? " read" : " unread"}`,
+    class: `row t-${it.type}${open ? " open" : ""}${it.read ? " read" : " unread"}${selected ? " sel" : ""}${state.focusId === it.id ? " focus" : ""}`,
+    "data-id": it.id,
     draggable: "true",
     ondragstart: (e) => { e.dataTransfer.setData("text/item", it.id); e.currentTarget.classList.add("dragging"); },
     ondragend: (e) => e.currentTarget.classList.remove("dragging"),
@@ -75,6 +78,7 @@ function rowEl(it, pinned) {
       class: "row-main",
       onclick: (e) => { if (e.target.closest("a, button, select, input")) return; state.open = open ? null : it.id; render(); },
     },
+      h("input", { type: "checkbox", class: "pick", checked: selected, title: "Select (X)", onclick: () => toggleSel(it.id) }),
       h("img", { class: "fav", src: it.favIconUrl || faviconFor(it.url, 16), alt: "" }),
       h("div", { class: "line" },
         h("a", { class: "title", href: it.url, target: "_blank", title: it.url }, it.title),
@@ -129,15 +133,122 @@ function emptyEl(title, text) {
   return h("div", { class: "empty" }, h("h3", {}, title), h("p", {}, text));
 }
 
+// ---------- selecting many, bundles, keys ----------
+
+let listOrder = []; // ids in the order shown, for J/K (reset on each render)
+
+function toggleSel(id) {
+  state.sel.has(id) ? state.sel.delete(id) : state.sel.add(id);
+  render();
+}
+
+function selected() {
+  const ids = new Set(data.items.map((x) => x.id));
+  return [...state.sel].filter((id) => ids.has(id));
+}
+
+function done(n, what) {
+  state.sel.clear();
+  return `${what} ${n} page${n === 1 ? "" : "s"}`;
+}
+
+// Bar shown while pages are selected.
+function selBar() {
+  const ids = selected();
+  if (!ids.length) return null;
+  const pathIn = h("input", { class: "input", list: "paths", placeholder: "Collection, e.g. AI › Agents" });
+  const projects = data.projects.filter((p) => p.status !== "finished");
+  return h("div", { class: "selbar" },
+    h("b", {}, `${ids.length} selected`),
+    pathIn,
+    h("button", { class: "qbtn keep", onclick: () => pathIn.value.trim() && withUndo(done(ids.length, "Kept"), ["items", "collections"], () => keepMany(ids, pathIn.value)) }, "Keep here"),
+    h("button", { class: "qbtn", title: "Each page into its AI suggestion", onclick: () => withUndo(done(ids.length, "Kept"), ["items", "collections"], () => keepSuggested(ids)) }, "Keep suggested"),
+    projects.length ? h("select", {
+      onchange: async (e) => {
+        const id = e.target.value;
+        if (!id) return;
+        for (const it of data.items.filter((x) => ids.includes(x.id))) await addSource(id, it);
+        flash(done(ids.length, "Added to project:"));
+        render();
+      },
+    }, h("option", { value: "" }, "→ Project"), projects.map((p) => h("option", { value: p.id }, p.name))) : null,
+    h("button", { class: "qbtn", onclick: () => withUndo(done(ids.length, "Marked read:"), ["items"], () => markReadMany(ids, true)) }, "Read"),
+    h("button", { class: "qbtn", onclick: () => withUndo(done(ids.length, "Marked unread:"), ["items"], () => markReadMany(ids, false)) }, "Unread"),
+    h("button", { class: "qbtn danger", onclick: () => withUndo(done(ids.length, "Discarded"), ["items"], () => deleteMany(ids)) }, "Discard"),
+    h("button", { class: "link small", onclick: () => { state.sel.clear(); render(); } }, "Clear"));
+}
+
+const BUNDLE_FILTER = {
+  path: (b) => (it) => it.path === b.path,
+  dupes: () => (it) => inboxBundles(data.items).duplicates.some((x) => x.id === it.id),
+  old: () => (it) => isOld(it) && !it.read,
+  unsorted: () => (it) => !it.path || it.path === UNSORTED,
+};
+
+function bundleCard(title, list, actions, filter) {
+  return h("div", { class: "bundle" },
+    h("div", { class: "b-head" }, h("b", {}, title), h("span", { class: "muted small" }, String(list.length))),
+    h("div", { class: "b-favs" }, list.slice(0, 8).map((it) => h("img", { src: it.favIconUrl || faviconFor(it.url, 16), title: it.title, alt: "" }))),
+    h("div", { class: "b-act" }, actions, h("button", { class: "link small", onclick: () => { state.bundle = filter; render(); } }, "Show")));
+}
+
+function bundlesEl() {
+  const b = inboxBundles(data.items);
+  const ids = (l) => l.map((x) => x.id);
+  const cards = [];
+  if (b.duplicates.length) cards.push(bundleCard("Duplicates", b.duplicates,
+    h("button", { class: "qbtn danger", onclick: () => withUndo(`Discarded ${b.duplicates.length} duplicates`, ["items"], () => deleteMany(ids(b.duplicates))) }, "Discard all"), { kind: "dupes" }));
+  for (const g of b.byPath.slice(0, 6)) cards.push(bundleCard(`→ ${pathLabel(g.path)}`, g.items, [
+    h("button", { class: "qbtn keep", onclick: () => withUndo(`Kept ${g.items.length} in ${pathLabel(g.path)}`, ["items", "collections"], () => keepMany(ids(g.items), g.path)) }, "Keep all"),
+    h("button", {
+      class: "link small", title: "Keep them all in another collection",
+      onclick: () => { const p = prompt("Keep these pages in:", pathLabel(g.path)); if (p) withUndo(`Kept ${g.items.length} in ${pathLabel(cleanPath(p))}`, ["items", "collections"], () => keepMany(ids(g.items), p)); },
+    }, "Elsewhere…")], { kind: "path", path: g.path }));
+  if (b.old.length) cards.push(bundleCard("Old & never read", b.old,
+    h("button", { class: "qbtn danger", onclick: () => withUndo(`Discarded ${b.old.length} old pages`, ["items"], () => deleteMany(ids(b.old))) }, "Discard all"), { kind: "old" }));
+  if (b.unsorted.length) cards.push(bundleCard("No suggestion yet", b.unsorted,
+    h("button", {
+      class: "qbtn", title: "Ask the local AI to suggest collections",
+      onclick: async () => {
+        if ((await aiAvailability()) !== "available") return flash("Local AI not available right now");
+        const set = new Set(ids(b.unsorted));
+        const items = await getItems();
+        items.forEach((it) => { if (set.has(it.id)) it.needsAi = true; });
+        await setItems(items);
+        flash("Sorting with local AI…");
+        await classifyPending((n, t) => flash(`Sorting with local AI… ${n}/${t}`));
+      },
+    }, "Sort with AI"), { kind: "unsorted" }));
+  return cards.length ? h("div", { class: "bundles" }, cards) : null;
+}
+
+function bundleLabel(f) {
+  return f.kind === "path" ? `→ ${pathLabel(f.path)}` : { dupes: "Duplicates", old: "Old & never read", unsorted: "No suggestion yet" }[f.kind];
+}
+
+const KEYS_HINT = "J/K move · X select · E keep · # discard · O open · M read/unread · * select all · Esc clear";
+
 function viewInbox() {
   const base = data.items.filter((it) => it.stage === "inbox" && matches(it));
-  const list = base.filter(byType);
+  const f = state.bundle;
+  const list = base.filter(byType).filter(f ? BUNDLE_FILTER[f.kind](f) : () => true);
   const waiting = forReview(data.items).length;
+  const suggested = base.filter((it) => it.path && it.path !== UNSORTED);
   setHead("Inbox", `${base.length} waiting · AI suggests a collection, you decide`);
-  $("tools").replaceChildren(...typeChips(base), h("span", { class: "spacer" }),
-    waiting ? h("button", { class: "btn primary", onclick: () => go("review") }, `Review ${waiting} now`) : null);
-  return list.length ? listEl(list)
-    : emptyEl("Inbox is clear", "Save pages from the popup, right-click → “Save link for later”, or press Alt+Shift+S.");
+  $("tools").replaceChildren(
+    ...(f ? [h("button", { class: "chip on", title: "Show all", onclick: () => { state.bundle = null; render(); } }, `${bundleLabel(f)} ×`)] : typeChips(base)),
+    h("span", { class: "spacer" }),
+    suggested.length > 1 && !f ? h("button", {
+      class: "btn", title: "Each page into its AI-suggested collection",
+      onclick: () => withUndo(`Kept ${suggested.length} pages`, ["items", "collections"], () => keepSuggested(suggested.map((x) => x.id))),
+    }, `Keep all ${suggested.length} as suggested`) : null,
+    waiting ? h("button", { class: "btn primary", onclick: () => go("review") }, `Review ${waiting} one by one`) : null);
+  if (!base.length) return emptyEl("Inbox is clear", "Save pages from the popup (also “All tabs → Inbox”), right-click → “Save link for later”, or press Alt+Shift+S.");
+  return h("div", {},
+    f || base.length < 3 ? null : bundlesEl(),
+    selBar(),
+    list.length ? listEl(list) : emptyEl("Nothing here", "Try another filter."),
+    h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
 
 function viewAll() {
@@ -147,6 +258,48 @@ function viewAll() {
   const due = base.filter((it) => isDue(it));
   const rest = base.filter(byType);
   return h("div", {},
+    selBar(),
     due.length ? [h("h3", { class: "section-title" }, h("span", { class: "chip lime" }, "Due now"), String(due.length)), listEl(due), h("br")] : null,
-    rest.length ? listEl(rest) : emptyEl("Nothing here", "Try another filter or search."));
+    rest.length ? listEl(rest) : emptyEl("Nothing here", "Try another filter or search."),
+    h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
+
+// Gmail-style keys in page lists (Inbox, All pages, collections).
+document.addEventListener("keydown", async (e) => {
+  if (!["inbox", "all", "col"].includes(state.view)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.target.matches("input, select, textarea") || document.querySelector(".quick-back")) return;
+  const order = [...new Set(listOrder)];
+  if (!order.length) return;
+  let i = order.indexOf(state.focusId);
+  const it = data.items.find((x) => x.id === state.focusId);
+  const targets = state.sel.size ? selected() : it ? [it.id] : [];
+  const moveTo = (j) => {
+    state.focusId = order[Math.max(0, Math.min(order.length - 1, j))];
+    render().then(() => document.querySelector(`.row[data-id="${state.focusId}"]`)?.scrollIntoView({ block: "nearest" }));
+  };
+  // after removing the focused page, focus the next one
+  const next = () => order.filter((id) => !targets.includes(id))[Math.min(i, order.length - targets.length - 1)] || null;
+  const k = e.key;
+  if (k === "j") moveTo(i + 1);
+  else if (k === "k") moveTo(i < 0 ? 0 : i - 1);
+  else if (k === "x" && it) toggleSel(it.id);
+  else if (k === "*") { order.forEach((id) => state.sel.add(id)); render(); }
+  else if (k === "Escape") { state.sel.clear(); state.bundle = null; render(); }
+  else if (k === "Enter" && it) { state.open = state.open === it.id ? null : it.id; render(); }
+  else if (k === "o" && it) window.open(it.url, "_blank");
+  else if (k === "m" && targets.length) {
+    const read = !data.items.find((x) => x.id === targets[0])?.read;
+    await withUndo(done(targets.length, read ? "Marked read:" : "Marked unread:"), ["items"], () => markReadMany(targets, read));
+  } else if ((k === "#" || k === "Delete") && targets.length) {
+    const n = next();
+    await withUndo(done(targets.length, "Discarded"), ["items"], () => deleteMany(targets));
+    state.focusId = n;
+  } else if (k === "e" && targets.length) {
+    const keepable = data.items.filter((x) => targets.includes(x.id) && x.stage === "inbox" && x.path && x.path !== UNSORTED);
+    if (!keepable.length) { if (it) { state.open = it.id; render(); } return flash("No suggestion: type a collection in the details"); }
+    const n = next();
+    await withUndo(done(keepable.length, "Kept"), ["items", "collections"], () => keepSuggested(keepable.map((x) => x.id)));
+    state.focusId = n;
+  } else return;
+  e.preventDefault();
+});

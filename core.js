@@ -1304,3 +1304,85 @@ async function inPage(tab, func, args = [], askAccess = true) {
 function markList(n) {
   return (n?.highlights || []).map((x) => ({ id: x.id, text: x.text, prefix: x.prefix, suffix: x.suffix, comment: x.comment, color: HL_COLORS[x.color] || HL_COLORS.yellow }));
 }
+
+// ---------- Inbox triage: bundles and bulk actions ----------
+
+const TRACKING_PARAMS = /^(utm_\w+|fbclid|gclid|dclid|msclkid|mc_cid|mc_eid|ref|ref_src|igshid|si)$/i;
+
+// Pure: the same page written differently (www, http, tracking params, trailing slash, #).
+function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    u.protocol = "https:";
+    u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
+    for (const k of [...u.searchParams.keys()]) if (TRACKING_PARAMS.test(k)) u.searchParams.delete(k);
+    u.searchParams.sort();
+    let s = u.href;
+    if (u.pathname !== "/" && s.endsWith("/") && !u.search) s = s.slice(0, -1);
+    return s.replace(/\/\?/, "?");
+  } catch { return String(url || ""); }
+}
+
+// Pure: groups Inbox pages for one-click decisions.
+//  duplicates: Inbox pages already saved (Inbox or kept) under another way of writing the URL
+//  byPath:     same AI-suggested collection, 2+ pages, biggest first
+//  old:        in the Inbox 2+ weeks and never read
+//  unsorted:   no suggestion yet
+function inboxBundles(items, now = Date.now()) {
+  const inbox = items.filter((x) => x.stage === "inbox");
+  const seen = new Map();
+  // kept pages and older saves win; newer Inbox copies are the duplicates
+  for (const it of [...items].sort((a, b) => (a.stage === "kept" ? -1 : 0) - (b.stage === "kept" ? -1 : 0) || a.created - b.created)) {
+    const k = normalizeUrl(it.url);
+    if (!seen.has(k)) seen.set(k, it.id);
+  }
+  const duplicates = inbox.filter((it) => seen.get(normalizeUrl(it.url)) !== it.id);
+  const dupIds = new Set(duplicates.map((x) => x.id));
+  const rest = inbox.filter((it) => !dupIds.has(it.id));
+  const groups = {};
+  for (const it of rest) if (it.path && it.path !== UNSORTED) (groups[it.path] ||= []).push(it);
+  const byPath = Object.entries(groups)
+    .filter(([, list]) => list.length >= 2)
+    .map(([path, list]) => ({ path, items: list }))
+    .sort((a, b) => b.items.length - a.items.length || a.path.localeCompare(b.path));
+  const old = rest.filter((it) => isOld(it, now) && !it.read);
+  const unsorted = rest.filter((it) => !it.path || it.path === UNSORTED);
+  return { duplicates, byPath, old, unsorted };
+}
+
+// Files many pages into one collection in a single write.
+async function keepMany(ids, path) {
+  const p = cleanPath(path);
+  const set = new Set(ids);
+  await addCollection(p);
+  const items = await getItems();
+  items.forEach((it) => { if (set.has(it.id)) Object.assign(it, { stage: "kept", path: p, reviewAfter: null }); });
+  await setItems(items);
+}
+
+// Keeps each page in its own suggested collection.
+async function keepSuggested(ids) {
+  const set = new Set(ids);
+  const items = await getItems();
+  let cols = await getCollections();
+  for (const it of items) {
+    if (!set.has(it.id) || !it.path || it.path === UNSORTED) continue;
+    Object.assign(it, { stage: "kept", reviewAfter: null });
+    cols = withPath(cols, it.path);
+  }
+  await chrome.storage.local.set({ items, collections: cols });
+}
+
+async function deleteMany(ids) {
+  const set = new Set(ids);
+  for (const id of ids) chrome.alarms.clear("remind:" + id);
+  await setItems((await getItems()).filter((x) => !set.has(x.id)));
+}
+
+async function markReadMany(ids, read = true) {
+  const set = new Set(ids);
+  const items = await getItems();
+  items.forEach((it) => { if (set.has(it.id)) Object.assign(it, { read, readAt: read ? Date.now() : null }); });
+  await setItems(items);
+}

@@ -12,9 +12,9 @@ Goal: make the core loop excellent before adding more:
 3. [x] **All tabs → Inbox** in the popup: saves every tab of the window and closes them.
 4. [x] **Page notes (v1)**: see the design below. Highlights, notes and quotes on any page,
    in a side panel next to the page; one page record joins link + highlights + notes.
-5. [ ] **Inbox triage with AI bundles**: "7 pages → AI › Agents [Keep all]", "duplicates /
+5. [x] **Inbox triage with AI bundles**: "7 pages → AI › Agents [Keep all]", "duplicates /
    old [Discard all]", select many.
-6. [ ] **Gmail-style keys** in the Inbox: J/K move, E keep, # discard, X select.
+6. [x] **Gmail-style keys** in the Inbox: J/K move, E keep, # discard, X select.
 
 ## Next (reading)
 

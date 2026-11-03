@@ -295,3 +295,27 @@ a.title:hover { color: var(--violet); }
 .note-text { white-space: pre-wrap; font-size: 13px; background: var(--bg); border-radius: 8px; padding: 8px 10px; }
 .note-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .note-foot .spacer { flex: 1; }
+
+/* ---------- Inbox triage: select, bundles, keys ---------- */
+.row-main { grid-template-columns: 16px 18px minmax(0, 1fr) auto; }
+.list.cards .row-main { grid-template-columns: 16px 18px minmax(0, 1fr); }
+.list.cards .right { grid-column: 3; }
+.pick { margin: 0; accent-color: var(--violet); opacity: 0.25; cursor: pointer; }
+.row:hover .pick, .row.sel .pick, .row.focus .pick { opacity: 1; }
+.row.sel .row-main { background: color-mix(in srgb, var(--violet) 12%, transparent); }
+.row.focus { outline: 2px solid color-mix(in srgb, var(--violet) 55%, transparent); outline-offset: -2px; }
+.qbtn.danger:hover { border-color: #ff5a5f; color: #ff5a5f; }
+.selbar { position: sticky; top: 62px; z-index: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--ink); color: var(--bg); padding: 8px 12px; border-radius: var(--radius); margin-bottom: 10px; }
+.selbar .input { width: 200px; font-size: 12px; padding: 3px 8px; }
+.selbar select { font-size: 12px; padding: 2px 6px; }
+.selbar .qbtn { background: transparent; color: var(--bg); border-color: color-mix(in srgb, var(--bg) 35%, transparent); }
+.selbar .qbtn.keep { background: var(--violet); border-color: var(--violet); color: #fff; }
+.selbar .link { color: var(--lime); }
+.bundles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.bundle { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+.b-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.b-head b { font-family: var(--head); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.b-favs { display: flex; gap: 4px; min-height: 16px; }
+.b-favs img { width: 16px; height: 16px; border-radius: 3px; }
+.b-act { display: flex; align-items: center; gap: 10px; }
+.keys-hint { margin: 10px 2px 0; }

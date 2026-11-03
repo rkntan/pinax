@@ -1,4 +1,4 @@
-# Tab Organiser v1.2: Chrome test checklist
+# Tab Organiser v1.3: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -72,6 +72,15 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5b.8 Old Phrasebook quotes (if you had any) now appear as highlights in Notes.
 - [ ] 5b.9 Save a page to the Inbox: its row is **bold** (unread). Read it for 2+ minutes in the front tab: the row turns normal (read). Tick/untick **Read** in its details.
 - [ ] 5b.10 Popup **All tabs → Inbox**: every tab is saved, the window shows the Inbox, and History has a "N tabs sent to Inbox" snapshot.
+
+## 5c. Inbox triage (v1.3)
+
+- [ ] 5c.1 With 5+ pages in the Inbox: bundle cards appear (e.g. "→ AI › Agents 4", "Duplicates", "Old & never read", "No suggestion yet").
+- [ ] 5c.2 **Keep all** on a bundle files them; **Undo** brings them back. **Show** filters the list; the chip "… ×" clears it.
+- [ ] 5c.3 Save the same page twice written differently (with `?utm_source=x` or `www.`): it shows under **Duplicates**.
+- [ ] 5c.4 Tick 3 rows: the dark bar shows "3 selected"; Keep here / Keep suggested / → Project / Read / Unread / Discard work.
+- [ ] 5c.5 Keys: J/K move the outline, X selects, E keeps (as suggested), # discards, O opens, M toggles read, * selects all, Esc clears.
+- [ ] 5c.6 **Keep all N as suggested** in the toolbar files every page into its AI suggestion.
 
 ## 6. Projects and research trails
 

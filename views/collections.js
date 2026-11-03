@@ -99,6 +99,7 @@ function viewCollection() {
   // group direct pages first, then each sub-collection
   const direct = list.filter((it) => it.path === path);
   return h("div", {},
+    selBar(),
     direct.length ? listEl(direct) : null,
     subs.map((s) => {
       const inSub = list.filter((it) => inPath(it.path, s.path));
