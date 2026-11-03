@@ -89,9 +89,9 @@ a.title:hover { color: var(--violet); }
 .path-chip { background: transparent; border: 1px solid var(--line); }
 .path-chip.suggest { border-style: dashed; color: var(--muted); }
 .type { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); width: 62px; }
-.quick { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 2px 8px; font-size: 11.5px; font-weight: 600; }
-.quick:hover { border-color: var(--violet); color: var(--violet); }
-.quick.keep { background: var(--violet); border-color: var(--violet); color: #fff; }
+.qbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 2px 8px; font-size: 11.5px; font-weight: 600; }
+.qbtn:hover { border-color: var(--violet); color: var(--violet); }
+.qbtn.keep { background: var(--violet); border-color: var(--violet); color: #fff; }
 .star { border: none; background: none; padding: 0 2px; font-size: 14px; color: var(--line); line-height: 1; }
 .star.on, .star:hover { color: var(--violet); }
 

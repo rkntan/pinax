@@ -57,7 +57,7 @@ function detailEl(it) {
     remindSelect(it),
     progressEl(it),
     h("label", {}, it.stage === "inbox" ? "Keep in" : "Move to", pathIn,
-      h("button", { class: "quick keep", onclick: () => keepItem(it.id, pathIn.value) }, it.stage === "inbox" ? "Keep" : "Move")),
+      h("button", { class: "qbtn keep", onclick: () => keepItem(it.id, pathIn.value) }, it.stage === "inbox" ? "Keep" : "Move")),
     h("label", {}, "Tags", tagsIn),
     h("span", { style: "flex:1" }),
     it.stage === "kept" ? h("button", { class: "link", onclick: () => updateItem(it.id, { stage: "inbox" }) }, "Back to Inbox") : null,
@@ -95,7 +95,7 @@ function rowEl(it, pinned) {
             }, pathLabel(it.path))
           : null,
         h("span", { class: "type" }, h("i", { class: "dot", style: "background:var(--type)" }), it.type),
-        suggested ? h("button", { class: "quick keep", title: `Keep in ${pathLabel(it.path)}`, onclick: () => keepItem(it.id, it.path) }, "Keep") : null,
+        suggested ? h("button", { class: "qbtn keep", title: `Keep in ${pathLabel(it.path)}`, onclick: () => keepItem(it.id, it.path) }, "Keep") : null,
         h("button", {
           class: `star${pinned ? " on" : ""}`,
           title: pinned ? "Unpin" : "Pin to dock",
