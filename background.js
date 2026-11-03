@@ -35,10 +35,12 @@ async function syncAlarms() {
   refreshBadge();
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
+  await chrome.contextMenus.removeAll(); // updates keep old menus; start clean
   chrome.contextMenus.create({ id: "save-page", title: "Save page for later", contexts: ["page"] });
   chrome.contextMenus.create({ id: "save-link", title: "Save link for later", contexts: ["link"] });
   chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"] });
+  chrome.contextMenus.create({ id: "save-phrase", title: "Save “%s” to Phrasebook", contexts: ["selection"] });
   syncAlarms();
 });
 chrome.runtime.onStartup.addListener(syncAlarms);
@@ -62,13 +64,52 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } else if (info.menuItemId === "pin-site" && tab) {
     await pinSite({ url: tab.url, title: tab.title });
     toast("Pinned", hostOf(tab.url));
+  } else if (info.menuItemId === "save-phrase" && tab) {
+    await saveSelection(tab, info.selectionText);
   }
 });
 
+// Runs inside the page (only when you save, via activeTab): the selection, the sentence it
+// sits in, and the page language.
+function readSelection() {
+  const sel = getSelection();
+  const text = sel.toString().replace(/\s+/g, " ").trim();
+  let node = sel.anchorNode;
+  while (node && node.nodeType !== 1) node = node.parentNode;
+  const block = node?.closest("p, li, td, th, dd, dt, blockquote, figcaption, h1, h2, h3, h4, h5, h6, div") || node;
+  const full = (block?.innerText || "").replace(/\s+/g, " ");
+  let sentence = "";
+  const i = full.toLowerCase().indexOf(text.toLowerCase());
+  if (text && i >= 0) {
+    const before = full.slice(0, i);
+    const start = Math.max(before.lastIndexOf(". "), before.lastIndexOf("? "), before.lastIndexOf("! "));
+    const rest = full.slice(i + text.length);
+    const m = rest.search(/[.!?](\s|$)/);
+    sentence = full.slice(start < 0 ? 0 : start + 2, m < 0 ? full.length : i + text.length + m + 1).trim();
+  }
+  return { text, sentence: sentence.slice(0, 400), pageLang: document.documentElement.lang || "" };
+}
+
+async function saveSelection(tab, fallbackText = "") {
+  let got = { text: fallbackText, sentence: "", pageLang: "" };
+  try {
+    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readSelection });
+    if (res?.result?.text) got = res.result;
+  } catch (e) {
+    console.warn("cannot read this page, saving the selection only", e); // e.g. Chrome pages, PDFs
+  }
+  if (!got.text) return toast("Nothing selected", "Select a word or phrase first.");
+  const p = await savePhrase({ ...got, url: tab.url, title: tab.title });
+  enrichPhrase(p.id).catch(() => {}); // AI may not exist in the worker; the Library finishes it
+  toast(p.kind === "quote" ? "Quote saved" : p.seen > 1 ? `Seen again (${p.seen}×)` : "Saved to Phrasebook",
+    p.kind === "quote" ? p.text.slice(0, 120) : `${p.text}${p.sentence ? " — “" + p.sentence.slice(0, 90) + "”" : ""}`);
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "save-page") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !/^https?:/.test(tab.url)) return;
+  if (command === "save-phrase") return saveSelection(tab);
+  if (command !== "save-page") return;
   await saveForLater(tab);
   toast("Saved for later", tab.title);
 });
@@ -84,12 +125,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await resurfaceOne();
   } else if (alarm.name === REVIEW_ALARM) {
     const n = forReview(await getItems()).length;
-    if (n) {
+    const w = quizQueue(await getPhrases()).length;
+    if (n || w) {
+      const parts = [n && `${n} page${n > 1 ? "s" : ""} in your Inbox`, w && `${w} word${w > 1 ? "s" : ""} to practise`].filter(Boolean);
       chrome.notifications.create("review", {
         type: "basic",
         iconUrl: "icons/icon128.png",
         title: "Weekly review",
-        message: `${n} page${n > 1 ? "s" : ""} in your Inbox. Keep, discard or push to next week.`,
+        message: parts.join(" · ") + ".",
         buttons: [{ title: "Review now" }],
         requireInteraction: true,
       });

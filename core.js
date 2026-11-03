@@ -541,3 +541,192 @@ async function restoreTabs(tabs) {
 function faviconFor(url, size = 32) {
   return `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(url)}&size=${size}`;
 }
+
+// ---------- phrasebook: words, phrases and quotes you select on pages ----------
+// A selection of up to 5 words is vocabulary ("word" or "phrase"); longer is a "quote"
+// that belongs to the page it came from.
+
+const QUOTE_WORDS = 5;
+
+function phraseKind(text) {
+  const n = String(text).trim().split(/\s+/).filter(Boolean).length;
+  return n <= 1 ? "word" : n <= QUOTE_WORDS ? "phrase" : "quote";
+}
+
+// Language without AI: Polish letters, then the page's lang attribute, else English.
+function guessLang(text, pageLang = "") {
+  if (/[ąćęłńśźż]/i.test(text)) return "pl";
+  if (/[çğış]/i.test(text) && /[ğış]/i.test(text)) return "tr";
+  const page = String(pageLang).toLowerCase().split("-")[0];
+  return /^[a-z]{2,3}$/.test(page) ? page : "en";
+}
+
+function langName(code) {
+  try { return new Intl.DisplayNames(["en"], { type: "language" }).of(code) || code; } catch { return code; }
+}
+
+// Dictionary links for a word in its language (opened by the user, nothing is fetched).
+function dictLinks(text, lang) {
+  const w = String(text).trim().toLowerCase();
+  const q = encodeURIComponent(w);
+  const dashed = encodeURIComponent(w.replace(/\s+/g, "-"));
+  if (lang === "en") {
+    return [
+      ["Cambridge", `https://dictionary.cambridge.org/dictionary/english/${dashed}`],
+      ["Collins", `https://www.collinsdictionary.com/dictionary/english/${dashed}`],
+      ["Google", `https://www.google.com/search?q=define+${q}`],
+    ];
+  }
+  if (lang === "pl") {
+    return [
+      ["PWN", `https://sjp.pwn.pl/szukaj/${q}.html`],
+      ["Wiktionary", `https://pl.wiktionary.org/wiki/${q}`],
+      ["Cambridge PL-EN", `https://dictionary.cambridge.org/dictionary/polish-english/${dashed}`],
+    ];
+  }
+  return [
+    ["Wiktionary", `https://en.wiktionary.org/wiki/${q}`],
+    ["Google Translate", `https://translate.google.com/?sl=${encodeURIComponent(lang)}&tl=en&text=${q}`],
+  ];
+}
+
+// Splits a sentence around the saved text (case-insensitive) so the view can bold it.
+function highlightParts(sentence, text) {
+  const s = String(sentence || ""), t = String(text || "").trim();
+  const i = t ? s.toLowerCase().indexOf(t.toLowerCase()) : -1;
+  return i < 0 ? [s, "", ""] : [s.slice(0, i), s.slice(i, i + t.length), s.slice(i + t.length)];
+}
+
+// Monday 00:00 of the week `ts` is in (local time).
+function weekStart(ts = Date.now()) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+// The weekly quiz: up to 10 words saved in the last 7 days or marked "again",
+// not already quizzed in the last 3 days. Newest first, "again" words first of all.
+function quizQueue(phrases, now = Date.now(), max = 10) {
+  return phrases
+    .filter((p) => p.kind !== "quote")
+    .filter((p) => p.created >= now - 7 * 864e5 || p.again)
+    .filter((p) => !(p.quizzedAt > now - 3 * 864e5))
+    .sort((a, b) => (b.again ? 1 : 0) - (a.again ? 1 : 0) || b.created - a.created)
+    .slice(0, max);
+}
+
+async function getPhrases() {
+  const { phrases = [] } = await chrome.storage.local.get("phrases");
+  return phrases;
+}
+
+async function setPhrases(phrases) {
+  await chrome.storage.local.set({ phrases });
+}
+
+async function updatePhrase(id, patch) {
+  const list = await getPhrases();
+  const p = list.find((x) => x.id === id);
+  if (p) Object.assign(p, patch);
+  await setPhrases(list);
+  return p;
+}
+
+async function deletePhrase(id) {
+  await setPhrases((await getPhrases()).filter((x) => x.id !== id));
+}
+
+// Saves a selection. Same word again (same language) just counts another sighting.
+async function savePhrase({ text, sentence = "", url = "", title = "", pageLang = "" }) {
+  const clean = String(text).replace(/\s+/g, " ").trim().slice(0, 2000);
+  if (!clean) return null;
+  const kind = phraseKind(clean);
+  const lang = guessLang(sentence || clean, pageLang);
+  const list = await getPhrases();
+  const same = kind !== "quote" && list.find((p) => p.kind !== "quote" && p.text.toLowerCase() === clean.toLowerCase() && p.lang === lang);
+  if (same) {
+    same.seen = (same.seen || 1) + 1;
+    same.lastSeen = Date.now();
+    if (!same.sentence && sentence) same.sentence = sentence;
+    await setPhrases(list);
+    return same;
+  }
+  const p = {
+    id: crypto.randomUUID(),
+    text: clean,
+    kind,
+    lang,
+    sentence: kind === "quote" ? "" : String(sentence).replace(/\s+/g, " ").trim().slice(0, 400),
+    url,
+    title,
+    note: "",          // your own note
+    ai: null,          // { definition, example, pos } from the local AI
+    translation: "",   // into English, when not English
+    seen: 1,
+    created: Date.now(),
+    again: false,
+    quizzedAt: null,
+    needsAi: true,
+  };
+  list.unshift(p);
+  await setPhrases(list);
+  return p;
+}
+
+// Adds language detection, an AI definition and a translation, using whichever of Chrome's
+// built-in APIs exist here. Leaves `needsAi` on if the main model isn't ready yet.
+async function enrichPhrase(id) {
+  const p = (await getPhrases()).find((x) => x.id === id);
+  if (!p) return;
+  const patch = { detected: true };
+  // language + translation run once; only the AI definition is retried while the model loads
+  if (!p.detected && typeof LanguageDetector !== "undefined") {
+    try {
+      const det = await LanguageDetector.create();
+      const [top] = await det.detect(p.sentence || p.text);
+      if (top && top.confidence > 0.6 && top.detectedLanguage !== "und") patch.lang = top.detectedLanguage.split("-")[0];
+    } catch (e) { console.warn("language detect", e); }
+  }
+  const lang = patch.lang || p.lang;
+  if (!p.detected && lang !== "en" && typeof Translator !== "undefined") {
+    try {
+      const opts = { sourceLanguage: lang, targetLanguage: "en" };
+      if ((await Translator.availability(opts)) !== "unavailable") {
+        const tr = await Translator.create(opts);
+        patch.translation = (await tr.translate(p.text)).slice(0, 300);
+        tr.destroy?.();
+      }
+    } catch (e) { console.warn("translate", e); }
+  }
+  let aiDone = p.kind === "quote";
+  if (!aiDone && (await aiAvailability()) === "available") {
+    try {
+      const s = await aiSession();
+      const schema = {
+        type: "object",
+        properties: { definition: { type: "string" }, example: { type: "string" }, pos: { type: "string" } },
+        required: ["definition", "example", "pos"],
+      };
+      const out = JSON.parse(await s.prompt(
+        `Explain the ${langName(lang)} ${p.kind} "${p.text}" like a learner's dictionary, in English.\n` +
+        (p.sentence ? `It appeared in this sentence: "${p.sentence}"\nGive the meaning used there.\n` : "") +
+        `Return: definition (max 20 words), example (one new short sentence in ${langName(lang)} using it), ` +
+        `pos (noun, verb, adjective, adverb, phrase, idiom or other).`,
+        { responseConstraint: schema }));
+      s.destroy();
+      patch.ai = { definition: String(out.definition).slice(0, 200), example: String(out.example).slice(0, 200), pos: String(out.pos).slice(0, 20) };
+      aiDone = true;
+    } catch (e) { console.warn("AI define", e); }
+  }
+  patch.needsAi = !aiDone;
+  await updatePhrase(id, patch);
+}
+
+async function enrichPendingPhrases(onProgress) {
+  const ready = (await aiAvailability()) === "available";
+  const pending = (await getPhrases()).filter((x) => x.needsAi && (ready || !x.detected));
+  let n = 0;
+  for (const p of pending) { await enrichPhrase(p.id); onProgress?.(++n, pending.length); }
+  return n;
+}

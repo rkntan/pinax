@@ -158,3 +158,54 @@ test("migrateData is safe to run twice and leaves v3 data alone", () => {
   const half = plain(core.migrateData({ ...v2, projects: once.projects }));
   assert.equal(half.projects.length, 1);
 });
+
+test("phraseKind: 1 word, up to 5 words, longer is a quote", () => {
+  assert.equal(core.phraseKind("serendipity"), "word");
+  assert.equal(core.phraseKind("  take it with a grain "), "phrase");
+  assert.equal(core.phraseKind("one two three four five six"), "quote");
+});
+
+test("guessLang: Polish letters, page language, English default", () => {
+  assert.equal(core.guessLang("Dzień dobry, jak się masz"), "pl");
+  assert.equal(core.guessLang("hello", "de-DE"), "de");
+  assert.equal(core.guessLang("hello", ""), "en");
+  assert.equal(core.guessLang("hello", "x-klingon"), "en");
+  assert.equal(core.langName("pl"), "Polish");
+});
+
+test("dictLinks per language", () => {
+  const en = plain(core.dictLinks("Grain of salt", "en"));
+  assert.deepEqual(en.map((l) => l[0]), ["Cambridge", "Collins", "Google"]);
+  assert.equal(en[0][1], "https://dictionary.cambridge.org/dictionary/english/grain-of-salt");
+  const pl = plain(core.dictLinks("się", "pl"));
+  assert.equal(pl[0][1], "https://sjp.pwn.pl/szukaj/si%C4%99.html");
+  assert.equal(plain(core.dictLinks("Haus", "de"))[0][0], "Wiktionary");
+});
+
+test("highlightParts finds the word case-insensitively", () => {
+  assert.deepEqual(plain(core.highlightParts("Take it with a Grain of salt.", "grain")), ["Take it with a ", "Grain", " of salt."]);
+  assert.deepEqual(plain(core.highlightParts("no match here", "zzz")), ["no match here", "", ""]);
+});
+
+test("weekStart is Monday 00:00", () => {
+  const d = new Date(core.weekStart(new Date(2026, 10, 8, 15).getTime())); // Sunday 8 Nov
+  assert.equal(d.getDay(), 1);
+  assert.equal(d.getDate(), 2);
+  assert.equal(d.getHours(), 0);
+  assert.equal(new Date(core.weekStart(new Date(2026, 10, 2, 0, 5).getTime())).getDate(), 2); // Monday itself
+});
+
+test("quizQueue: recent or 'again' words, not quotes, not quizzed in the last 3 days", () => {
+  const now = Date.now();
+  const list = [
+    { id: "new", kind: "word", created: now - DAY },
+    { id: "old", kind: "word", created: now - 20 * DAY },
+    { id: "again", kind: "phrase", created: now - 20 * DAY, again: true },
+    { id: "quote", kind: "quote", created: now },
+    { id: "done", kind: "word", created: now - DAY, quizzedAt: now - DAY },
+    { id: "stale", kind: "word", created: now - 2 * DAY, quizzedAt: now - 5 * DAY },
+  ];
+  assert.deepEqual(plain(core.quizQueue(list, now)).map((p) => p.id), ["again", "new", "stale"]);
+  const many = Array.from({ length: 15 }, (_, i) => ({ id: i, kind: "word", created: now - i * 1000 }));
+  assert.equal(core.quizQueue(many, now).length, 10);
+});

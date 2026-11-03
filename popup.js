@@ -362,10 +362,11 @@ async function showAiStatus() {
 }
 
 async function showFooter() {
-  const items = await getItems();
+  const [items, phrases] = await Promise.all([getItems(), getPhrases()]);
+  $("n-words").textContent = phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length;
   const inbox = items.filter((i) => i.stage === "inbox").length;
   const due = items.filter((i) => isDue(i)).length;
-  const review = forReview(items).length;
+  const review = forReview(items).length + quizQueue(phrases).length;
   $("n-inbox").textContent = inbox;
   $("due-chip").hidden = !due;
   $("due-chip").textContent = `${due} due`;
@@ -376,6 +377,7 @@ async function showFooter() {
 $("open-library").onclick = () => openLibrary();
 $("go-inbox").onclick = () => openLibrary("#inbox");
 $("go-review").onclick = () => openLibrary("#review");
+$("go-words").onclick = () => openLibrary("#phrases");
 
 (async function init() {
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

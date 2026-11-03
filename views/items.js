@@ -32,6 +32,11 @@ function progressEl(it) {
   }, "Track units");
 }
 
+// Quotes you saved from this page (Phrasebook).
+function quotesFor(url) {
+  return data.phrases.filter((q) => q.kind === "quote" && q.url === url);
+}
+
 function detailEl(it) {
   const pathIn = h("input", { class: "input", list: "paths", value: it.path === UNSORTED ? "" : pathLabel(it.path), placeholder: "Collection, e.g. AI › Agents" });
   const tagsIn = h("input", {
@@ -40,6 +45,9 @@ function detailEl(it) {
   });
   return h("div", { class: "detail" },
     it.why ? h("p", { class: "why-full" }, it.why) : null,
+    quotesFor(it.url).length
+      ? h("div", { class: "quotes" }, quotesFor(it.url).map((q) => h("blockquote", { title: stamp(q.created) }, q.text)))
+      : null,
     h("label", {}, "Status",
       h("select", { onchange: (e) => updateItem(it.id, { status: e.target.value }) },
         [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]].map(([v, l]) => h("option", { value: v, selected: it.status === v }, l)))),

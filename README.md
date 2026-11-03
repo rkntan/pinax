@@ -33,6 +33,16 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - **Mind map**: left-to-right tree, Library › collections › sub-collections › pages. Click a branch
   to open it, double-click to open its list; dotted lines join pages that share a tag.
 
+## Phrasebook
+- Select a word, phrase or sentence on any page -> right-click **Save "…" to Phrasebook**, or **Alt+Shift+W**.
+- Stored with the sentence it appeared in, the page, the date and the language (Chrome's offline
+  language detector; Polish letters / page language as fallback). The page is read only at that moment.
+- Up to 5 words = word/phrase; longer = quote (also shown on that page's details in the Library).
+- Local AI adds a short definition + example (labelled AI); non-English words get an offline
+  translation; dictionary links: Cambridge, Collins, Google (EN), PWN, Wiktionary (PL).
+- Library › Phrasebook groups by week; the 10 newest words this week are highlighted.
+- Weekly review › **Words**: show the word, reveal the meaning, Got it (→) / Again (←).
+
 ## Save for later
 - Popup **Save for later** (optional reminder, optional close tab), right-click a page or link ->
   **Save page / link for later**, or **Alt+Shift+S**.
@@ -57,6 +67,6 @@ Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
 
 ## Development
 - Plain JavaScript, no build step. Library page scripts: `core.js`, `tidy.js`, `ui.js`, `views/*.js`, `library.js`.
-- Data lives in `chrome.storage.local` (schema 3: `items`, `collections`, `pins`, `projects`, `history`).
+- Data lives in `chrome.storage.local` (schema 3: `items`, `collections`, `pins`, `projects`, `history`, `phrases`).
   Upgrades run in `migrate()`; the previous data is kept once in `backupV2`.
 - Tests (pure logic in `core.js`): `node --test "tests/*.test.js"`

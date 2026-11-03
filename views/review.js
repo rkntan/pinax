@@ -1,15 +1,30 @@
-// Weekly review: one page at a time — keep / discard / next week / pin.
+// Weekly review: Pages (one at a time — keep / discard / next week / pin) and
+// Words (this week's 10 words — show meaning, then Got it / Again).
 
 let reviewPath = null;
+let reviewKeys = null; // key -> action for the sub-view on screen
+const quiz = { reveal: false, got: 0, again: 0 };
+
 function viewReview() {
-  const queue = forReview(data.items).sort((a, b) => a.created - b.created);
-  setHead("Weekly review", queue.length ? `${queue.length} to decide` : "");
+  const pages = forReview(data.items).sort((a, b) => a.created - b.created);
+  const words = quizQueue(data.phrases);
+  if (state.rtab === "pages" && !pages.length && words.length) state.rtab = "words";
+  setHead("Weekly review", `${pages.length} page${pages.length === 1 ? "" : "s"} · ${words.length} word${words.length === 1 ? "" : "s"}`);
   $("tools").replaceChildren();
+  const tabs = h("div", { class: "review-tabs" }, h("div", { class: "seg" },
+    [["pages", `Pages ${pages.length}`], ["words", `Words ${words.length}`]].map(([v, l]) =>
+      h("button", { class: state.rtab === v ? "on" : null, onclick: () => { state.rtab = v; render(); } }, l))));
+  return h("div", {}, tabs, state.rtab === "words" ? reviewWords(words) : reviewPages(pages, words.length));
+}
+
+function reviewPages(queue, wordsLeft) {
   if (!queue.length) {
     const later = data.items.filter((x) => x.stage === "inbox").length;
-    return emptyEl("All reviewed", later
-      ? `${later} page${later > 1 ? "s" : ""} pushed to next week. Next review: Friday 16:00.`
-      : "Your Inbox is empty. Next review: Friday 16:00.");
+    return h("div", {},
+      emptyEl("Pages done", later
+        ? `${later} page${later > 1 ? "s" : ""} pushed to next week. Next review: Friday 16:00.`
+        : "Your Inbox is empty. Next review: Friday 16:00."),
+      wordsLeft ? h("div", { style: "text-align:center" }, h("button", { class: "btn primary", onclick: () => { state.rtab = "words"; render(); } }, `Now ${wordsLeft} words →`)) : null);
   }
   const it = queue[0];
   const pinned = data.pins.some((p) => p.url === it.url);
@@ -24,7 +39,7 @@ function viewReview() {
     else if (what === "later") await laterItem(it.id);
     else if (what === "pin") await (pinned ? unpinSite(it.url) : pinSite(it));
   };
-  reviewAct = act;
+  reviewKeys = { ArrowRight: () => act("keep"), ArrowLeft: () => act("discard"), ArrowDown: () => act("later"), p: () => act("pin"), P: () => act("pin") };
   return h("div", { class: "review" },
     h("div", { class: "count" }, `1 of ${queue.length} · saved ${stamp(it.created)}${isOld(it) ? " · old" : ""}`),
     h("div", { class: `rcard t-${it.type}` },
@@ -45,11 +60,48 @@ function viewReview() {
         h("button", { class: "btn", onclick: () => act("pin") }, pinned ? "Unpin" : "Pin", h("kbd", {}, "P")),
         h("button", { class: "btn primary", onclick: () => act("keep") }, "Keep", h("kbd", {}, "→ / Enter")))));
 }
-let reviewAct = null;
+
+function reviewWords(queue) {
+  if (!queue.length) {
+    const done = quiz.got + quiz.again;
+    return emptyEl("Words done", done
+      ? `${quiz.got} known, ${quiz.again} to see again next week.`
+      : "No new words this week. Save some with right-click › “Save to Phrasebook” or Alt+Shift+W.");
+  }
+  const p = queue[0];
+  const answer = async (known) => {
+    quiz.reveal = false;
+    known ? quiz.got++ : quiz.again++;
+    await updatePhrase(p.id, { again: !known, quizzedAt: Date.now(), known: (p.known || 0) + (known ? 1 : 0) });
+  };
+  const show = () => { quiz.reveal = true; render(); };
+  reviewKeys = quiz.reveal
+    ? { ArrowRight: () => answer(true), ArrowLeft: () => answer(false) }
+    : { " ": show, Enter: show, ArrowRight: show };
+
+  return h("div", { class: "review quiz" },
+    h("div", { class: "count" }, `1 of ${queue.length}${p.again ? " · from last time" : ""} · saved ${stamp(p.created)}`),
+    h("div", { class: "rcard" },
+      h("div", { class: "meta" }, h("span", { class: "lang" }, p.lang.toUpperCase()), langName(p.lang), p.ai?.pos ? `· ${p.ai.pos}` : null),
+      h("div", { class: "word" }, p.text),
+      quiz.reveal
+        ? h("div", { class: "reveal" },
+            p.ai?.definition ? h("div", { class: "ph-def" }, h("span", { class: "ai-tag" }, "AI"), p.ai.definition) : null,
+            p.translation ? h("div", { class: "ph-tr" }, "→ ", p.translation) : null,
+            p.note ? h("div", { class: "ph-note" }, p.note) : null,
+            p.sentence ? sentenceEl(p) : null,
+            h("div", { class: "ph-foot" }, sourceEl(p), h("span", { class: "spacer" }),
+              dictLinks(p.text, p.lang).map(([n, u]) => h("a", { class: "dict", href: u, target: "_blank" }, n))),
+            h("div", { class: "decide", style: "grid-template-columns:1fr 1fr" },
+              h("button", { class: "btn discard", onclick: () => answer(false) }, "Again", h("kbd", {}, "←")),
+              h("button", { class: "btn primary", onclick: () => answer(true) }, "Got it", h("kbd", {}, "→"))))
+        : h("div", { class: "decide", style: "grid-template-columns:1fr" },
+            h("button", { class: "btn primary", onclick: show }, "Show meaning", h("kbd", {}, "Space")))));
+}
 
 document.addEventListener("keydown", (e) => {
-  if (state.view !== "review" || !reviewAct) return;
+  if (state.view !== "review" || !reviewKeys) return;
   if (e.target.matches("input, select, textarea")) return;
-  const k = { ArrowRight: "keep", ArrowLeft: "discard", ArrowDown: "later", p: "pin", P: "pin" }[e.key];
-  if (k) { e.preventDefault(); reviewAct(k); }
+  const fn = reviewKeys[e.key];
+  if (fn) { e.preventDefault(); fn(); }
 });

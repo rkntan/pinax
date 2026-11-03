@@ -7,12 +7,13 @@ function setHead(title, sub) {
 }
 
 async function load() {
-  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history"]);
+  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases"]);
   data.items = r.items || [];
   data.cols = r.collections || [];
   data.pins = r.pins || [];
   data.projects = r.projects || [];
   data.history = r.history || [];
+  data.phrases = r.phrases || [];
 }
 
 // Many storage writes can land at once (AI sorting, drag and drop): redraw once per frame.
@@ -34,6 +35,7 @@ async function renderNow() {
   $("n-review").textContent = review || "";
   $("n-all").textContent = data.items.length || "";
   $("n-sessions").textContent = data.history.filter(isTemporary).length || "";
+  $("n-phrases").textContent = data.phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length || "";
   $("n-archive").textContent = data.history.filter((s) => sessionKind(s) === "tidied").length || "";
   document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
   document.querySelectorAll("#density button").forEach((b) => b.classList.toggle("on", b.dataset.d === prefs.get("density", "rows")));
@@ -42,8 +44,8 @@ async function renderNow() {
   renderPins();
   renderTree();
   renderProjects();
-  reviewAct = null;
-  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, sessions: viewSessions, archive: viewArchive, project: viewProject };
+  reviewKeys = null;
+  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, sessions: viewSessions, archive: viewArchive, project: viewProject, phrases: viewPhrasebook };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
   $("content").replaceChildren((views[state.view] || viewInbox)());
   if (keepFocus) $(keepFocus)?.focus();
@@ -64,7 +66,7 @@ $("add").onsubmit = async (e) => {
 };
 
 $("export").onclick = async () => {
-  const d = await chrome.storage.local.get(["schema", "items", "collections", "pins", "projects", "history"]);
+  const d = await chrome.storage.local.get(["schema", "items", "collections", "pins", "projects", "history", "phrases"]);
   const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: 4, exported: Date.now(), ...d }, null, 2)], { type: "application/json" });
   const a = h("a", { href: URL.createObjectURL(blob), download: `tab-organiser-backup-${new Date().toISOString().slice(0, 10)}.json` });
   a.click();
@@ -83,12 +85,13 @@ $("import").onchange = async (e) => {
       const ids = new Set(mine.map((x) => x[key]));
       return [...mine, ...(theirs || []).filter((x) => x[key] && !ids.has(x[key]))];
     };
-    const cur = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history"]);
+    const cur = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases"]);
     const next = {
       items: merge(cur.items, d.items),
       pins: merge(cur.pins, d.pins, "url"),
       projects: merge(cur.projects, d.projects),
       history: merge(cur.history, d.history),
+      phrases: merge(cur.phrases, d.phrases),
       collections: sortPaths([...(cur.collections || []), ...(d.collections || [])]),
     };
     await chrome.storage.local.set(next);
@@ -108,25 +111,28 @@ async function showAi() {
     line.textContent = a === "downloadable" || a === "downloading"
       ? "AI model not downloaded yet (click Organise in the popup once)."
       : "Local AI not available: simple rules sort your saves.";
+    enrichPendingPhrases(); // language + translation can still work without the main model
     return;
   }
-  const pending = data.items.filter((x) => x.needsAi).length || (await getItems()).filter((x) => x.needsAi).length;
-  if (!pending) { line.textContent = "Local AI ready"; return; }
-  line.textContent = `Sorting ${pending} new save${pending > 1 ? "s" : ""}…`;
-  await classifyPending((n, t) => (line.textContent = `Sorting with local AI… ${n}/${t}`));
+  const pending = (await getItems()).filter((x) => x.needsAi).length;
+  if (pending) {
+    line.textContent = `Sorting ${pending} new save${pending > 1 ? "s" : ""}…`;
+    await classifyPending((n, t) => (line.textContent = `Sorting with local AI… ${n}/${t}`));
+  }
+  await enrichPendingPhrases((n, t) => (line.textContent = `Looking up words… ${n}/${t}`));
   line.textContent = "Local AI ready";
 }
 
 chrome.storage.onChanged.addListener((c) => {
   if (c.tidyDays || c.autoTidy) tidySettings().then((t) => (tidyPrefs = t));
-  if (c.items || c.projects || c.history || c.collections || c.pins || c.tidyDays) render();
+  if (c.items || c.projects || c.history || c.collections || c.pins || c.phrases || c.tidyDays) render();
 });
 
 function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const i = hash.indexOf(":");
   if (["col", "project", "ws"].includes(hash.slice(0, i))) [state.view, state.col] = [hash.slice(0, i).replace("ws", "project"), hash.slice(i + 1)];
-  else if (["inbox", "review", "all", "map", "sessions", "archive"].includes(hash)) state.view = hash;
+  else if (["inbox", "review", "all", "map", "sessions", "archive", "phrases"].includes(hash)) state.view = hash;
 }
 // the popup reuses an open Library tab and just changes its #view
 window.addEventListener("hashchange", () => { readHash(); render(); });

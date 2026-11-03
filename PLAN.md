@@ -1,6 +1,6 @@
 # Tab Organiser: plan v0.6 to v1.0
 
-Status: approved 2026-11-03. Phase 1 done (v0.6.0); next: Phase 2 (Phrasebook).
+Status: approved 2026-11-03. Phase 1 done (v0.6.0), Phase 2 done (v0.7.0); next: Phase 3 (Projects).
 
 ## Where we are (v0.5.0, commit 259a5e1)
 
@@ -36,7 +36,7 @@ Status: approved 2026-11-03. Phase 1 done (v0.6.0); next: Phase 2 (Phrasebook).
 
 Done when: tests pass, the extension looks and works as v0.5 after migration, commit.
 
-## Phase 2: Phrasebook
+## Phase 2: Phrasebook - DONE v0.7.0
 
 1. Right-click selected text -> **Save to Phrasebook**, and shortcut **Alt+Shift+W**.
 2. Stored: the text, the sentence around it, page title + link, date, language.
