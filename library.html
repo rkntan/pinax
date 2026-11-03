@@ -25,8 +25,13 @@
       <button class="nav" data-view="inbox" data-drop="inbox">Inbox <span class="n" id="n-inbox"></span></button>
       <button class="nav" data-view="review">Weekly review <span class="n hot" id="n-review"></span></button>
       <button class="nav" data-view="all">All pages <span class="n" id="n-all"></span></button>
-      <button class="nav" data-view="map">Mind map</button>
     </div>
+
+    <div class="nav-head">
+      <span>Projects</span>
+      <button id="ws-add" class="mini" title="New project from this window">+</button>
+    </div>
+    <div id="ws-list" class="nav-group"></div>
 
     <div class="nav-head">
       <span>Collections</span>
@@ -34,15 +39,14 @@
     </div>
     <div id="tree" class="tree"></div>
 
-    <div class="nav-head">
-      <span>Workspaces</span>
-      <button id="ws-add" class="mini" title="New workspace from this window">+</button>
-    </div>
-    <div id="ws-list" class="nav-group"></div>
-
+    <div class="nav-head"><span>History</span></div>
     <div class="nav-group">
       <button class="nav" data-view="sessions">Sessions <span class="n" id="n-sessions"></span></button>
       <button class="nav" data-view="archive">Archive <span class="n" id="n-archive"></span></button>
+    </div>
+
+    <div class="nav-group">
+      <button class="nav" data-view="map">Mind map</button>
     </div>
 
     <div class="side-foot">
@@ -79,6 +83,14 @@
 
   <script src="core.js"></script>
   <script src="tidy.js"></script>
+  <script src="ui.js"></script>
+  <script src="views/pins.js"></script>
+  <script src="views/items.js"></script>
+  <script src="views/collections.js"></script>
+  <script src="views/review.js"></script>
+  <script src="views/map.js"></script>
+  <script src="views/history.js"></script>
+  <script src="views/projects.js"></script>
   <script src="library.js"></script>
 </body>
 </html>

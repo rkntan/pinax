@@ -1,6 +1,6 @@
 # Tab Organiser: plan v0.6 to v1.0
 
-Status: **draft, waiting for Erkan's approval**. Edit anything here or reply in chat.
+Status: approved 2026-11-03. Phase 1 done (v0.6.0); next: Phase 2 (Phrasebook).
 
 ## Where we are (v0.5.0, commit 259a5e1)
 
@@ -22,7 +22,7 @@ Status: **draft, waiting for Erkan's approval**. Edit anything here or reply in 
 | Phrasebook | words, phrases, quotes with context; weekly 10 | forever |
 | History | closed windows + tidied tabs (Sessions + Archive merged) | 30 days |
 
-## Phase 1: Foundation (no new features, safer base)
+## Phase 1: Foundation (no new features, safer base) - DONE v0.6.0
 
 1. Split `library.js` into small files: `ui.js` (DOM helpers), `views/inbox.js`, `review.js`,
    `collections.js`, `map.js`, `history.js`, `projects.js`, `phrasebook.js`. Same behaviour.
@@ -31,6 +31,7 @@ Status: **draft, waiting for Erkan's approval**. Edit anything here or reply in 
 3. Unit tests for `core.js` with Node's built-in test runner (`node --test`): dates, paths,
    collection rename/delete, expiry, migration. Pure logic only, no fake Chrome.
 4. Sidebar order: Inbox · Review · Projects · Collections · Phrasebook · History · Mind map.
+   (Phrasebook appears in Phase 2; History shows Sessions + Archive until Phase 4.)
 5. Export/import includes the new keys.
 
 Done when: tests pass, the extension looks and works as v0.5 after migration, commit.

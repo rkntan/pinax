@@ -24,12 +24,12 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   reorder; pin via the star, the popup, or right-click › "Pin this site to Library".
 - Rows / Cards toggle for a compact or visual list.
 
-## Workspaces, sessions, mind map (v2b)
+## Projects, sessions, mind map
 - **Sessions** are temporary (30 days): "Save window" in the popup, or made automatically when you
-  close a window with 2+ tabs (switch off in Library › Sessions). **Make workspace** keeps one forever.
-- **Workspaces**: named tab sets in the sidebar and the popup; one click opens them all in a new
+  close a window with 2+ tabs (switch off in Library › Sessions). **Make project** keeps one forever.
+- **Projects** (formerly Workspaces): named tab sets in the sidebar and the popup; one click opens them all in a new
   window with their groups. Update from the current window, add/remove single tabs, drag a page
-  row onto a workspace to add it.
+  row onto a project to add it.
 - **Mind map**: left-to-right tree, Library › collections › sub-collections › pages. Click a branch
   to open it, double-click to open its list; dotted lines join pages that share a tag.
 
@@ -54,3 +54,9 @@ Library footer -> **Export backup** / **Import backup** (JSON, merges without du
 All data stays in `chrome.storage.local` on this machine.
 
 Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
+
+## Development
+- Plain JavaScript, no build step. Library page scripts: `core.js`, `tidy.js`, `ui.js`, `views/*.js`, `library.js`.
+- Data lives in `chrome.storage.local` (schema 3: `items`, `collections`, `pins`, `projects`, `history`).
+  Upgrades run in `migrate()`; the previous data is kept once in `backupV2`.
+- Tests (pure logic in `core.js`): `node --test "tests/*.test.js"`

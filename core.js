@@ -262,6 +262,42 @@ async function classifyPending(onProgress) {
 }
 
 // ---------- collections (a tree of "A/B/C" paths) ----------
+// The pure helpers (withPath, renamePaths, deletePaths) do the work; the async ones store it.
+
+const sortPaths = (list) => [...new Set(list)].sort((a, b) => a.localeCompare(b));
+
+function inPath(itemPath, path) {
+  return itemPath === path || (itemPath || "").startsWith(path + "/");
+}
+
+// Adds a path and every parent of it, so the tree has no gaps.
+function withPath(cols, path) {
+  const p = cleanPath(path);
+  if (p === UNSORTED) return sortPaths(cols);
+  const parts = p.split("/");
+  const out = [...cols];
+  for (let i = 1; i <= parts.length; i++) out.push(parts.slice(0, i).join("/"));
+  return sortPaths(out);
+}
+
+// Renames a branch in collections and pages (also used to merge one branch into another).
+function renamePaths(cols, items, from, to) {
+  const target = cleanPath(to);
+  const move = (p) => (inPath(p, from) ? target + p.slice(from.length) : p);
+  return {
+    collections: withPath(cols.map(move), target),
+    items: items.map((it) => (inPath(it.path, from) ? { ...it, path: move(it.path) } : it)),
+  };
+}
+
+// Deletes a branch; its pages move up to the parent (or Unsorted).
+function deletePaths(cols, items, path) {
+  const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : UNSORTED;
+  return {
+    collections: cols.filter((p) => !inPath(p, path)),
+    items: items.map((it) => (inPath(it.path, path) ? { ...it, path: parent } : it)),
+  };
+}
 
 async function getCollections() {
   const { collections = [] } = await chrome.storage.local.get("collections");
@@ -269,39 +305,15 @@ async function getCollections() {
 }
 
 async function addCollection(path) {
-  const p = cleanPath(path);
-  if (p === UNSORTED) return;
-  const cols = new Set(await getCollections());
-  // keep every parent too, so the tree has no gaps
-  const parts = p.split("/");
-  for (let i = 1; i <= parts.length; i++) cols.add(parts.slice(0, i).join("/"));
-  await chrome.storage.local.set({ collections: [...cols].sort((a, b) => a.localeCompare(b)) });
+  await chrome.storage.local.set({ collections: withPath(await getCollections(), path) });
 }
 
-function inPath(itemPath, path) {
-  return itemPath === path || (itemPath || "").startsWith(path + "/");
-}
-
-// Renames a branch everywhere (also used to merge one branch into another).
 async function renameCollection(from, to) {
-  const target = cleanPath(to);
-  const move = (p) => (inPath(p, from) ? target + p.slice(from.length) : p);
-  const cols = (await getCollections()).map(move);
-  await chrome.storage.local.set({ collections: [...new Set(cols)].sort((a, b) => a.localeCompare(b)) });
-  await addCollection(target);
-  const items = await getItems();
-  items.forEach((it) => (it.path = move(it.path)));
-  await setItems(items);
+  await chrome.storage.local.set(renamePaths(await getCollections(), await getItems(), from, to));
 }
 
-// Deletes a branch; its pages move up to the parent (or Unsorted).
 async function deleteCollection(path) {
-  const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : UNSORTED;
-  const cols = (await getCollections()).filter((p) => !inPath(p, path));
-  await chrome.storage.local.set({ collections: cols });
-  const items = await getItems();
-  items.forEach((it) => { if (inPath(it.path, path)) it.path = parent; });
-  await setItems(items);
+  await chrome.storage.local.set(deletePaths(await getCollections(), await getItems(), path));
 }
 
 // ---------- pins (favourite sites dock) ----------
@@ -329,32 +341,77 @@ async function isPinned(url) {
   return (await getPins()).some((p) => p.url === url);
 }
 
-// ---------- migration from v1 (topic -> Inbox + collections) ----------
+// ---------- storage schema and migration ----------
+// v1: items with `topic`.  v2: Inbox + collection paths; sessions, workspaces and the
+// archive mixed in `library`.  v3: `library` split into `projects` (was workspaces) and
+// `history` (sessions + archive).
 
-async function migrate() {
-  const { schema = 1 } = await chrome.storage.local.get("schema");
-  if (schema >= 2) return;
-  const items = await getItems();
-  const cols = new Set(await getCollections());
-  for (const it of items) {
-    if (!it.stage) it.stage = "inbox";
-    if (!it.path) it.path = it.topic ? cleanPath(it.topic) : UNSORTED;
-    if (!it.tags) it.tags = [];
-    if (it.path !== UNSORTED) cols.add(it.path);
-    delete it.topic;
+const SCHEMA = 3;
+const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library"];
+
+function sessionKind(s) {
+  return s.kind || (s.tidied ? "tidied" : "saved");
+}
+
+const byIdUnique = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
+
+// Pure: upgrades stored data to the current schema; never changes its input.
+function migrateData(input) {
+  const d = structuredClone(input);
+  let schema = d.schema || 1;
+  if (schema < 2) {
+    const cols = new Set(d.collections || []);
+    for (const it of d.items || []) {
+      if (!it.stage) it.stage = "inbox";
+      if (!it.path) it.path = it.topic ? cleanPath(it.topic) : UNSORTED;
+      if (!it.tags) it.tags = [];
+      if (it.path !== UNSORTED) cols.add(it.path);
+      delete it.topic;
+    }
+    d.collections = sortPaths([...cols]);
+    schema = 2;
   }
-  await chrome.storage.local.set({ items, collections: [...cols].sort(), schema: 2 });
+  if (schema < 3) {
+    const lib = d.library || [];
+    const ws = lib.filter((s) => sessionKind(s) === "workspace");
+    const rest = lib.filter((s) => sessionKind(s) !== "workspace");
+    d.projects = byIdUnique([
+      ...(d.projects || []),
+      ...ws.map((s) => ({ id: s.id, name: s.name, created: s.saved, updated: s.updated || s.saved, tabs: s.tabs || [] })),
+    ]);
+    d.history = byIdUnique([
+      ...(d.history || []),
+      ...rest.map((s) => ({ id: s.id, name: s.name, saved: s.saved, kind: sessionKind(s), tabs: s.tabs || [] })),
+    ]);
+    delete d.library;
+    schema = 3;
+  }
+  d.schema = schema;
+  return d;
 }
 
-// ---------- window sessions (Library > Sessions / Archive) ----------
-
-async function getSessions() {
-  const { library = [] } = await chrome.storage.local.get("library");
-  return library;
+// Runs once per upgrade. Keeps a copy of the old data in `backupV2` first.
+async function migrate() {
+  const d = await chrome.storage.local.get(DATA_KEYS);
+  if ((d.schema || 1) >= SCHEMA) return;
+  const { backupV2 } = await chrome.storage.local.get("backupV2");
+  if (!backupV2 && (d.items?.length || d.library?.length)) {
+    await chrome.storage.local.set({ backupV2: { ...d, savedAt: Date.now() } });
+  }
+  await chrome.storage.local.set(migrateData(d));
+  await chrome.storage.local.remove("library");
 }
 
-async function setSessions(library) {
-  await chrome.storage.local.set({ library });
+// ---------- history: temporary window snapshots and tidied tabs ----------
+// kind: "saved" (Save session), "auto" (a window you closed) or "tidied" (closed by Tidy).
+
+async function getHistory() {
+  const { history = [] } = await chrome.storage.local.get("history");
+  return history;
+}
+
+async function setHistory(history) {
+  await chrome.storage.local.set({ history });
 }
 
 async function snapshotTabs(tabs) {
@@ -369,30 +426,23 @@ async function snapshotTabs(tabs) {
   }));
 }
 
-// kind: "saved" (Save window), "auto" (window you closed), "tidied" (archive) or "workspace".
-// Session names always start with the date; workspaces have a plain name.
-// `tabs` are chrome tabs, or already-snapshotted tabs when `snap` is true.
+// Names always start with the date. `tabs` are chrome tabs, or snapshots when `snap` is true.
 async function addSession(tabs, kind, label, snap = false) {
   const now = Date.now();
-  const session = {
+  const entry = {
     id: crypto.randomUUID(),
-    name: kind === "workspace" ? label : label ? `${stamp(now)} · ${label}` : stamp(now),
+    name: label ? `${stamp(now)} · ${label}` : stamp(now),
     saved: now,
-    updated: now,
     kind,
     tabs: snap ? tabs : await snapshotTabs(tabs),
   };
-  const library = await getSessions();
-  library.unshift(session);
-  await setSessions(library);
-  return session;
+  const history = await getHistory();
+  history.unshift(entry);
+  await setHistory(history);
+  return entry;
 }
 
-function sessionKind(s) {
-  return s.kind || (s.tidied ? "tidied" : "saved");
-}
-
-// Temporary sessions ("saved" and "auto") expire; workspaces and the archive stay.
+// Temporary sessions ("saved" and "auto") expire; tidied tabs stay (until Phase 4).
 const SESSION_DAYS = 30;
 function isTemporary(s) {
   return ["saved", "auto"].includes(sessionKind(s));
@@ -400,37 +450,76 @@ function isTemporary(s) {
 function expiresInDays(s, now = Date.now()) {
   return Math.max(0, Math.ceil((s.saved + SESSION_DAYS * 864e5 - now) / 864e5));
 }
-
-async function pruneSessions(now = Date.now()) {
-  const lib = await getSessions();
-  const keep = lib.filter((s) => !isTemporary(s) || expiresInDays(s, now) > 0);
-  if (keep.length !== lib.length) await setSessions(keep);
-  return lib.length - keep.length;
+function freshHistory(list, now = Date.now()) {
+  return list.filter((s) => !isTemporary(s) || expiresInDays(s, now) > 0);
 }
 
-async function editSession(id, fn) {
-  const lib = await getSessions();
-  const s = lib.find((x) => x.id === id);
+async function pruneHistory(now = Date.now()) {
+  const list = await getHistory();
+  const keep = freshHistory(list, now);
+  if (keep.length !== list.length) await setHistory(keep);
+  return list.length - keep.length;
+}
+
+async function editHistory(id, fn) {
+  const list = await getHistory();
+  const s = list.find((x) => x.id === id);
   if (!s) return;
   fn(s);
-  s.updated = Date.now();
-  await setSessions(lib);
+  await setHistory(list.filter((x) => x.tabs.length));
 }
 
-// A session becomes a permanent, named workspace.
+// ---------- projects (today: named tab sets, formerly "workspaces") ----------
+
+async function getProjects() {
+  const { projects = [] } = await chrome.storage.local.get("projects");
+  return projects;
+}
+
+async function setProjects(projects) {
+  await chrome.storage.local.set({ projects });
+}
+
+async function addProject(name, tabs, snap = false) {
+  const now = Date.now();
+  const p = { id: crypto.randomUUID(), name, created: now, updated: now, tabs: snap ? tabs : await snapshotTabs(tabs) };
+  const list = await getProjects();
+  list.unshift(p);
+  await setProjects(list);
+  return p;
+}
+
+async function editProject(id, fn) {
+  const list = await getProjects();
+  const p = list.find((x) => x.id === id);
+  if (!p) return;
+  fn(p);
+  p.updated = Date.now();
+  await setProjects(list);
+}
+
+async function deleteProject(id) {
+  await setProjects((await getProjects()).filter((x) => x.id !== id));
+}
+
+// A temporary session becomes a permanent project.
 async function promoteSession(id, name) {
-  await editSession(id, (s) => { s.kind = "workspace"; s.name = name; });
+  const s = (await getHistory()).find((x) => x.id === id);
+  if (!s) return null;
+  const p = await addProject(name, s.tabs, true);
+  await setHistory((await getHistory()).filter((x) => x.id !== id));
+  return p;
 }
 
-// Replaces a workspace's tabs with the given chrome tabs.
-async function updateWorkspace(id, tabs) {
+// Replaces a project's tabs with the given chrome tabs.
+async function updateProject(id, tabs) {
   const snap = await snapshotTabs(tabs);
-  await editSession(id, (s) => (s.tabs = snap));
+  await editProject(id, (p) => (p.tabs = snap));
 }
 
-async function addTabToWorkspace(id, { url, title, favIconUrl }) {
-  await editSession(id, (s) => {
-    if (!s.tabs.some((t) => t.url === url)) s.tabs.push({ url, title, favIconUrl: favIconUrl || "", group: "", color: "" });
+async function addTabToProject(id, { url, title, favIconUrl }) {
+  await editProject(id, (p) => {
+    if (!p.tabs.some((t) => t.url === url)) p.tabs.push({ url, title, favIconUrl: favIconUrl || "", group: "", color: "" });
   });
 }
 

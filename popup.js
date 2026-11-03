@@ -1,4 +1,4 @@
-// Popup: save the current page (Inbox / a collection / a workspace), pins, and window tools.
+// Popup: save the current page (Inbox / a collection / a project), pins, and window tools.
 // Uses core.js (loaded first).
 
 const $ = (id) => document.getElementById(id);
@@ -15,8 +15,8 @@ const ui = (() => {
 
 let tab = null;          // the current tab
 let existing = null;     // its saved item, if any
-let workspaces = [];
-let dest = ui.get("dest", "inbox");
+let projectList = [];
+let dest = ui.get("dest", "inbox").replace("workspace", "project");
 
 const isWeb = (t) => t && /^https?:/.test(t.url);
 
@@ -40,8 +40,8 @@ async function openLibrary(hash = "") {
 // ---------- current page ----------
 
 async function showPage() {
-  const [items, cols, lib] = await Promise.all([getItems(), getCollections(), getSessions()]);
-  workspaces = lib.filter((s) => sessionKind(s) === "workspace").sort((a, b) => a.name.localeCompare(b.name));
+  const [items, cols, projects] = await Promise.all([getItems(), getCollections(), getProjects()]);
+  projectList = projects.sort((a, b) => a.name.localeCompare(b.name));
   existing = isWeb(tab) ? items.find((x) => x.url === tab.url) : null;
 
   $("cur-title").textContent = isWeb(tab) ? tab.title : "This page can't be saved";
@@ -49,7 +49,7 @@ async function showPage() {
   const where = $("cur-where");
   where.replaceChildren();
   if (isWeb(tab)) {
-    const inWs = workspaces.filter((w) => w.tabs.some((t) => t.url === tab.url)).map((w) => w.name);
+    const inWs = projectList.filter((w) => w.tabs.some((t) => t.url === tab.url)).map((w) => w.name);
     const bits = [hostOf(tab.url)];
     if (existing) bits.push(existing.stage === "kept" ? `in ${pathLabel(existing.path)}` : "in Inbox");
     if (inWs.length) bits.push(`in ${inWs.join(", ")}`);
@@ -60,10 +60,10 @@ async function showPage() {
   if (existing && existing.path !== UNSORTED && !$("col-input").value) $("col-input").value = pathLabel(existing.path);
 
   const wsSel = $("ws-select");
-  wsSel.replaceChildren(...workspaces.map((w) => new Option(`${w.name} (${w.tabs.length})`, w.id)), new Option("+ New workspace…", "__new"));
-  const lastWs = ui.get("ws");
-  if (workspaces.some((w) => w.id === lastWs)) wsSel.value = lastWs;
-  else if (!workspaces.length) wsSel.value = "__new";
+  wsSel.replaceChildren(...projectList.map((w) => new Option(`${w.name} (${w.tabs.length})`, w.id)), new Option("+ New project…", "__new"));
+  const lastWs = ui.get("project");
+  if (projectList.some((w) => w.id === lastWs)) wsSel.value = lastWs;
+  else if (!projectList.length) wsSel.value = "__new";
   $("ws-new").hidden = wsSel.value !== "__new";
 
   setDest(dest);
@@ -86,8 +86,8 @@ function updateSaveLabel() {
     b.textContent = p ? `Save to ${pathLabel(cleanPath(p))}` : "Save to collection";
   } else {
     const sel = $("ws-select").value;
-    const w = workspaces.find((x) => x.id === sel);
-    b.textContent = w ? `Add to ${w.name}` : "Create workspace";
+    const w = projectList.find((x) => x.id === sel);
+    b.textContent = w ? `Add to ${w.name}` : "Create project";
   }
 }
 
@@ -124,19 +124,19 @@ $("save").onclick = async () => {
       let id = $("ws-select").value;
       if (id === "__new") {
         const name = $("ws-new").value.trim();
-        if (!name) { msg("Name the new workspace"); $("ws-new").focus(); return; }
-        id = (await addSession([tab], "workspace", name)).id;
-        msg(`Workspace "${name}" created`);
+        if (!name) { msg("Name the new project"); $("ws-new").focus(); return; }
+        id = (await addProject(name, [tab])).id;
+        msg(`Project "${name}" created`);
       } else {
-        await addTabToWorkspace(id, tab);
-        msg(`Added to ${workspaces.find((w) => w.id === id)?.name}`);
+        await addTabToProject(id, tab);
+        msg(`Added to ${projectList.find((w) => w.id === id)?.name}`);
       }
-      ui.set("ws", id);
+      ui.set("project", id);
     }
     if ($("close-after").checked) chrome.tabs.remove(tab.id);
     await showPage();
     showFooter();
-    showWorkspaces();
+    showProjects();
   } catch (e) {
     msg("Error: " + e.message);
   } finally {
@@ -312,8 +312,8 @@ $("save-session").onclick = async () => {
   }
 };
 
-async function showWorkspaces() {
-  const list = (await getSessions()).filter((s) => sessionKind(s) === "workspace").sort((a, b) => a.name.localeCompare(b.name));
+async function showProjects() {
+  const list = (await getProjects()).sort((a, b) => a.name.localeCompare(b.name));
   $("ws").replaceChildren(...list.map((s) => {
     const b = document.createElement("button");
     b.title = `Open ${s.tabs.length} tabs in a new window`;
@@ -336,11 +336,11 @@ $("ws-form").onsubmit = async (e) => {
   const name = $("ws-name").value.trim();
   if (!name) return;
   const tabs = (await chrome.tabs.query({ currentWindow: true })).filter(isWeb);
-  await addSession(tabs, "workspace", name);
-  msg(`Workspace "${name}" saved`);
+  await addProject(name, tabs);
+  msg(`Project "${name}" saved`);
   $("ws-name").value = "";
   $("ws-form").hidden = true;
-  showWorkspaces();
+  showProjects();
   showPage();
 };
 
@@ -384,7 +384,7 @@ $("go-review").onclick = () => openLibrary("#review");
   await showPage();
   showPins();
   showFooter();
-  showWorkspaces();
+  showProjects();
   showSummary();
   showAiStatus();
 })();

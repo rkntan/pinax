@@ -28,7 +28,7 @@
     <div class="dest" id="dest" role="tablist">
       <button data-dest="inbox" class="on">Inbox</button>
       <button data-dest="collection">Collection</button>
-      <button data-dest="workspace">Workspace</button>
+      <button data-dest="project">Project</button>
     </div>
 
     <div class="dest-body" data-for="inbox">
@@ -39,9 +39,9 @@
       <input id="col-input" class="input" list="paths" placeholder="e.g. AI › Agents › Papers" spellcheck="false">
       <datalist id="paths"></datalist>
     </div>
-    <div class="dest-body" data-for="workspace" hidden>
+    <div class="dest-body" data-for="project" hidden>
       <select id="ws-select"></select>
-      <input id="ws-new" class="input" placeholder="New workspace name" hidden>
+      <input id="ws-new" class="input" placeholder="New project name" hidden>
     </div>
 
     <div class="go">
@@ -57,10 +57,10 @@
       <button id="dedupe" class="act">Close duplicates</button>
       <button id="ungroup" class="act">Ungroup</button>
       <button id="save-session" class="act" title="Temporary, kept 30 days">Save session</button>
-      <button id="save-ws" class="act">Save as workspace</button>
+      <button id="save-ws" class="act">Save as project</button>
     </div>
     <form id="ws-form" class="ws-form" hidden>
-      <input id="ws-name" class="input" placeholder="Workspace name" required>
+      <input id="ws-name" class="input" placeholder="Project name" required>
       <button class="btn primary">Save</button>
     </form>
     <div id="ws" class="ws"></div>

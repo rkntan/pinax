@@ -14,7 +14,7 @@ function next10am() {
 
 async function syncAlarms() {
   await migrate();
-  await pruneSessions();
+  await pruneHistory();
   if (!(await chrome.alarms.get(REVIEW_ALARM))) {
     chrome.alarms.create(REVIEW_ALARM, { when: nextReviewTime(), periodInMinutes: 7 * 24 * 60 });
   }
@@ -80,7 +80,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const { autoTidy, tidyDays } = await tidySettings();
     if (autoTidy) await tidyTabs(tidyDays);
   } else if (alarm.name === RESURFACE_ALARM) {
-    await pruneSessions();
+    await pruneHistory();
     await resurfaceOne();
   } else if (alarm.name === REVIEW_ALARM) {
     const n = forReview(await getItems()).length;
