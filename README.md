@@ -25,9 +25,9 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - Rows / Cards toggle for a compact or visual list.
 
 ## Projects: research trails
-- **Working on** (popup, per window): every page you open in that window joins the project's
+- **Working on** (popup › ⋯ › Track for a project, per window): every page you open in that window joins the project's
   trail, under the page it was opened from (search result pages are skipped).
-- **Park this window** (popup): all tabs become the project's sources, keeping who-opened-whom;
+- **Park this window** (popup › ⋯): all tabs become the project's sources, keeping who-opened-whom;
   optionally closes them and opens the project in the Library.
 - Project view: the trail as an indented tree, statuses ✓ Useful / Later (also to Inbox) /
   ✕ Not needed (offers to prune the pages opened from it), notes, ▣ working tabs, progress bar.

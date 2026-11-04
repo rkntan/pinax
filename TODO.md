@@ -29,7 +29,7 @@ Goal: make the core loop excellent before adding more:
 14. [x] A v1.7: selection bubble + highlight roles
 15. [x] B v1.8: page dock, note card, continue reading
 16. [x] C v1.9: page shortcuts (Obsidian export dropped)
-17. [ ] Popup redesign (one big Save, quiet tools row, ⋯ More)
+17. [x] Popup redesign (one big Save with ▾, quiet tools row, ⋯ More) v1.10
 
 Design rule for everything: minimalist (see NOTES-PLAN.md, "Design rule").
 

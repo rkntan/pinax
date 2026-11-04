@@ -1,4 +1,5 @@
-// Popup: save the current page (Inbox / a collection / a project), pins, and window tools.
+// Popup: one Save for the current page (▾ picks Inbox / a collection / a project, the bell a
+// reminder), one AI action for the window, the other window tools behind ⋯.
 // Uses core.js (loaded first).
 
 const $ = (id) => document.getElementById(id);
@@ -76,6 +77,7 @@ function updateSaveLabel() {
   const b = $("save");
   b.disabled = !isWeb(tab);
   $("bell").parentElement.hidden = dest === "project"; // project sources have no reminders
+  $("split").classList.toggle("done", dest === "inbox" && !!existing);
   if (dest === "inbox") {
     b.textContent = existing ? (existing.stage === "kept" ? `Saved in ${pathLabel(existing.path)}` : "Saved in Inbox ✓") : "Save to Inbox";
     b.disabled = !isWeb(tab) || !!existing;
@@ -90,11 +92,25 @@ function updateSaveLabel() {
   }
 }
 
+// ---------- menus: one open at a time, closed by a click elsewhere or Esc ----------
+
+function toggleMenu(id) {
+  const m = $(id), open = m.hidden;
+  closeMenus();
+  m.hidden = !open;
+}
+function closeMenus() { document.querySelectorAll(".menu").forEach((m) => (m.hidden = true)); }
+document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) closeMenus(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && [...document.querySelectorAll(".menu")].some((m) => !m.hidden)) { e.preventDefault(); closeMenus(); } });
+
+$("dest-btn").onclick = () => toggleMenu("dest");
 $("dest").onclick = (e) => {
   const b = e.target.closest("button");
   if (!b) return;
+  closeMenus();
   setDest(b.dataset.dest);
   if (b.dataset.dest === "collection") $("col-input").focus();
+  if (b.dataset.dest === "project") ($("ws-new").hidden ? $("ws-select") : $("ws-new")).focus();
 };
 $("col-input").oninput = updateSaveLabel;
 $("ws-select").onchange = () => {
@@ -169,7 +185,7 @@ function showBell() {
 }
 
 async function pickReminder(key) {
-  $("bell-menu").hidden = true;
+  closeMenus();
   if (existing) {
     await setReminder(existing.id, key);
     existing = (await getItems()).find((x) => x.id === existing.id);
@@ -181,11 +197,9 @@ async function pickReminder(key) {
   showBell();
 }
 
-$("bell").onclick = (e) => {
-  e.stopPropagation();
-  $("bell-menu").hidden = !$("bell-menu").hidden;
-};
-document.addEventListener("click", (e) => { if (!e.target.closest(".bell-wrap")) $("bell-menu").hidden = true; });
+$("bell").onclick = () => toggleMenu("bell-menu");
+$("more").onclick = () => toggleMenu("more-menu");
+$("more-menu").addEventListener("click", (e) => { if (e.target.closest("button")) closeMenus(); });
 
 // ---------- pin star (the pinned sites themselves live in the Library) ----------
 
@@ -221,8 +235,9 @@ async function showSummary() {
     seen.has(key) ? dupes++ : seen.add(key);
   }
   $("summary").textContent = `${tabs.length} tabs · ${groups} groups`;
-  $("dedupe").textContent = dupes ? `Close ${dupes} duplicate${dupes > 1 ? "s" : ""}` : "No duplicates";
-  $("dedupe").disabled = !dupes;
+  $("dedupe").textContent = `✕ ${dupes} duplicate${dupes > 1 ? "s" : ""}`;
+  $("dedupe").title = `Close ${dupes} duplicate tab${dupes > 1 ? "s" : ""}`;
+  $("dedupe").hidden = !dupes;
 }
 
 async function aiTitle(tabs) {
@@ -330,17 +345,29 @@ function projectOptions(sel, current, noneLabel) {
   sel.value = current && projectList.some((p) => p.id === current) ? current : noneLabel ? "" : projectList[0]?.id || "__new";
 }
 
+let wantTrack = false; // ⋯ → Track for a project… shows the row before anything is tracked
+
 async function showWorking() {
   const current = (await getWorkingOn())[tab.windowId] || "";
   projectOptions($("working"), current, "Not tracking");
   $("working").classList.toggle("on", !!$("working").value);
+  $("working-row").hidden = !current && !wantTrack;
+  $("track").textContent = current ? "Change tracked project…" : "Track for a project…";
 }
+
+$("track").onclick = async () => {
+  wantTrack = true;
+  $("park-form").hidden = true;
+  await showWorking();
+  $("working").focus();
+};
 
 $("working").onchange = async () => {
   const v = $("working").value;
   $("working-new").hidden = v !== "__new";
   if (v === "__new") return $("working-new").focus();
   await setWorkingOn(tab.windowId, v || null);
+  if (!v) wantTrack = false;
   msg(v ? "New pages in this window join the trail" : "Stopped tracking");
   showWorking();
 };
@@ -358,6 +385,7 @@ $("working-new").onkeydown = async (e) => {
 
 $("park").onclick = () => {
   $("park-form").hidden = !$("park-form").hidden;
+  if (!$("park-form").hidden) $("park-proj").focus();
   projectOptions($("park-proj"), ui.get("project"));
   $("park-name").hidden = $("park-proj").value !== "__new";
 };

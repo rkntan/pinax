@@ -22,14 +22,15 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 - [ ] 2.1 Popup opens fast; the dot next to the title is green (local AI) or orange (hover tells why).
 - [ ] 2.2 The popup has no pins row and no footer counts (those live in the Library); ☆ still pins the current page.
-- [ ] 2.3 "This window" shows the tab and group counts and "Close 1 duplicate"; clicking it closes the duplicate.
+- [ ] 2.3 "This window" shows the tab and group counts and "✕ 1 duplicate"; clicking it closes the duplicate and the button disappears (no duplicates = no button).
 - [ ] 2.4 **✦ Organise with AI**: tabs are grouped with names and colours; message says "N groups by AI" (or "by site").
-- [ ] 2.5 **Ungroup** removes the groups.
+- [ ] 2.5 **⋯ → Ungroup tabs** removes the groups. The ⋯ menu also has All tabs → Inbox, Park this window…, Track for a project…, Save session; a click outside or Esc closes it.
+- [ ] 2.7 Popup looks: one white surface, thin lines between header / page / window, left and right edges line up; no empty space at the bottom when there is no message.
 - [ ] 2.6 Press **Alt+Shift+O** on a normal page: tabs get grouped, a "Tabs organised" notification appears.
 
 ## 3. Saving pages (Inbox, collection, project)
 
-- [ ] 3.1 On the arXiv tab: popup → **Inbox** → bell icon → "Tomorrow 09:00" (bell turns violet) → **Save to Inbox**. Message "Saved to Inbox", then (a moment later, AI on) "AI suggests …".
+- [ ] 3.1 On the arXiv tab: popup → bell icon → "Tomorrow 09:00" (bell turns violet) → **Save to Inbox**. (The ▾ next to Save picks Inbox / Collection… / Project…; the choice is remembered.) Message "Saved to Inbox", then (a moment later, AI on) "AI suggests …".
 - [ ] 3.2 Re-open the popup on that tab: it says "in Inbox", the button says "Saved in Inbox ✓"; the bell changes the reminder straight away.
 - [ ] 3.3 On the GitHub tab: **Collection** → type `Tools › Dev` → **Save to Tools › Dev**. In the Library it is under Collections › Tools › Dev (not in the Inbox).
 - [ ] 3.4 Right-click any link → **Save link for later** → notification; it appears in the Inbox.
@@ -142,11 +143,11 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 ## 6. Projects and research trails
 
-- [ ] 6.1 Popup → **Working on** → **+ New project…** → "Test research" + Enter. Icon shows **●** in this window.
+- [ ] 6.1 Popup → **⋯ → Track for a project…** → **Working on** → **+ New project…** → "Test research" + Enter. Icon shows **●** in this window.
 - [ ] 6.2 Search Google, open 2 results in new tabs, click a link inside one of them.
 - [ ] 6.3 Library → Projects → Test research: the trail shows those pages indented under the page they came from; no Google result page in the list.
 - [ ] 6.4 **Track this window** button in the project shows "● Tracking this window" for the window the Library is in only if that window is the tracked one.
-- [ ] 6.5 In another window with 5+ tabs: popup → **Park this window** → existing project, **close the tabs** ticked → **Park**. The tabs close, the Library opens on the project, new sources are listed.
+- [ ] 6.5 In another window with 5+ tabs: popup → **⋯ → Park this window…** → existing project, **close the tabs** ticked → **Park**. The tabs close, the Library opens on the project, new sources are listed.
 - [ ] 6.6 Trail buttons: ✓ useful (green dot), Later (also appears in Inbox), ✕ not needed (struck through), ▣ adds to working tabs, ✎ note, − remove (Undo works).
 - [ ] 6.7 ✕ on a page that has pages under it asks to mark them too; the branch is greyed; Undo restores it.
 - [ ] 6.8 Filters (Unread / Useful / …) and the progress bar match what you marked.
@@ -159,7 +160,7 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 ## 7. History
 
-- [ ] 7.1 Popup → **Save session**: History shows "Saved session" with the date + AI name.
+- [ ] 7.1 Popup → **⋯ → Save session**: History shows "Saved session" with the date + AI name.
 - [ ] 7.2 Close a window with 2+ tabs: within a few seconds History shows "Closed window · N tabs".
 - [ ] 7.3 Filter chips (Closed windows / Saved sessions / Tidied) filter the list.
 - [ ] 7.4 Per tab: **Restore** opens it and removes it from the entry; **→ Inbox**, **→ Project**, **→ Collection** move it (it leaves the entry); **×** removes with Undo.

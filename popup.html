@@ -34,6 +34,7 @@
     </div>
   </section>
 
+  <!-- this page: one big Save; ▾ picks where, the bell picks a reminder -->
   <section class="page">
     <div class="current">
       <img id="cur-fav" alt="">
@@ -44,44 +45,54 @@
       <button id="pin-cur" class="star" title="Pin to dock">☆</button>
     </div>
 
-    <div class="dest" id="dest" role="tablist">
-      <button data-dest="inbox" class="on">Inbox</button>
-      <button data-dest="collection">Collection</button>
-      <button data-dest="project">Project</button>
+    <div class="go">
+      <div class="split menu-wrap" id="split">
+        <button id="save" class="btn primary">Save to Inbox</button>
+        <button id="dest-btn" class="btn primary caret" title="Save somewhere else" aria-haspopup="menu" aria-label="Save somewhere else"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div id="dest" class="menu left" role="menu" hidden>
+          <span class="menu-label">Save to</span>
+          <button data-dest="inbox" role="menuitemradio">Inbox</button>
+          <button data-dest="collection" role="menuitemradio">Collection…</button>
+          <button data-dest="project" role="menuitemradio">Project…</button>
+        </div>
+      </div>
+      <div class="bell-wrap menu-wrap">
+        <button id="bell" class="square" title="Remind me…" aria-haspopup="menu" aria-label="Remind me"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.2L4.5 15a1 1 0 0 0 .9 1.5h13.2a1 1 0 0 0 .9-1.5L18 12.2V9a6 6 0 0 0-6-6Zm-2.2 15a2.3 2.3 0 0 0 4.4 0Z" fill="currentColor"/></svg></button>
+        <div id="bell-menu" class="menu" role="menu" hidden></div>
+      </div>
     </div>
 
     <div class="dest-body" data-for="collection" hidden>
-      <input id="col-input" class="input" list="paths" placeholder="e.g. AI › Agents › Papers" spellcheck="false">
+      <input id="col-input" class="input" list="paths" placeholder="Collection, e.g. AI › Agents › Papers" spellcheck="false">
       <datalist id="paths"></datalist>
     </div>
     <div class="dest-body" data-for="project" hidden>
       <select id="ws-select"></select>
       <input id="ws-new" class="input" placeholder="New project name" hidden>
     </div>
-
-    <div class="go">
-      <button id="save" class="btn primary">Save to Inbox</button>
-      <div class="bell-wrap">
-        <button id="bell" class="bell" title="Remind me…" aria-haspopup="menu"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.2L4.5 15a1 1 0 0 0 .9 1.5h13.2a1 1 0 0 0 .9-1.5L18 12.2V9a6 6 0 0 0-6-6Zm-2.2 15a2.3 2.3 0 0 0 4.4 0Z" fill="currentColor"/></svg></button>
-        <div id="bell-menu" class="bell-menu" role="menu" hidden></div>
-      </div>
-    </div>
   </section>
 
+  <!-- this window: one AI action, the rest behind ⋯ -->
   <section class="win">
     <div class="sec-head"><h2>This window</h2><span id="summary" class="muted small"></span></div>
-    <div class="working" title="New pages you open in this window join the project's trail">
+    <div class="tools">
+      <button id="organise" class="btn dark"><span class="spark">✦</span> Organise with AI</button>
+      <button id="dedupe" class="btn quiet" hidden></button>
+      <div class="menu-wrap">
+        <button id="more" class="square" title="More window tools" aria-haspopup="menu" aria-label="More window tools"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm8 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm8 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" fill="currentColor"/></svg></button>
+        <div id="more-menu" class="menu up" role="menu" hidden>
+          <button id="all-inbox" title="Save every tab of this window to the Inbox and close them">All tabs → Inbox</button>
+          <button id="park" title="Save all tabs as a project's sources, then read them slowly">Park this window…</button>
+          <button id="track" title="New pages you open in this window join the project's trail">Track for a project…</button>
+          <button id="save-session" title="Temporary, kept 30 days">Save session</button>
+          <button id="ungroup">Ungroup tabs</button>
+        </div>
+      </div>
+    </div>
+    <div id="working-row" class="working" title="New pages you open in this window join the project's trail" hidden>
       <span class="small muted">Working on</span>
       <select id="working"></select>
       <input id="working-new" class="input" placeholder="New project name, Enter" hidden>
-    </div>
-    <button id="organise" class="btn dark wide"><span class="spark">✦</span> Organise with AI</button>
-    <div class="actions">
-      <button id="all-inbox" class="act all-inbox" title="Save every tab of this window to the Inbox and close them">All tabs → Inbox</button>
-      <button id="dedupe" class="act">Close duplicates</button>
-      <button id="ungroup" class="act">Ungroup</button>
-      <button id="save-session" class="act" title="Temporary, kept 30 days">Save session</button>
-      <button id="park" class="act" title="Save all tabs as a project's sources, then read them slowly">Park this window</button>
     </div>
     <form id="park-form" class="park-form" hidden>
       <select id="park-proj"></select>
