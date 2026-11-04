@@ -62,10 +62,68 @@ function render() {
   $("hl-list").replaceChildren(...(hls.length ? hls.map(hlEl) : [el("p", { class: "empty" },
     "Select text on the page, then press “Highlight selection”, or right-click › “Highlight (page notes)”.")]));
 
+  renderSummary();
+
   // don't overwrite what you are typing
   if (document.activeElement !== $("text")) $("text").value = note?.text || "";
   $("export").disabled = !note;
 }
+
+// Tiny Markdown: "- " / "* " lines become a list, the rest paragraphs; **bold** kept.
+function mdEl(text) {
+  const box = el("div", { class: "sum" });
+  let ul = null;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) { ul = null; continue; }
+    const bullet = line.match(/^[-*•]\s+(.*)$/);
+    const node = el(bullet ? "li" : "p");
+    (bullet ? bullet[1] : line).split(/\*\*(.+?)\*\*/g).forEach((part, i) => node.append(i % 2 ? el("b", {}, part) : part));
+    if (bullet) { if (!ul) box.append((ul = el("ul"))); ul.append(node); }
+    else { ul = null; box.append(node); }
+  }
+  return box;
+}
+
+function renderSummary() {
+  const s = note?.summary;
+  $("sum-hl").disabled = !(note?.highlights.length || note?.text.trim());
+  $("sum-meta").textContent = s ? `${s.source === "page" ? "of the page" : "from your highlights"} · ${stamp(s.at)}` : "";
+  $("sum-box").replaceChildren(...(s ? [mdEl(s.text), el("div", { class: "sum-tools" },
+    el("button", {
+      onclick: async () => {
+        const text = ($("text").value.trim() ? $("text").value.trim() + "\n\n" : "") + `${s.source === "page" ? "Summary" : "Key ideas"} (AI):\n${s.text}`;
+        $("text").value = text;
+        await setNoteText(tab, text);
+        msg("Added to your notes");
+      },
+    }, "Add to my notes"),
+    el("button", { onclick: () => navigator.clipboard.writeText(s.text).then(() => msg("Copied")) }, "Copy"),
+    el("button", { onclick: () => editNote(tab, (x) => delete x.summary) }, "Remove"))] : []));
+}
+
+async function summarise(source) {
+  if (!isWeb(tab)) return;
+  const btn = source === "page" ? $("sum-page") : $("sum-hl");
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "✦ Thinking…";
+  try {
+    let text = "";
+    if (source === "page") text = await inPage(tab, readPageText);
+    await summariseNote(tab, source, text, (m) => msg(m));
+    msg("");
+  } catch (e) {
+    msg(e.message || "The local AI couldn't summarise this.");
+  } finally {
+    btn.textContent = label;
+    btn.disabled = false;
+    renderSummary();
+  }
+}
+
+$("sum-hl").onclick = () => summarise("highlights");
+$("sum-page").onclick = () => summarise("page");
 
 function hlEl(hl) {
   const hex = HL_COLORS[hl.color] || HL_COLORS.yellow;

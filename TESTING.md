@@ -1,4 +1,4 @@
-# Tab Organiser v1.4: Chrome test checklist
+# Tab Organiser v1.5: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -89,6 +89,15 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5d.3 Chips "5 min / 15 min / 30 min / 1 hour" show only pages that fit; "include videos" adds videos.
 - [ ] 5d.4 Read a queued page for 2+ minutes: it leaves the queue (or press M on its row).
 - [ ] 5d.5 Weekly review shows **This week / This month / Still unread** with counts and ≈ reading time.
+
+## 5e. Notes v2: AI summaries (v1.5)
+
+- [ ] 5e.1 On a page with 3+ highlights, side panel → **✦ Key ideas from my highlights**: bullet points appear under Summary (the first time Chrome may download its summariser).
+- [ ] 5e.2 **✦ Summarise the page** gives a short summary of the whole article.
+- [ ] 5e.3 **Add to my notes** copies it into My notes; **Copy** and **Remove** work.
+- [ ] 5e.4 Library → Notes: the card shows the AI summary; **✦ Key ideas** / **Redo** works from there; **Export** includes it.
+- [ ] 5e.5 Ctrl+K finds a word that only appears in a summary.
+- [ ] 5e.6 Mind map: saved pages with notes show ✎ (hover shows the first highlight); annotated pages you never saved are in a **Notes** branch (double-click opens Notes).
 
 ## 6. Projects and research trails
 

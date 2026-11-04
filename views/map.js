@@ -24,6 +24,11 @@ function mapTree() {
   if (unsorted.length) top.push({ id: "c:" + UNSORTED, label: UNSORTED, kind: "col", path: UNSORTED, children: unsorted.map(pageNode), count: unsorted.length });
   const inbox = live.filter((it) => it.stage === "inbox");
   if (inbox.length) top.push({ id: "inbox", label: "Inbox", kind: "inbox", children: inbox.map(pageNode), count: inbox.length });
+  // annotated pages you never saved get their own branch
+  const saved = new Set(data.items.map((it) => pageKey(it.url)));
+  const loose = Object.values(data.notes).filter((n) => !saved.has(n.url) && noteHit(n, state.q))
+    .map((n) => ({ id: "n:" + n.url, title: n.title, url: n.url, favIconUrl: n.favIconUrl, type: "Other", path: "Notes", tags: [], why: n.highlights[0]?.text || "" }));
+  if (loose.length) top.push({ id: "c:__notes", label: "Notes", kind: "col", notes: true, path: "__notes", children: loose.map(pageNode), count: loose.length });
   return { id: "root", label: "Library", kind: "root", children: top, count: live.length };
 }
 
@@ -116,6 +121,14 @@ function nodeWidth(n) {
   return Math.max(70, (n.label.length + String(n.count).length) * 7.6 + 44);
 }
 
+// Tooltip lines for a page's notes: how many highlights, the first one, the summary.
+function noteTip(url) {
+  const n = data.notes[pageKey(url)];
+  if (!n) return "";
+  const first = n.highlights[0]?.text;
+  return `\n✎ ${n.highlights.length} highlight${n.highlights.length === 1 ? "" : "s"}${first ? `: “${first.slice(0, 90)}${first.length > 90 ? "…" : ""}”` : ""}${n.summary?.text ? "\n" + n.summary.text.slice(0, 160) : ""}`;
+}
+
 function nodeEl(n, toggle) {
   if (n.kind === "page") {
     const it = n.item;
@@ -124,18 +137,19 @@ function nodeEl(n, toggle) {
       class: `leaf${isDue(it) ? " due" : ""}${it.read ? " read" : ""}`, style: `--type:${MAP_COLORS[it.type]}`,
       transform: `translate(${n.x} ${n.y})`, onclick: () => window.open(it.url, "_blank"),
     },
-      svg("title", {}, `${it.title}\n${pathLabel(it.path)} · ${it.type}${it.why ? "\n" + it.why : ""}${it.tags?.length ? "\n#" + it.tags.join(" #") : ""}`),
+      svg("title", {}, `${it.title}\n${pathLabel(it.path)} · ${it.type}${it.why ? "\n" + it.why : ""}${it.tags?.length ? "\n#" + it.tags.join(" #") : ""}${noteTip(it.url)}`),
       svg("rect", { class: "leaf-bg", x: -2, y: -11, width: 22, height: 22, rx: 6 }),
       svg("image", { href: it.favIconUrl || faviconFor(it.url, 32), x: 1, y: -8, width: 16, height: 16 }),
       svg("circle", { class: "type-dot", cx: 20, cy: -9, r: 3.5 }),
-      svg("text", { x: 28, y: 4 }, label));
+      svg("text", { x: 28, y: 4 }, label),
+      data.notes[pageKey(it.url)] ? svg("text", { class: "has-note", x: 28 + label.length * 6.4 + 6, y: 4 }, "✎") : null);
   }
   const w = nodeWidth(n);
-  const cls = n.kind === "root" ? "root" : n.kind === "inbox" ? "topic inbox" : "topic";
+  const cls = n.kind === "root" ? "root" : n.kind === "inbox" ? "topic inbox" : n.notes ? "topic notes" : "topic";
   return svg("g", {
     class: cls, transform: `translate(${n.x} ${n.y})`,
     onclick: () => toggle(n),
-    ondblclick: () => (n.kind === "col" && n.path !== UNSORTED ? go("col", n.path) : n.kind === "inbox" ? go("inbox") : null),
+    ondblclick: () => (n.notes ? go("notes") : n.kind === "col" && n.path !== UNSORTED ? go("col", n.path) : n.kind === "inbox" ? go("inbox") : null),
   },
     svg("title", {}, n.kind === "col" ? `${pathLabel(n.path)} · double-click to open the list` : n.label),
     svg("rect", { x: 0, y: -14, width: w, height: 28, rx: 14 }),

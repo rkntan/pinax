@@ -1143,7 +1143,7 @@ async function editNote(page, fn) {
   if (page.favIconUrl) n.favIconUrl = page.favIconUrl;
   fn(n);
   n.updated = now;
-  if (!n.highlights.length && !n.text.trim()) delete notes[k];
+  if (!n.highlights.length && !n.text.trim() && !n.summary) delete notes[k]; // nothing left
   await setNotes(notes);
   return notes[k] || null;
 }
@@ -1182,11 +1182,12 @@ function noteMarkdown(n, heading = "##") {
     lines.push("");
   }
   if (n.text.trim()) lines.push(n.text.trim(), "");
+  if (n.summary?.text) lines.push(`**${n.summary.source === "page" ? "Summary" : "Key ideas"} (AI)**`, "", n.summary.text.trim(), "");
   return lines.join("\n");
 }
 
 function noteHit(n, q) {
-  return !q || [n.title, n.url, n.text, ...n.highlights.flatMap((x) => [x.text, x.comment])].join(" ").toLowerCase().includes(q);
+  return !q || [n.title, n.url, n.text, n.summary?.text || "", ...n.highlights.flatMap((x) => [x.text, x.comment])].join(" ").toLowerCase().includes(q);
 }
 
 // ---------- functions injected into pages (must be self-contained) ----------
@@ -1450,4 +1451,61 @@ function readingStats(items, now = Date.now()) {
     if (!it.read) { s.unread++; s.unreadMinutes += it.minutes || 0; }
   }
   return s;
+}
+
+// ---------- summaries of your notes (Chrome's built-in Summarizer, else the Prompt API) ----------
+// kind: "key-points" (key ideas as bullets) or "tldr" (a few sentences).
+
+// Pure: your highlights, their comments and your notes as one text to summarise.
+function highlightsText(n) {
+  const parts = (n?.highlights || []).map((x) => `- ${x.text}${x.comment ? ` (my comment: ${x.comment})` : ""}`);
+  if (n?.text?.trim()) parts.push("", "My notes:", n.text.trim());
+  return parts.join("\n");
+}
+
+async function aiSummary(text, kind = "key-points", context = "", onProgress) {
+  const input = String(text).slice(0, 12000);
+  if (typeof Summarizer !== "undefined") {
+    try {
+      const opts = { type: kind, format: "markdown", length: "medium", expectedInputLanguages: ["en"], outputLanguage: "en", sharedContext: context };
+      if ((await Summarizer.availability(opts)) !== "unavailable") {
+        const s = await Summarizer.create({
+          ...opts,
+          monitor(m) { m.addEventListener("downloadprogress", (e) => onProgress?.(`Downloading summariser… ${Math.round(e.loaded * 100)}%`)); },
+        });
+        const out = await s.summarize(input);
+        s.destroy?.();
+        return out.trim();
+      }
+    } catch (e) { console.warn("Summarizer failed, using the Prompt API", e); }
+  }
+  if ((await aiAvailability()) !== "available") throw new Error("No local AI available on this computer right now.");
+  const s = await aiSession();
+  const ask = kind === "key-points"
+    ? "List the 3-7 key ideas as short Markdown bullets (- ...). Use only what is in the text."
+    : "Summarise it in 2-3 plain sentences. Use only what is in the text.";
+  const out = await s.prompt(`${context ? context + "\n\n" : ""}${ask}\n\nText:\n${input.slice(0, 8000)}`);
+  s.destroy();
+  return out.trim();
+}
+
+// Summarises a page's highlights + notes (source "highlights") or given page text ("page"),
+// and keeps the result on the page's notes record.
+async function summariseNote(page, source = "highlights", pageText = "", onProgress) {
+  const n = await noteFor(page.url);
+  const text = source === "page" ? pageText : highlightsText(n);
+  if (!text.trim()) throw new Error(source === "page" ? "Couldn't read this page's text." : "No highlights or notes to summarise yet.");
+  const kind = source === "page" ? "tldr" : "key-points";
+  const context = source === "page"
+    ? `A web page titled "${page.title}".`
+    : `Passages a reader highlighted (and their own notes) from "${page.title || n?.title}".`;
+  const summary = await aiSummary(text, kind, context, onProgress);
+  await editNote(page, (x) => (x.summary = { text: summary, source, at: Date.now() }));
+  return summary;
+}
+
+// Injected into a page: its main text for a summary.
+function readPageText() {
+  const root = document.querySelector("article") || document.querySelector("main") || document.body;
+  return (root.innerText || "").replace(/\n{3,}/g, "\n\n").slice(0, 20000);
 }

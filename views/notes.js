@@ -37,10 +37,21 @@ function noteCard(n) {
       h("span", { class: "muted small" }, [hostOf(n.url), where, stamp(n.updated)].filter(Boolean).join(" · "))),
     n.highlights.length ? highlightsEl(n) : null,
     n.text.trim() ? h("div", { class: "note-text" }, n.text) : null,
+    n.summary?.text ? h("div", { class: "note-sum" },
+      h("div", { class: "muted small" }, h("span", { class: "ai-tag" }, "AI"), ` ${n.summary.source === "page" ? "Summary of the page" : "Key ideas from your highlights"} · ${stamp(n.summary.at)}`),
+      h("div", { class: "note-sum-text" }, n.summary.text)) : null,
     h("div", { class: "note-foot" },
       h("span", { class: "muted small" }, `${n.highlights.length} highlight${n.highlights.length === 1 ? "" : "s"}${n.text.trim() ? " · notes" : ""}`),
       h("span", { class: "spacer" }),
       h("button", { class: "btn", onclick: () => openWithNotes(n) }, "Open with notes"),
+      n.highlights.length || n.text.trim() ? h("button", {
+        class: "link small", title: "Key ideas from your highlights and notes (local AI)",
+        onclick: async (e) => {
+          e.target.disabled = true;
+          e.target.textContent = "✦ Thinking…";
+          try { await summariseNote(n, "highlights", "", flash); } catch (err) { flash(err.message); e.target.disabled = false; e.target.textContent = "✦ Key ideas"; }
+        },
+      }, n.summary ? "✦ Redo key ideas" : "✦ Key ideas") : null,
       it ? null : h("button", { class: "link small", onclick: () => saveForLater(n) }, "→ Inbox"),
       h("button", { class: "link small", onclick: () => downloadMd(n.title, noteMarkdown(n, "#")) }, "Export"),
       h("button", {

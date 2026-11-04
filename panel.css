@@ -34,3 +34,13 @@ h2 { font-size: 13px; }
 .check input { accent-color: var(--violet); margin: 0; }
 #msg { margin: 8px 0 0; min-height: 15px; }
 .off { opacity: 0.5; pointer-events: none; }
+
+.ai-tag { font: 700 9.5px var(--body); color: var(--violet); border: 1px solid var(--violet); border-radius: 4px; padding: 0 4px; vertical-align: 2px; margin-left: 4px; }
+.sum-btns { display: grid; gap: 6px; }
+.sum-btns .btn { font-size: 12px; padding: 6px 8px; justify-content: flex-start; }
+#sum-box:not(:empty) { margin-bottom: 10px; }
+.sum { font-size: 13px; line-height: 1.5; background: color-mix(in srgb, var(--lav) 60%, transparent); border-radius: 8px; padding: 8px 10px 8px 12px; }
+.sum ul { margin: 0; padding-left: 16px; }
+.sum p { margin: 0 0 6px; }
+.sum-tools { display: flex; gap: 10px; margin-top: 6px; font-size: 11.5px; }
+.sum-tools button { border: none; background: none; padding: 0; color: var(--violet); font-weight: 600; }

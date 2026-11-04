@@ -68,6 +68,10 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   you switch it on.
 - Library › **Notes** lists every annotated page; page details show their highlights; Ctrl+K
   and search look inside highlights and notes. Export one page or all as Markdown.
+- **AI summaries** (Chrome's built-in Summarizer, or Gemini Nano if that's missing): "Key ideas
+  from my highlights" (bullets from your highlights, comments and notes) or "Summarise the page".
+  Kept with the page, shown in Notes, searchable, included in exports; "Add to my notes" copies it.
+- Mind map: ✎ marks pages with notes; annotated pages you never saved sit in a "Notes" branch.
 - Pages are marked **read** after 2 minutes of real viewing (bold = unread, like mail).
 
 ## Phrasebook

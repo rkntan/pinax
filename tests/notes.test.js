@@ -60,3 +60,20 @@ test("migrateData v5 -> v6 moves Phrasebook quotes into page notes", () => {
   // running again changes nothing
   assert.deepEqual(plain(core.migrateData(out)), out);
 });
+
+test("highlightsText joins highlights, comments and notes for the summariser", () => {
+  const n = { highlights: [{ text: "A", comment: "" }, { text: "B", comment: "why" }], text: " mine \n" };
+  assert.equal(core.highlightsText(n), "- A\n- B (my comment: why)\n\nMy notes:\nmine");
+  assert.equal(core.highlightsText(null), "");
+});
+
+test("noteMarkdown ends with the AI key ideas; search finds summary text", () => {
+  const n = { title: "T", url: "https://a.test", highlights: [], text: "", summary: { text: "- idea one", source: "highlights" } };
+  assert.match(core.noteMarkdown(n), /\*\*Key ideas \(AI\)\*\*\n\n- idea one\n$/);
+  assert.match(core.noteMarkdown({ ...n, summary: { text: "Short.", source: "page" } }), /\*\*Summary \(AI\)\*\*/);
+  assert.equal(core.noteHit(n, "idea one"), true);
+});
+
+test("aiSummary says so when no local AI exists", async () => {
+  await assert.rejects(() => core.aiSummary("some text"), /No local AI/);
+});

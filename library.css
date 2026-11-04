@@ -330,3 +330,8 @@ a.title:hover { color: var(--violet); }
 .queue-next img { width: 22px; height: 22px; border-radius: 5px; }
 .queue-next .t { flex: 1; min-width: 0; }
 .queue-next .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.note-sum { background: color-mix(in srgb, var(--lav) 60%, transparent); border-radius: 8px; padding: 8px 10px; }
+.note-sum-text { white-space: pre-wrap; font-size: 13px; margin-top: 4px; }
+#map .leaf .has-note { font: 700 11px var(--body); fill: var(--violet); }
+#map .topic.notes rect { fill: color-mix(in srgb, var(--violet) 18%, var(--surface)); }
