@@ -18,9 +18,9 @@ Goal: make the core loop excellent before adding more:
 
 ## Next (reading)
 
-7. [ ] Reading time ("8 min") from the page text at save time.
-8. [ ] Reading queue: unread articles, shortest first.
-9. [ ] "Read this week / month" in the review.
+7. [x] Reading time ("8 min") from the page text at save time.
+8. [x] Reading queue: unread articles, shortest first.
+9. [x] "Read this week / month" in the review.
 10. [ ] Page notes v2: AI summary of your highlights (Chrome's built-in Summarizer),
     "key ideas", notes in Ctrl+K and the mind map.
 

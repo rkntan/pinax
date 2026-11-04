@@ -106,12 +106,14 @@ $("save").onclick = async () => {
   try {
     if (dest === "inbox") {
       const it = await saveForLater(tab, $("remind").value);
+      addStats(it.id, tab);
       msg(existing ? "Reminder updated" : "Saved to Inbox");
       if (!existing) it.sorted.then((p) => p?.path && p.path !== UNSORTED && msg(`Saved · AI suggests ${pathLabel(p.path)}`));
     } else if (dest === "collection") {
       const p = $("col-input").value.trim();
       if (!p) { msg("Type a collection first"); $("col-input").focus(); return; }
       const it = await saveForLater(tab);
+      addStats(it.id, tab);
       await keepItem(it.id, p);
       msg(`Saved in ${pathLabel(cleanPath(p))}`);
     } else {
@@ -225,7 +227,10 @@ $("all-inbox").onclick = async () => {
     if (!tabs.length) return msg("No web tabs to send");
     await addSession(tabs, "saved", `${tabs.length} tabs sent to Inbox`);
     // the AI sorts them one by one when the Library opens (not 30 at once here)
-    for (const t of tabs) await saveForLater(t, "", { sort: false });
+    for (const t of tabs) {
+      const it = await saveForLater(t, "", { sort: false });
+      addStats(it.id, t); // works where Chrome lets the extension read the tab
+    }
     await chrome.tabs.create({ url: chrome.runtime.getURL("library.html#inbox"), windowId: tab.windowId });
     await chrome.tabs.remove(tabs.map((t) => t.id));
   } finally {

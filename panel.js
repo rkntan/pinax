@@ -130,7 +130,8 @@ $("text").oninput = () => {
 
 $("save-inbox").onclick = async () => {
   if (!isWeb(tab)) return;
-  await saveForLater(tab);
+  const it = await saveForLater(tab);
+  addStats(it.id, tab);
   msg("Saved to Inbox");
   render();
 };

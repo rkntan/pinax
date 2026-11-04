@@ -1,4 +1,4 @@
-# Tab Organiser v1.3: Chrome test checklist
+# Tab Organiser v1.4: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -81,6 +81,14 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5c.4 Tick 3 rows: the dark bar shows "3 selected"; Keep here / Keep suggested / → Project / Read / Unread / Discard work.
 - [ ] 5c.5 Keys: J/K move the outline, X selects, E keeps (as suggested), # discards, O opens, M toggles read, * selects all, Esc clears.
 - [ ] 5c.6 **Keep all N as suggested** in the toolbar files every page into its AI suggestion.
+
+## 5d. Reading (v1.4)
+
+- [ ] 5d.1 Save a long article from the popup: its row shows "N min" (a YouTube video shows "N min video").
+- [ ] 5d.2 Library → **Reading queue**: unread pages shortest first, "Up next" card with **▶ Read now**; unknown lengths at the bottom; no courses.
+- [ ] 5d.3 Chips "5 min / 15 min / 30 min / 1 hour" show only pages that fit; "include videos" adds videos.
+- [ ] 5d.4 Read a queued page for 2+ minutes: it leaves the queue (or press M on its row).
+- [ ] 5d.5 Weekly review shows **This week / This month / Still unread** with counts and ≈ reading time.
 
 ## 6. Projects and research trails
 

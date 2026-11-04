@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const MAP_COLORS = { Course: "#8959ff", Video: "#ff5a5f", Tool: "#12b886", Article: "#f59f00", Docs: "#228be6", Paper: "#e64980", Other: "#868e96" };
 const PLURAL = { Course: "Courses", Video: "Videos", Tool: "Tools", Article: "Articles", Docs: "Docs", Paper: "Papers", Other: "Other" };
 
-const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), pkind: "vocab", lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null };
+const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), pkind: "vocab", lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false };
 const data = { items: [], cols: [], pins: [], projects: [], history: [], phrases: [], notes: {} };
 
 // Per-viewer UI prefs (layout, collapsed tree branches). Storage may be blocked: never required.

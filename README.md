@@ -52,6 +52,13 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - Keys: J/K move · X select · E keep · # discard · O open · M read/unread · * all · Esc clear.
 - Every bulk action can be undone (Undo button or Ctrl+Z).
 
+## Reading
+- Saved pages get a length when saved from an open tab: "8 min" (230 words/min) or "12 min video".
+  Pages saved without access are measured next time they load on a site you allowed.
+- Library › **Reading queue**: unread pages shortest first, "I have 5 / 15 / 30 min / 1 hour",
+  videos optional, courses left out; "Up next" opens the shortest.
+- The weekly review shows what you read and saved this week and this month.
+
 ## Page notes (highlights + your notes)
 - Select text → right-click **Highlight (page notes)**, or the **✎ Notes** button in the popup
   (opens Chrome's side panel next to the page). Pick a colour, add comments, write your own

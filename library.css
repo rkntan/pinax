@@ -319,3 +319,14 @@ a.title:hover { color: var(--violet); }
 .b-favs img { width: 16px; height: 16px; border-radius: 3px; }
 .b-act { display: flex; align-items: center; gap: 10px; }
 .keys-hint { margin: 10px 2px 0; }
+
+/* ---------- reading ---------- */
+.len { white-space: nowrap; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 620px; margin: 0 auto 16px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.stat b { font: 700 18px var(--head); }
+.queue-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.queue-next { background: var(--surface); border: 1px solid color-mix(in srgb, var(--violet) 40%, var(--line)); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.queue-next img { width: 22px; height: 22px; border-radius: 5px; }
+.queue-next .t { flex: 1; min-width: 0; }
+.queue-next .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

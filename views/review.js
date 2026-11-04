@@ -14,7 +14,23 @@ function viewReview() {
   const tabs = h("div", { class: "review-tabs" }, h("div", { class: "seg" },
     [["pages", `Pages ${pages.length}`], ["words", `Words ${words.length}`]].map(([v, l]) =>
       h("button", { class: state.rtab === v ? "on" : null, onclick: () => { state.rtab = v; render(); } }, l))));
-  return h("div", {}, tabs, state.rtab === "words" ? reviewWords(words) : reviewPages(pages, words.length));
+  return h("div", {}, statsEl(), tabs, state.rtab === "words" ? reviewWords(words) : reviewPages(pages, words.length));
+}
+
+// What you read and saved this week and this month.
+function statsEl() {
+  const s = readingStats(data.items);
+  const part = (label, read, minutes, saved) => h("div", { class: "stat" },
+    h("span", { class: "muted small" }, label),
+    h("b", {}, `${read} read`),
+    minutes ? h("span", { class: "small" }, `≈ ${fmtMinutes(minutes)}`) : null,
+    h("span", { class: "muted small" }, `${saved} saved`));
+  return h("div", { class: "stats" },
+    part("This week", s.weekRead, s.weekMinutes, s.weekSaved),
+    part("This month", s.monthRead, s.monthMinutes, s.monthSaved),
+    h("div", { class: "stat" }, h("span", { class: "muted small" }, "Still unread"), h("b", {}, String(s.unread)),
+      s.unreadMinutes ? h("span", { class: "small" }, `≈ ${fmtMinutes(s.unreadMinutes)}`) : null,
+      h("button", { class: "link small", onclick: () => go("queue") }, "Reading queue →")));
 }
 
 function reviewPages(queue, wordsLeft) {

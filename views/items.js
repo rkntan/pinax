@@ -89,6 +89,7 @@ function rowEl(it, pinned) {
         isDue(it) ? h("span", { class: "chip lime" }, "due") : null,
         it.remindAt && !isDue(it) ? h("span", { class: "small remind-on", title: "Reminder" }, shortWhen(it.remindAt)) : null,
         it.progress ? h("span", { class: "small muted" }, `${it.progress.done}/${it.progress.total}`) : null,
+        it.minutes ? h("span", { class: "small muted len", title: it.words ? `${it.words} words` : "video length" }, lengthLabel(it)) : null,
         state.view !== "col" || inbox
           ? h("button", {
               class: `chip path-chip${inbox ? " suggest" : ""}`,
@@ -266,7 +267,7 @@ function viewAll() {
 
 // Gmail-style keys in page lists (Inbox, All pages, collections).
 document.addEventListener("keydown", async (e) => {
-  if (!["inbox", "all", "col"].includes(state.view)) return;
+  if (!["inbox", "all", "col", "queue"].includes(state.view)) return;
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.matches("input, select, textarea") || document.querySelector(".quick-back")) return;
   const order = [...new Set(listOrder)];
   if (!order.length) return;

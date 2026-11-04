@@ -61,7 +61,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await saveForLater({ url: info.linkUrl, title: info.selectionText || info.linkUrl });
     toast("Saved for later", info.selectionText || info.linkUrl);
   } else if (info.menuItemId === "save-page" && tab) {
-    await saveForLater(tab);
+    addStats((await saveForLater(tab)).id, tab);
     toast("Saved for later", tab.title);
   } else if (info.menuItemId === "pin-site" && tab) {
     await pinSite({ url: tab.url, title: tab.title });
@@ -127,7 +127,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     return highlightSelection(tab);
   }
   if (command !== "save-page") return;
-  await saveForLater(tab);
+  addStats((await saveForLater(tab)).id, tab);
   toast("Saved for later", tab.title);
 });
 
@@ -392,4 +392,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
   if (!n?.highlights.length) return;
   if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
   inPage(tab, markHighlights, [markList(n)], false).catch(() => {});
+});
+
+// Saved pages without a length get measured the next time they load, where the extension
+// may read the site (sites you allowed for highlights, or "always show highlights").
+chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
+  if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
+  const it = (await getItems()).find((x) => x.url === tab.url && !x.minutes);
+  if (!it) return;
+  if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
+  addStats(it.id, tab);
 });

@@ -35,19 +35,20 @@ async function renderNow() {
   $("n-inbox").textContent = inbox || "";
   $("n-review").textContent = review || "";
   $("n-all").textContent = data.items.length || "";
+  $("n-queue").textContent = readingQueue(data.items).length || "";
   $("n-notes").textContent = Object.keys(data.notes).length || "";
   $("n-history").textContent = data.history.filter(isTemporary).length || "";
   $("n-phrases").textContent = data.phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length || "";
   document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
   document.querySelectorAll("#density button").forEach((b) => b.classList.toggle("on", b.dataset.d === prefs.get("density", "rows")));
-  $("density").style.visibility = ["inbox", "all", "col"].includes(state.view) ? "visible" : "hidden";
+  $("density").style.visibility = ["inbox", "all", "col", "queue"].includes(state.view) ? "visible" : "hidden";
 
   listOrder = [];
   renderPins();
   renderTree();
   renderProjects();
   reviewKeys = null;
-  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, notes: viewNotes, project: viewProject, phrases: viewPhrasebook };
+  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
   $("content").replaceChildren((views[state.view] || viewInbox)());
   if (keepFocus) $(keepFocus)?.focus();
@@ -144,7 +145,7 @@ function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const i = hash.indexOf(":");
   if (["col", "project", "ws"].includes(hash.slice(0, i))) [state.view, state.col] = [hash.slice(0, i).replace("ws", "project"), hash.slice(i + 1)];
-  else if (["inbox", "review", "all", "map", "history", "phrases", "notes"].includes(hash)) state.view = hash;
+  else if (["inbox", "review", "queue", "all", "map", "history", "phrases", "notes"].includes(hash)) state.view = hash;
   else if (hash === "sessions" || hash === "archive") state.view = "history"; // old links
 }
 // the popup reuses an open Library tab and just changes its #view

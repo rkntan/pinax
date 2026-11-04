@@ -1386,3 +1386,68 @@ async function markReadMany(ids, read = true) {
   items.forEach((it) => { if (set.has(it.id)) Object.assign(it, { read, readAt: read ? Date.now() : null }); });
   await setItems(items);
 }
+
+// ---------- reading: page length, queue, stats ----------
+
+const WORDS_PER_MIN = 230;
+
+// Injected into a page: words in the main text, or the length of a video (seconds).
+function readPageStats() {
+  const v = document.querySelector("video");
+  if (v && isFinite(v.duration) && v.duration > 30) return { video: Math.round(v.duration) };
+  const root = document.querySelector("article") || document.querySelector("main") || document.body;
+  return { words: ((root.innerText || "").match(/[\p{L}\p{N}]+/gu) || []).length };
+}
+
+// Pure: minutes for a page's stats (null if too short to count as an article).
+function minutesFor(stats) {
+  if (stats?.video) return Math.max(1, Math.round(stats.video / 60));
+  if (stats?.words >= 150) return Math.max(1, Math.round(stats.words / WORDS_PER_MIN));
+  return null;
+}
+
+function lengthLabel(it) {
+  return it.minutes ? `${it.minutes} min${it.video ? " video" : ""}` : "";
+}
+
+function fmtMinutes(m) {
+  if (m < 60) return `${m} min`;
+  const hrs = Math.floor(m / 60), rest = m % 60;
+  return rest ? `${hrs} h ${rest} min` : `${hrs} h`;
+}
+
+// Measures a saved page while it is open in `tab` (needs access to the page; fails quietly).
+async function addStats(itemId, tab) {
+  try {
+    const s = await inPage(tab, readPageStats, [], false);
+    const m = minutesFor(s);
+    if (m) await updateItem(itemId, { minutes: m, words: s.words || null, video: !!s.video });
+  } catch { /* Chrome pages, PDFs, no access */ }
+}
+
+// Pure: unread pages to read now, shortest first. budget = minutes you have (null = any);
+// pages of unknown length come last (and are left out when a budget is set).
+// Courses are left out (they take many sittings); videos only when asked.
+function readingQueue(items, { budget = null, videos = false } = {}) {
+  return items
+    .filter((it) => !it.read && it.type !== "Course")
+    .filter((it) => videos || !(it.type === "Video" || it.video))
+    .filter((it) => !budget || (it.minutes && it.minutes <= budget))
+    .sort((a, b) => (a.minutes || Infinity) - (b.minutes || Infinity) || b.created - a.created);
+}
+
+// Pure: what you read and saved this week (from Monday) and this month.
+function readingStats(items, now = Date.now()) {
+  const week = weekStart(now);
+  const d = new Date(now);
+  const month = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const s = { weekRead: 0, weekMinutes: 0, weekSaved: 0, monthRead: 0, monthMinutes: 0, monthSaved: 0, unread: 0, unreadMinutes: 0 };
+  for (const it of items) {
+    if (it.read && it.readAt >= month) { s.monthRead++; s.monthMinutes += it.minutes || 0; }
+    if (it.read && it.readAt >= week) { s.weekRead++; s.weekMinutes += it.minutes || 0; }
+    if (it.created >= month) s.monthSaved++;
+    if (it.created >= week) s.weekSaved++;
+    if (!it.read) { s.unread++; s.unreadMinutes += it.minutes || 0; }
+  }
+  return s;
+}
