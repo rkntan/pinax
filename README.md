@@ -1,4 +1,4 @@
-# Tab Organiser (local AI)
+# Tab Organiser
 
 Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, runs on your laptop), save pages for later with reminders, and never lose closed tabs.
 
@@ -60,6 +60,9 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - The weekly review shows what you read and saved this week and this month.
 
 ## Page notes (highlights + your notes)
+- **Highlighter pen**: side panel → Highlighter; while it's on, every text you select on the page
+  is highlighted at once (Esc stops). Click a highlight on the page for a bar: colour, comment,
+  copy, delete. The eye icon shows your highlights again. The popup header has a side-panel button.
 - Select text → right-click **Highlight (page notes)**, or the **✎ Notes** button in the popup
   (opens Chrome's side panel next to the page). Pick a colour, add comments, write your own
   notes (saved as you type). Long selections saved with Alt+Shift+W become highlights too.

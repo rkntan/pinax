@@ -197,7 +197,7 @@ async function showPinStar() {
   $("pin-cur").title = on ? "Unpin" : "Pin to dock";
 }
 
-$("notes-cur").onclick = () => {
+$("open-panel").onclick = () => {
   chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {}); // must run right after the click
   window.close();
 };

@@ -1,4 +1,4 @@
-# Tab Organiser v1.5: Chrome test checklist
+# Tab Organiser v1.6: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -72,6 +72,16 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5b.8 Old Phrasebook quotes (if you had any) now appear as highlights in Notes.
 - [ ] 5b.9 Save a page to the Inbox: its row is **bold** (unread). Read it for 2+ minutes in the front tab: the row turns normal (read). Tick/untick **Read** in its details.
 - [ ] 5b.10 Popup **All tabs → Inbox**: every tab is saved, the window shows the Inbox, and History has a "N tabs sent to Inbox" snapshot.
+
+## 5a. Highlighter pen (v1.6)
+
+- [ ] 5a.1 The extension is called **Tab Organiser** (no "(local AI)") in chrome://extensions and the side panel menu.
+- [ ] 5a.2 Popup header: the side-panel icon (next to Library) opens the notes panel.
+- [ ] 5a.3 Panel → **Highlighter**: Chrome may ask for this site once; a dark "Highlighter on" badge appears top right on the page.
+- [ ] 5a.4 Select text with the mouse: it turns into a highlight at once (colour from the panel dots); change the colour dot while the pen is on and select again.
+- [ ] 5a.5 Click a highlight on the page: a dark bar with 4 colours, Comment, Copy, Delete; each works and the panel list updates.
+- [ ] 5a.6 Esc (or clicking the badge, or the panel button) turns the pen off.
+- [ ] 5a.7 The eye icon in the panel shows the highlights again after a page reload.
 
 ## 5c. Inbox triage (v1.3)
 

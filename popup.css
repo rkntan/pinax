@@ -108,3 +108,5 @@ footer { display: flex; align-items: center; gap: 8px; padding: 2px 14px 12px; m
 .bell-menu button.on { font-weight: 700; color: var(--violet); }
 .bell-menu .clear { color: var(--muted); border-top: 1px solid var(--line); border-radius: 0 0 7px 7px; margin-top: 2px; }
 .msg { margin: 0 14px 12px; min-height: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-head { width: 30px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; color: var(--ink); padding: 0; }
+.icon-head:hover { border-color: var(--violet); color: var(--violet); }

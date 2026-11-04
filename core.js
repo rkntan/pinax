@@ -1509,3 +1509,136 @@ function readPageText() {
   const root = document.querySelector("article") || document.querySelector("main") || document.body;
   return (root.innerText || "").replace(/\n{3,}/g, "\n\n").slice(0, 20000);
 }
+
+// ---------- highlighter pen and on-page highlight tools (injected, self-contained) ----------
+
+// Pen mode: while on, any text you select in the page becomes a highlight. Esc (or the
+// badge, or the panel) turns it off. Calling it again just changes the colour.
+function startPen(colorName, colorHex) {
+  const S = (window.__toPen ||= { on: false });
+  S.color = colorName;
+  if (S.on) {
+    S.badge?.shadowRoot?.querySelector(".dot")?.style.setProperty("background", colorHex);
+    return true;
+  }
+  S.on = true;
+  const norm = (s) => s.replace(/\s+/g, " ");
+  const grab = () => {
+    const sel = getSelection();
+    if (!S.on || !sel || sel.isCollapsed || !sel.rangeCount) return;
+    if (sel.anchorNode?.parentElement?.closest("#__to-ui, #__to-pen")) return;
+    const r = sel.getRangeAt(0);
+    const text = norm(sel.toString()).trim();
+    if (text.length < 2) return;
+    const before = document.createRange();
+    before.setStart(document.body, 0);
+    before.setEnd(r.startContainer, r.startOffset);
+    const after = document.createRange();
+    after.setStart(r.endContainer, r.endOffset);
+    after.setEnd(document.body, document.body.childNodes.length);
+    chrome.runtime.sendMessage({
+      type: "pen-highlight",
+      data: { text, prefix: norm(before.toString()).slice(-48), suffix: norm(after.toString()).slice(0, 48), color: S.color },
+    });
+    sel.removeAllRanges();
+  };
+  S.up = () => setTimeout(grab, 10);
+  S.key = (e) => { if (e.key === "Escape") S.stop(); };
+  S.stop = () => {
+    S.on = false;
+    document.removeEventListener("mouseup", S.up, true);
+    document.removeEventListener("keydown", S.key, true);
+    S.badge?.remove();
+    chrome.runtime.sendMessage({ type: "pen-off" });
+  };
+  document.addEventListener("mouseup", S.up, true);
+  document.addEventListener("keydown", S.key, true);
+
+  const badge = document.createElement("div");
+  badge.id = "__to-pen";
+  badge.style.cssText = "position:fixed;top:12px;right:12px;z-index:2147483647;";
+  badge.attachShadow({ mode: "open" }).innerHTML = `<style>
+    button{display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:7px 12px;background:#130537;color:#fff;
+      font:600 12px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
+    .dot{width:10px;height:10px;border-radius:50%;background:${colorHex}}
+    span.k{opacity:.6;font-weight:500}</style>
+    <button title="Stop highlighting"><i class="dot"></i>Highlighter on · select text <span class="k">Esc to stop</span></button>`;
+  badge.shadowRoot.querySelector("button").onclick = () => S.stop();
+  document.documentElement.append(badge);
+  S.badge = badge;
+  grab(); // text already selected when the pen was picked up
+  return true;
+}
+
+function stopPen() {
+  window.__toPen?.on && window.__toPen.stop();
+  return false;
+}
+
+function penIsOn() {
+  return !!window.__toPen?.on;
+}
+
+// Click a highlight in the page: a small bar to recolour, comment on or delete it.
+function installMarkTools() {
+  if (window.__toTools) return true;
+  window.__toTools = true;
+  const host = document.createElement("div");
+  host.id = "__to-ui";
+  host.style.cssText = "position:absolute;top:0;left:0;z-index:2147483647;";
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `<style>
+    .bar{position:absolute;display:flex;gap:6px;align-items:center;background:#130537;padding:6px 8px;border-radius:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.3);font:600 12px system-ui,sans-serif;white-space:nowrap}
+    .bar[hidden]{display:none}
+    .c{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.7);padding:0;cursor:pointer}
+    .t{border:0;background:none;color:#fff;cursor:pointer;padding:2px 4px;font:inherit}
+    .t:hover{color:#c7ff01}
+    .sep{width:1px;height:16px;background:rgba(255,255,255,.25)}</style>
+    <div class="bar" hidden>
+      <button class="c" data-c="yellow" style="background:#ffe066" title="Yellow"></button>
+      <button class="c" data-c="green" style="background:#b2f2bb" title="Green"></button>
+      <button class="c" data-c="blue" style="background:#a5d8ff" title="Blue"></button>
+      <button class="c" data-c="pink" style="background:#fcc2d7" title="Pink"></button>
+      <span class="sep"></span>
+      <button class="t" data-a="comment">Comment</button>
+      <button class="t" data-a="copy">Copy</button>
+      <button class="t" data-a="delete">Delete</button>
+    </div>`;
+  document.documentElement.append(host);
+  const bar = root.querySelector(".bar");
+  let current = null;
+  document.addEventListener("click", (e) => {
+    if (e.composedPath().includes(host)) return;
+    const m = e.target.closest?.("mark[data-tohl]");
+    if (!m || e.ctrlKey || e.metaKey || String(getSelection())) { bar.hidden = true; return; }
+    e.preventDefault(); // a highlight inside a link: show the tools instead of following it
+    e.stopPropagation();
+    current = m;
+    const r = m.getBoundingClientRect();
+    bar.hidden = false;
+    bar.style.left = `${Math.max(4, window.scrollX + r.left)}px`;
+    bar.style.top = `${Math.max(4, window.scrollY + r.top - 42)}px`;
+  }, true);
+  bar.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || !current) return;
+    const id = current.dataset.tohl;
+    if (b.dataset.c) chrome.runtime.sendMessage({ type: "pen-color", id, color: b.dataset.c });
+    else if (b.dataset.a === "delete") chrome.runtime.sendMessage({ type: "pen-delete", id });
+    else if (b.dataset.a === "copy") navigator.clipboard.writeText([...document.querySelectorAll(`mark[data-tohl="${id}"]`)].map((x) => x.textContent).join(""));
+    else if (b.dataset.a === "comment") {
+      const t = prompt("Comment on this highlight:", current.title || "");
+      if (t !== null) chrome.runtime.sendMessage({ type: "pen-comment", id, comment: t.trim() });
+    }
+    bar.hidden = true;
+  });
+  return true;
+}
+
+// Shows the page's highlights and their tools (background and panel use this).
+async function remark(tab, scrollTo = null, askAccess = false) {
+  const n = await noteFor(tab.url);
+  await inPage(tab, installMarkTools, [], askAccess);
+  return inPage(tab, markHighlights, [markList(n), scrollTo], false);
+}

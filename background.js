@@ -379,8 +379,7 @@ async function highlightSelection(tab, fallbackText = "") {
   if (!got?.text) got = { text: fallbackText, prefix: "", suffix: "" };
   if (!got.text) return toast("Nothing selected", "Select some text first.");
   await addHighlight(tab, got);
-  const n = await noteFor(tab.url);
-  inPage(tab, markHighlights, [markList(n)], false).catch(() => {});
+  remark(tab).catch(() => {});
 }
 
 // With "always show highlights" on (and site access given), mark them when a page loads.
@@ -391,7 +390,20 @@ chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
   const n = await noteFor(tab.url);
   if (!n?.highlights.length) return;
   if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
-  inPage(tab, markHighlights, [markList(n)], false).catch(() => {});
+  remark(tab).catch(() => {});
+});
+
+// The highlighter pen and the bar on highlights talk to the extension through messages.
+chrome.runtime.onMessage.addListener((m, sender) => {
+  const tab = sender.tab;
+  if (!tab || !/^pen-/.test(m?.type || "") || m.type === "pen-off") return;
+  (async () => {
+    if (m.type === "pen-highlight") await addHighlight(tab, m.data);
+    else if (m.type === "pen-delete") await deleteHighlight(tab.url, m.id);
+    else if (m.type === "pen-color") await updateHighlight(tab.url, m.id, { color: m.color });
+    else if (m.type === "pen-comment") await updateHighlight(tab.url, m.id, { comment: m.comment });
+    await remark(tab);
+  })().catch((e) => console.warn("pen", e));
 });
 
 // Saved pages without a length get measured the next time they load, where the extension

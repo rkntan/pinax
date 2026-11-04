@@ -9,6 +9,7 @@ let note = null;     // its notes record (or null)
 let color = "yellow";
 let editing = null;  // highlight id whose comment is being edited
 let saveTimer = null;
+let penTab = null;   // tab where the highlighter pen is on
 
 const isWeb = (t) => t && /^https?:/.test(t.url || "");
 
@@ -55,12 +56,16 @@ function render() {
   document.querySelectorAll(".bar, .colors, section").forEach((s) => s.classList.toggle("off", !web));
 
   $("colors").replaceChildren(...Object.entries(HL_COLORS).map(([name, hex]) =>
-    el("button", { class: name === color ? "on" : null, title: name, style: `background:${hex}`, onclick: () => { color = name; render(); } })));
+    el("button", {
+      class: name === color ? "on" : null, title: name, style: `background:${hex}`,
+      onclick: () => { color = name; if (penTab === tab?.id) inPage(tab, startPen, [color, hex], false).catch(() => {}); render(); },
+    })));
+  $("pen-btn").classList.toggle("on", !!tab && penTab === tab.id);
 
   const hls = note?.highlights || [];
   $("hl-count").textContent = hls.length ? String(hls.length) : "";
   $("hl-list").replaceChildren(...(hls.length ? hls.map(hlEl) : [el("p", { class: "empty" },
-    "Select text on the page, then press “Highlight selection”, or right-click › “Highlight (page notes)”.")]));
+    "Press “Highlighter”, then select text on the page: it is highlighted at once. Click a highlight on the page to recolour, comment or delete it.")]));
 
   renderSummary();
 
@@ -152,7 +157,7 @@ async function showOnPage(scrollTo = null, ask = true) {
   if (!isWeb(tab)) return;
   try {
     const n = await noteFor(tab.url);
-    const found = await inPage(tab, markHighlights, [markList(n), scrollTo], ask);
+    const found = await remark(tab, scrollTo, ask);
     const total = n?.highlights.length || 0;
     if (ask) msg(total ? `${found} of ${total} highlight${total > 1 ? "s" : ""} found on the page` : "No highlights yet");
   } catch (e) {
@@ -160,18 +165,30 @@ async function showOnPage(scrollTo = null, ask = true) {
   }
 }
 
-$("hl-btn").onclick = async () => {
+// Highlighter pen: on = every selection in the page becomes a highlight.
+$("pen-btn").onclick = async () => {
   if (!isWeb(tab)) return;
   try {
-    const got = await inPage(tab, readHighlight);
-    if (!got?.text) return msg("Select some text on the page first.");
-    await addHighlight(tab, { ...got, color });
-    msg("Highlighted");
-    showOnPage(null, false);
+    if (penTab === tab.id) {
+      await inPage(tab, stopPen, [], false);
+      penTab = null;
+      msg("Highlighter off");
+    } else {
+      await remark(tab, null, true); // asks for this site once, shows existing highlights
+      await inPage(tab, startPen, [color, HL_COLORS[color]], false);
+      penTab = tab.id;
+      msg("Select text on the page to highlight it · Esc stops");
+    }
   } catch (e) {
-    msg("Can't read this page. Try right-click › “Highlight (page notes)”.");
+    msg("This page can't be highlighted (Chrome pages, PDFs and the Web Store block extensions).");
   }
+  render();
 };
+
+// the pen was turned off on the page (Esc or its badge), or the page navigated
+chrome.runtime.onMessage.addListener((m, sender) => {
+  if (m?.type === "pen-off" && sender.tab?.id === penTab) { penTab = null; render(); }
+});
 
 $("show-btn").onclick = () => showOnPage();
 
@@ -220,7 +237,10 @@ $("auto").onchange = async (e) => {
 
 // follow the active tab and live changes
 chrome.tabs.onActivated.addListener(load);
-chrome.tabs.onUpdated.addListener((id, change) => { if (id === tab?.id && (change.status === "complete" || change.title)) load(); });
+chrome.tabs.onUpdated.addListener((id, change) => {
+  if (id === penTab && change.status === "loading") penTab = null; // a new page starts without the pen
+  if (id === tab?.id && (change.status === "complete" || change.title)) load();
+});
 chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) load(); });
 chrome.storage.onChanged.addListener(async (c) => {
   if (c.notes && isWeb(tab)) { note = await noteFor(tab.url); render(); }
