@@ -418,3 +418,39 @@ chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
   if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
   addStats(it.id, tab);
 });
+
+// ---------- the page dock and reading position ----------
+
+chrome.runtime.onMessage.addListener((m, sender, reply) => {
+  const tab = sender.tab;
+  if (!tab || !/^(dock-|read-pos|pen-off)/.test(m?.type || "")) return;
+  if (m.type === "dock-panel") {
+    chrome.sidePanel.open({ tabId: tab.id }).catch((e) => console.warn("side panel", e)); // right after the click
+    return;
+  }
+  (async () => {
+    if (m.type === "pen-off") return chrome.tabs.sendMessage(tab.id, { type: "pen-state", on: false }).catch(() => {});
+    if (m.type === "dock-get") return reply({ text: (await noteFor(tab.url))?.text || "" });
+    if (m.type === "dock-note") { await setNoteText(tab, m.text); return reply({ ok: true }); }
+    if (m.type === "dock-show") return remark(tab).catch(() => {});
+    if (m.type === "dock-pen") {
+      const on = await inPage(tab, penIsOn, [], false);
+      if (on) await inPage(tab, stopPen, [], false);
+      else await inPage(tab, startPen, ["yellow", HL_COLORS.yellow], false);
+      chrome.runtime.sendMessage({ type: "pen-changed", tabId: tab.id }).catch(() => {}); // the side panel re-reads it
+      return reply({ on: !on });
+    }
+    if (m.type === "dock-hide-site") {
+      const { dockHidden = [] } = await chrome.storage.local.get("dockHidden");
+      const origin = new URL(tab.url).origin;
+      if (!dockHidden.includes(origin)) await chrome.storage.local.set({ dockHidden: [...dockHidden, origin] });
+      return;
+    }
+    if (m.type === "dock-pos") return chrome.storage.local.set({ dockY: m.y });
+    if (m.type === "read-pos") {
+      const it = (await getItems()).find((x) => pageKey(x.url) === pageKey(tab.url));
+      if (it) await updateItem(it.id, { pos: { pct: m.pct, at: Date.now() } });
+    }
+  })().catch((e) => console.warn("dock", e));
+  return ["dock-get", "dock-note", "dock-pen"].includes(m.type); // these answer
+});

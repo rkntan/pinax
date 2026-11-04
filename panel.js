@@ -221,10 +221,11 @@ $("pen-btn").onclick = () => {
       if (await inPage(t, penIsOn, [], false)) {
         await inPage(t, stopPen, [], false);
       } else {
-        await remark(t, null, false); // shows existing highlights and their tools
+        await remark(t, null, false, true); // shows existing highlights, their tools and the dock
         await inPage(t, startPen, [color, HL_COLORS[color]], false);
       }
       penTab = (await inPage(t, penIsOn, [], false)) ? t.id : null; // what the page says
+      chrome.tabs.sendMessage(t.id, { type: "pen-state", on: !!penTab }).catch(() => {}); // the dock's pen button
       msg(penTab ? "Select text on the page to highlight it · Esc or the badge stops" : "Highlighter off");
     } catch (e) {
       penTab = null;
@@ -245,6 +246,7 @@ document.addEventListener("keydown", (e) => {
 // the pen was turned off on the page (Esc or its badge), or the page navigated
 chrome.runtime.onMessage.addListener((m, sender) => {
   if (m?.type === "pen-off" && sender.tab?.id === penTab) { penTab = null; render(); }
+  if (m?.type === "pen-changed" && m.tabId === tab?.id) syncPen(); // turned on/off from the page dock
 });
 
 $("show-btn").onclick = () => { if (!blocked(tab)) showOnPage(null, askSite(tab)); };

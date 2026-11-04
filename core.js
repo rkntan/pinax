@@ -1639,16 +1639,23 @@ function installMarkTools() {
   return true;
 }
 
-// Puts the selection bubble and the highlight bar into a page we may access.
-async function pageTools(tab, askAccess = false) {
+// Puts the selection bubble, the highlight bar and the dock into a page we may access.
+// used: you just used the extension on this page (icon, panel, bubble), so the dock shows.
+async function pageTools(tab, askAccess = false, used = false) {
   await inPage(tab, installBubble, [], askAccess);
   await inPage(tab, installMarkTools, [], false);
+  const [items, n, prefs] = await Promise.all([getItems(), noteFor(tab.url), chrome.storage.local.get(["dockHidden", "dockY"])]);
+  const cfg = dockConfig({
+    item: items.find((x) => pageKey(x.url) === pageKey(tab.url)) || null,
+    note: n, used, hiddenSites: prefs.dockHidden || [], origin: new URL(tab.url).origin, y: prefs.dockY ?? 40,
+  });
+  await inPage(tab, installDock, [cfg], false);
 }
 
 // Shows the page's highlights and their tools (background and panel use this).
-async function remark(tab, scrollTo = null, askAccess = false) {
+async function remark(tab, scrollTo = null, askAccess = false, used = false) {
   const n = await noteFor(tab.url);
-  await pageTools(tab, askAccess);
+  await pageTools(tab, askAccess, used);
   return inPage(tab, markHighlights, [markList(n), scrollTo], false);
 }
 
@@ -1814,4 +1821,201 @@ function installBubble() {
   }
   window.__toBubble = { teardown };
   return !dead;
+}
+
+// ---------- page dock, note card, continue reading ----------
+
+// Pure: where to pick up a saved page again (null if not started, finished, or too old).
+function resumePct(item, now = Date.now()) {
+  const p = item?.pos;
+  if (!p || item.read || p.pct < 5 || p.pct > 95 || now - p.at > 30 * 864e5) return null;
+  return Math.round(p.pct);
+}
+
+// Pure: what the dock should do on a page.
+function dockConfig({ item = null, note = null, used = false, hiddenSites = [], origin = "", y = 40 } = {}) {
+  const hasNotes = !!(note && (note.highlights?.length || note.text?.trim()));
+  return {
+    show: (hasNotes || used || !!item) && !hiddenSites.includes(origin),
+    y: Math.max(10, Math.min(85, y)),
+    resume: resumePct(item),
+    track: !!item, // remember how far you read saved pages
+  };
+}
+
+// Injected: the dock on the page edge (highlighter, note card, show/hide highlights, side
+// panel, ⋯ hide on this site), the "Continue at N%" pill and reading-position tracking.
+function installDock(cfg) {
+  window.__toDock?.teardown?.();
+  const send = (m) => { try { return chrome.runtime.sendMessage(m) || Promise.resolve(); } catch { teardown(); return Promise.resolve(); } };
+  const cleanups = [];
+
+  // reading position (saved pages only), at most every 2 s
+  if (cfg.track) {
+    let last = 0, timer = null;
+    const onScroll = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const max = document.documentElement.scrollHeight - innerHeight;
+        if (max < 400) return;
+        const pct = Math.round((scrollY / max) * 100);
+        if (Math.abs(pct - last) < 3) return;
+        last = pct;
+        send({ type: "read-pos", pct });
+      }, 2000);
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+    cleanups.push(() => removeEventListener("scroll", onScroll));
+  }
+
+  if (!cfg.show && !cfg.resume) {
+    window.__toDock = { teardown };
+    return true;
+  }
+
+  const I = {
+    pen: '<path d="m15.2 4.3 4.5 4.5L9 19.5l-5.3.8.8-5.3L15.2 4.3Zm1.4-1.4 1.6-1.6a1.5 1.5 0 0 1 2.1 0l2.4 2.4a1.5 1.5 0 0 1 0 2.1l-1.6 1.6-4.5-4.5Z"/>',
+    note: '<path d="M5 3h10l4 4v14H5V3Zm2 2v14h10V8h-3V5H7Zm2 6h6v2H9v-2Zm0 4h6v2H9v-2Z"/>',
+    eye: '<path d="M12 5C6.5 5 2.7 9.4 1.6 11.4a1.3 1.3 0 0 0 0 1.2C2.7 14.6 6.5 19 12 19s9.3-4.4 10.4-6.4a1.3 1.3 0 0 0 0-1.2C21.3 9.4 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>',
+    panel: '<path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13ZM5.5 5a.5.5 0 0 0-.5.5v13c0 .3.2.5.5.5H13V5H5.5ZM15 5v14h3.5c.3 0 .5-.2.5-.5v-13a.5.5 0 0 0-.5-.5H15Z"/>',
+    more: '<path d="M6 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm8 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm8 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/>',
+  };
+  const icon = (k) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">${I[k]}</svg>`;
+
+  const host = document.createElement("div");
+  host.id = "__to-dock";
+  host.style.cssText = "position:fixed;top:0;right:0;z-index:2147483646;";
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `<style>
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .dock{position:fixed;right:0;display:flex;flex-direction:column;gap:2px;padding:6px 4px;background:#130537;color:#fff;
+      border-radius:12px 0 0 12px;box-shadow:0 8px 24px rgba(19,5,55,.25);transform:translateX(calc(100% - 7px));transition:transform .15s ease}
+    .dock:hover,.dock.open{transform:none}
+    .grip{height:10px;cursor:grab;display:grid;place-items:center}
+    .grip::before{content:"";width:16px;height:3px;border-radius:2px;background:rgba(255,255,255,.3)}
+    button{width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:#fff;cursor:pointer;padding:0}
+    button:hover{background:rgba(255,255,255,.1);color:#c7ff01}
+    button.on{background:#8959ff;color:#fff}
+    .menu{position:fixed;right:46px;background:#130537;border-radius:10px;padding:4px;box-shadow:0 8px 24px rgba(19,5,55,.25)}
+    .menu[hidden],.card[hidden],.pill[hidden]{display:none}
+    .menu button{width:auto;height:auto;padding:8px 10px;font:600 12px/1 inherit;white-space:nowrap}
+    .card{position:fixed;right:52px;width:300px;background:#fff;color:#130537;border-radius:12px;box-shadow:0 14px 40px rgba(19,5,55,.25);
+      border-top:4px solid #8959ff;padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+    .card .h{display:flex;align-items:center;gap:8px;font:700 13px/1 inherit}
+    .card .h span{flex:1}
+    .card .h small{font:500 11px/1 inherit;color:rgba(19,5,55,.55)}
+    .card .h button{width:24px;height:24px;color:rgba(19,5,55,.6)}
+    .card .h button:hover{background:#ece9ff;color:#130537}
+    textarea{width:100%;min-height:150px;resize:vertical;border:1px solid rgba(19,5,55,.15);border-radius:8px;padding:8px 10px;
+      font:13px/1.5 inherit;color:#130537;background:#fafaf7;outline:none}
+    textarea:focus{border-color:#8959ff;background:#fff}
+    .pill{position:fixed;right:16px;bottom:18px;display:flex;align-items:center;gap:8px;background:#130537;color:#fff;border-radius:999px;
+      padding:8px 8px 8px 14px;box-shadow:0 8px 24px rgba(19,5,55,.25);font:600 12px/1 inherit}
+    .pill button{width:auto;height:auto;padding:5px 10px;border-radius:999px;background:#8959ff;font:600 12px/1 inherit}
+    .pill .x{background:none;padding:4px 6px;color:rgba(255,255,255,.6)}</style>
+    <div class="dock" role="toolbar" aria-label="Page notes">
+      <div class="grip" title="Drag up or down"></div>
+      <button data-a="pen" title="Highlighter: select text to highlight (Esc stops)">${icon("pen")}</button>
+      <button data-a="note" title="Notes for this page">${icon("note")}</button>
+      <button data-a="eye" title="Show / hide my highlights" class="on">${icon("eye")}</button>
+      <button data-a="panel" title="Open the side panel (summary, all highlights)">${icon("panel")}</button>
+      <button data-a="more" title="More">${icon("more")}</button>
+    </div>
+    <div class="menu" hidden><button data-a="hide-site">Hide the dock on this site</button></div>
+    <div class="card" hidden>
+      <div class="h"><span>Notes</span><small class="st"></small><button data-a="close" title="Close" aria-label="Close">✕</button></div>
+      <textarea placeholder="Your notes for this page… saved as you type"></textarea>
+    </div>
+    <div class="pill" hidden><span class="pt"></span><button data-a="resume">Continue</button><button class="x" data-a="pill-x" aria-label="Dismiss">✕</button></div>`;
+  document.documentElement.append(host);
+  const $ = (s) => root.querySelector(s);
+  const dock = $(".dock"), card = $(".card"), menu = $(".menu"), area = $("textarea"), pill = $(".pill");
+  if (!cfg.show) dock.hidden = true;
+
+  let y = cfg.y; // % of the window height
+  const placeAll = () => {
+    dock.style.top = `${y}%`;
+    const top = dock.getBoundingClientRect().top;
+    card.style.top = `${Math.max(12, Math.min(top, innerHeight - 260))}px`;
+    menu.style.top = `${top + 150}px`;
+  };
+  placeAll();
+
+  // drag the dock up / down
+  const grip = $(".grip");
+  grip.addEventListener("pointerdown", (e) => {
+    grip.setPointerCapture(e.pointerId);
+    const move = (ev) => { y = Math.max(10, Math.min(85, (ev.clientY / innerHeight) * 100)); placeAll(); };
+    const up = () => { grip.removeEventListener("pointermove", move); send({ type: "dock-pos", y: Math.round(y) }); };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up, { once: true });
+  });
+
+  // note card: same notes as the side panel
+  let saveT = null;
+  area.addEventListener("input", () => {
+    $(".st").textContent = "…";
+    clearTimeout(saveT);
+    saveT = setTimeout(() => send({ type: "dock-note", text: area.value }).then(() => ($(".st").textContent = "saved")), 500);
+  });
+  area.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") card.hidden = true; });
+
+  const unmark = () => document.querySelectorAll("mark[data-tohl]").forEach((m) => { const p = m.parentNode; m.replaceWith(...m.childNodes); p.normalize(); });
+
+  root.addEventListener("click", async (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const a = b.dataset.a;
+    if (a === "pen") {
+      const r = await send({ type: "dock-pen" });
+      b.classList.toggle("on", !!r?.on);
+    } else if (a === "note") {
+      if (!card.hidden) { card.hidden = true; dock.classList.remove("open"); return; }
+      const r = await send({ type: "dock-get" });
+      area.value = r?.text || "";
+      $(".st").textContent = "";
+      card.hidden = false;
+      dock.classList.add("open");
+      placeAll();
+      area.focus();
+    } else if (a === "close") {
+      card.hidden = true;
+      dock.classList.remove("open");
+    } else if (a === "eye") {
+      const on = !b.classList.contains("on");
+      b.classList.toggle("on", on);
+      if (on) send({ type: "dock-show" }); else unmark();
+    } else if (a === "panel") {
+      send({ type: "dock-panel" });
+    } else if (a === "more") {
+      menu.hidden = !menu.hidden;
+    } else if (a === "hide-site") {
+      send({ type: "dock-hide-site" });
+      dock.hidden = true;
+      menu.hidden = true;
+      card.hidden = true;
+    } else if (a === "resume") {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      scrollTo({ top: (max * cfg.resume) / 100, behavior: "smooth" });
+      pill.hidden = true;
+    } else if (a === "pill-x") {
+      pill.hidden = true;
+    }
+  });
+
+  if (cfg.resume) {
+    $(".pt").textContent = `You read ${cfg.resume}% of this`;
+    pill.hidden = false;
+    setTimeout(() => (pill.hidden = true), 15000);
+  }
+
+  const onPenOff = (m) => { if (m?.type === "pen-state") $('[data-a="pen"]').classList.toggle("on", !!m.on); };
+  try { chrome.runtime.onMessage.addListener(onPenOff); cleanups.push(() => chrome.runtime.onMessage.removeListener(onPenOff)); } catch {}
+
+  function teardown() {
+    cleanups.forEach((f) => { try { f(); } catch {} });
+    host.remove();
+  }
+  window.__toDock = { teardown };
+  return true;
 }

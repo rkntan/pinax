@@ -19,16 +19,20 @@ function viewQueue() {
   if (!all.length) return emptyEl("Nothing unread", "Everything you saved is read. Pages count as read after 2 minutes of viewing.");
   if (!list.length) return emptyEl(`Nothing fits in ${fmtMinutes(state.budget)}`, "Try a longer slot. Pages get their length when you save them from an open tab.");
 
-  const first = list[0];
+  const started = list.filter((it) => resumePct(it)).sort((a, b) => b.pos.at - a.pos.at);
+  const first = started[0] || list[0];
   const withLen = list.filter((it) => it.minutes);
   const unknown = list.filter((it) => !it.minutes);
   return h("div", {},
     h("div", { class: "queue-next" },
       h("img", { src: first.favIconUrl || faviconFor(first.url, 32), alt: "" }),
       h("div", { class: "t" },
-        h("span", { class: "muted small" }, `Up next · ${lengthLabel(first) || "length unknown"} · ${first.stage === "kept" ? pathLabel(first.path) : "Inbox"}`),
+        h("span", { class: "muted small" }, resumePct(first)
+          ? `Continue · you read ${resumePct(first)}% · ${lengthLabel(first) || ""}`
+          : `Up next · ${lengthLabel(first) || "length unknown"} · ${first.stage === "kept" ? pathLabel(first.path) : "Inbox"}`),
         h("b", {}, first.title)),
-      h("button", { class: "btn primary", onclick: () => window.open(first.url, "_blank") }, "▶ Read now")),
+      h("button", { class: "btn primary", onclick: () => window.open(first.url, "_blank") }, resumePct(first) ? "▶ Continue" : "▶ Read now")),
+    started.length > 1 ? [h("h3", { class: "section-title" }, "Continue reading", h("span", { class: "muted small" }, String(started.length))), listEl(started)] : null,
     selBar(),
     withLen.length ? listEl(withLen) : null,
     unknown.length ? [h("h3", { class: "section-title" }, "Length unknown", h("span", { class: "muted small" }, String(unknown.length))), listEl(unknown)] : null,

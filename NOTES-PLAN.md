@@ -1,6 +1,6 @@
 # Plan: on-page note-taking (floating bar) — v1.7 to v1.9
 
-Status: approved 2026-11-04 with the defaults. Phase A done (v1.7.0).
+Status: approved 2026-11-04 with the defaults. Phase A done (v1.7.0), Phase B done (v1.8.0).
 
 ## Design rule (whole app): minimalist
 
@@ -39,11 +39,11 @@ A slim vertical dock on the right edge, collapsed to one small tab until hovered
   ┃ ✎   highlighter on/off
   ┃ ▤   page note card (see 4)
   ┃ ◉   show / hide my highlights
-  ┃ ✦   key ideas (AI)
   ┃ ⇲   open the full side panel
 ```
 
-- Only on pages that have notes, or after you used the bubble / icon on that page.
+- Only on pages that have notes, saved pages, or after you used the icon / panel on that page.
+- AI key ideas stay in the side panel (⇲): the page itself has no AI, keeping the dock small.
 - Draggable up/down; remembers its spot; "hide on this site" in its ⋯ menu.
 
 ### 3. Highlight roles (meaning, not just colour)
@@ -90,7 +90,7 @@ A slim vertical dock on the right edge, collapsed to one small tab until hovered
 | Phase | Version | Content | Done when |
 |---|---|---|---|
 | A ✓ | v1.7 | Selection bubble + roles (1, 3) | Select → bubble → highlight with role / note / word / copy works on 3 real sites; roles shown + filterable in panel and Notes |
-| B | v1.8 | Page dock + note card + continue reading (2, 4, 5) | Dock appears only when it should; note card edits the same notes as the panel; continue jumps back |
+| B ✓ | v1.8 | Page dock + note card + continue reading (2, 4, 5) | Dock appears only when it should; note card edits the same notes as the panel; continue jumps back |
 | C | v1.9 | Shortcuts + Obsidian export (6, 7) | Keys work only while the page tools are active; export opens cleanly in Obsidian |
 
 Each phase: unit tests for the pure parts, a live check on real pages (Wikipedia, a blog, a

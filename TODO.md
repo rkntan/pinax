@@ -27,7 +27,7 @@ Goal: make the core loop excellent before adding more:
 ## Planned: on-page note-taking (see NOTES-PLAN.md)
 
 14. [x] A v1.7: selection bubble + highlight roles
-15. [ ] B v1.8: page dock, note card, continue reading
+15. [x] B v1.8: page dock, note card, continue reading
 16. [ ] C v1.9: page shortcuts, Obsidian export
 17. [ ] Popup redesign (one big Save, quiet tools row, ⋯ More)
 

@@ -1,4 +1,4 @@
-# Tab Organiser v1.7: Chrome test checklist
+# Tab Organiser v1.8: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -94,6 +94,17 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5f.5 Esc, a click elsewhere or scrolling closes the bar; it never appears when selecting inside a text box.
 - [ ] 5f.6 Side panel: each highlight shows its role; role chips (All / Key point / …) filter the list. Library › Notes has the same chips.
 - [ ] 5f.7 Panel switch "Work on every site": asks Chrome once; afterwards the bar works on any site. Switching it off goes back to sites you allowed.
+
+## 5g. Page dock, note card, continue reading (v1.8)
+
+- [ ] 5g.1 On a saved page or a page with notes (site allowed), a thin dark tab sits on the right edge; hover it: Highlighter · Notes · Show/hide · Side panel · ⋯.
+- [ ] 5g.2 Drag the small grip at its top up/down; reload: it stays where you put it.
+- [ ] 5g.3 **Notes**: a card opens beside the dock with your notes for this page; type → "saved"; the side panel shows the same text.
+- [ ] 5g.4 **Highlighter** in the dock turns the pen on/off (badge appears); the side panel button follows.
+- [ ] 5g.5 **Show/hide** removes your highlights from the page and brings them back.
+- [ ] 5g.6 **⋯ → Hide the dock on this site**: gone on that site (the bubble still works).
+- [ ] 5g.7 Save a long article, scroll to the middle, close it, open it again: "You read N% of this · Continue" bottom right; Continue jumps there.
+- [ ] 5g.8 Library › Reading queue: started pages show "N% read" and come first ("Continue").
 
 ## 5c. Inbox triage (v1.3)
 

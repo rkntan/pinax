@@ -58,3 +58,28 @@ test("readingStats counts this week (from Monday) and this month", () => {
     unread: 2, unreadMinutes: 20,
   });
 });
+
+test("resumePct: only for started, unfinished, recent, unread pages", () => {
+  const now = Date.now();
+  assert.equal(core.resumePct({ pos: { pct: 63.6, at: now } }, now), 64);
+  assert.equal(core.resumePct({ pos: { pct: 3, at: now } }, now), null);
+  assert.equal(core.resumePct({ pos: { pct: 97, at: now } }, now), null);
+  assert.equal(core.resumePct({ pos: { pct: 50, at: now - 40 * DAY } }, now), null);
+  assert.equal(core.resumePct({ read: true, pos: { pct: 50, at: now } }, now), null);
+  assert.equal(core.resumePct({}, now), null);
+});
+
+test("dockConfig: shows for saved pages, pages with notes or just used; respects hidden sites", () => {
+  const base = { origin: "https://a.test", hiddenSites: [] };
+  assert.equal(core.dockConfig(base).show, false);
+  assert.equal(core.dockConfig({ ...base, used: true }).show, true);
+  assert.equal(core.dockConfig({ ...base, note: { highlights: [{}], text: "" } }).show, true);
+  assert.equal(core.dockConfig({ ...base, note: { highlights: [], text: "  " } }).show, false);
+  const item = { pos: { pct: 40, at: Date.now() } };
+  const c = plain(core.dockConfig({ ...base, item }));
+  assert.equal(c.show, true);
+  assert.equal(c.track, true);
+  assert.equal(c.resume, 40);
+  assert.equal(core.dockConfig({ ...base, used: true, hiddenSites: ["https://a.test"] }).show, false);
+  assert.equal(core.dockConfig({ ...base, y: 200 }).y, 85);
+});

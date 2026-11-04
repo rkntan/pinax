@@ -90,6 +90,7 @@ function rowEl(it, pinned) {
         it.remindAt && !isDue(it) ? h("span", { class: "small remind-on", title: "Reminder" }, shortWhen(it.remindAt)) : null,
         it.progress ? h("span", { class: "small muted" }, `${it.progress.done}/${it.progress.total}`) : null,
         it.minutes ? h("span", { class: "small muted len", title: it.words ? `${it.words} words` : "video length" }, lengthLabel(it)) : null,
+        resumePct(it) ? h("span", { class: "chip resume", title: "Where you stopped reading" }, `${resumePct(it)}% read`) : null,
         state.view !== "col" || inbox
           ? h("button", {
               class: `chip path-chip${inbox ? " suggest" : ""}`,
