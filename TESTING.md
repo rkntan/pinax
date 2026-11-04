@@ -21,7 +21,7 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 ## 2. Popup basics
 
 - [ ] 2.1 Popup opens fast; the dot next to the title is green (local AI) or orange (hover tells why).
-- [ ] 2.2 Pins row shows your pins; clicking one opens it.
+- [ ] 2.2 The popup has no pins row and no footer counts (those live in the Library); ☆ still pins the current page.
 - [ ] 2.3 "This window" shows the tab and group counts and "Close 1 duplicate"; clicking it closes the duplicate.
 - [ ] 2.4 **✦ Organise with AI**: tabs are grouped with names and colours; message says "N groups by AI" (or "by site").
 - [ ] 2.5 **Ungroup** removes the groups.
@@ -29,8 +29,8 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 ## 3. Saving pages (Inbox, collection, project)
 
-- [ ] 3.1 On the arXiv tab: popup → **Inbox** → reminder "Tomorrow 09:00" → **Save to Inbox**. Message "Saved to Inbox", then (a moment later, AI on) "AI suggests …".
-- [ ] 3.2 Re-open the popup on that tab: the line under the title says "in Inbox"; button says "Update reminder".
+- [ ] 3.1 On the arXiv tab: popup → **Inbox** → bell icon → "Tomorrow 09:00" (bell turns violet) → **Save to Inbox**. Message "Saved to Inbox", then (a moment later, AI on) "AI suggests …".
+- [ ] 3.2 Re-open the popup on that tab: it says "in Inbox", the button says "Saved in Inbox ✓"; the bell changes the reminder straight away.
 - [ ] 3.3 On the GitHub tab: **Collection** → type `Tools › Dev` → **Save to Tools › Dev**. In the Library it is under Collections › Tools › Dev (not in the Inbox).
 - [ ] 3.4 Right-click any link → **Save link for later** → notification; it appears in the Inbox.
 - [ ] 3.5 **Alt+Shift+S** on another page → notification; it appears in the Inbox.

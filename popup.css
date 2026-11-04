@@ -94,3 +94,17 @@ footer { display: flex; align-items: center; gap: 8px; padding: 2px 14px 12px; m
 .all-inbox { grid-column: span 2; border-color: color-mix(in srgb, var(--violet) 45%, var(--line)); color: var(--violet); font-weight: 600; }
 .notes-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
 .notes-btn:hover { border-color: var(--violet); color: var(--violet); }
+
+/* reminder bell next to Save */
+.go { margin-top: 2px; }
+.bell-wrap { position: relative; }
+.bell { width: 34px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; color: var(--muted); padding: 0; }
+.bell:hover { border-color: var(--violet); color: var(--violet); }
+.bell.on { color: var(--violet); border-color: var(--violet); background: var(--lav); }
+.bell-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; min-width: 170px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 28px rgba(19, 5, 55, 0.18); padding: 4px; display: flex; flex-direction: column; }
+.bell-menu[hidden] { display: none; }
+.bell-menu button { border: none; background: none; text-align: left; padding: 7px 10px; border-radius: 7px; font-size: 12.5px; }
+.bell-menu button:hover { background: var(--lav); }
+.bell-menu button.on { font-weight: 700; color: var(--violet); }
+.bell-menu .clear { color: var(--muted); border-top: 1px solid var(--line); border-radius: 0 0 7px 7px; margin-top: 2px; }
+.msg { margin: 0 14px 12px; min-height: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

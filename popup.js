@@ -61,6 +61,7 @@ async function showPage() {
   $("ws-new").hidden = wsSel.value !== "__new";
 
   setDest(dest);
+  showBell();
 }
 
 function setDest(d) {
@@ -74,7 +75,11 @@ function setDest(d) {
 function updateSaveLabel() {
   const b = $("save");
   b.disabled = !isWeb(tab);
-  if (dest === "inbox") b.textContent = existing ? "Update reminder" : "Save to Inbox";
+  $("bell").parentElement.hidden = dest === "project"; // project sources have no reminders
+  if (dest === "inbox") {
+    b.textContent = existing ? (existing.stage === "kept" ? `Saved in ${pathLabel(existing.path)}` : "Saved in Inbox ✓") : "Save to Inbox";
+    b.disabled = !isWeb(tab) || !!existing;
+  }
   else if (dest === "collection") {
     const p = $("col-input").value.trim();
     b.textContent = p ? `Save to ${pathLabel(cleanPath(p))}` : "Save to collection";
@@ -105,14 +110,14 @@ $("save").onclick = async () => {
   busy(true);
   try {
     if (dest === "inbox") {
-      const it = await saveForLater(tab, $("remind").value);
+      const it = await saveForLater(tab, remindKey);
       addStats(it.id, tab);
-      msg(existing ? "Reminder updated" : "Saved to Inbox");
+      msg(remindKey ? `Saved to Inbox · reminder ${presetLabel(remindKey)}` : "Saved to Inbox");
       if (!existing) it.sorted.then((p) => p?.path && p.path !== UNSORTED && msg(`Saved · AI suggests ${pathLabel(p.path)}`));
     } else if (dest === "collection") {
       const p = $("col-input").value.trim();
       if (!p) { msg("Type a collection first"); $("col-input").focus(); return; }
-      const it = await saveForLater(tab);
+      const it = await saveForLater(tab, remindKey);
       addStats(it.id, tab);
       await keepItem(it.id, p);
       msg(`Saved in ${pathLabel(cleanPath(p))}`);
@@ -130,9 +135,8 @@ $("save").onclick = async () => {
       }
       ui.set("project", id);
     }
-    if ($("close-after").checked) chrome.tabs.remove(tab.id);
+    remindKey = "";
     await showPage();
-    showFooter();
     showProjects();
   } catch (e) {
     msg("Error: " + e.message);
@@ -142,21 +146,51 @@ $("save").onclick = async () => {
   }
 };
 
-// ---------- pins ----------
+// ---------- reminder bell ----------
+// Before saving it picks the reminder for the save; for a page already saved it sets it at once.
 
-async function showPins() {
+let remindKey = "";
+const presetLabel = (key) => REMIND_PRESETS.find(([v]) => v === key)?.[1] || "";
+
+function showBell() {
+  const set = existing?.remindAt ? `Reminder ${new Date(existing.remindAt).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : remindKey ? `Reminder: ${presetLabel(remindKey)}` : "";
+  $("bell").classList.toggle("on", !!set);
+  $("bell").title = set || "Remind me…";
+  const current = existing?.remindAt ? "set" : remindKey;
+  $("bell-menu").replaceChildren(
+    ...REMIND_PRESETS.filter(([v]) => v).map(([v, label]) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.className = remindKey === v ? "on" : "";
+      b.onclick = () => pickReminder(v);
+      return b;
+    }),
+    ...(current ? [Object.assign(document.createElement("button"), { className: "clear", textContent: "No reminder", onclick: () => pickReminder("") })] : []));
+}
+
+async function pickReminder(key) {
+  $("bell-menu").hidden = true;
+  if (existing) {
+    await setReminder(existing.id, key);
+    existing = (await getItems()).find((x) => x.id === existing.id);
+    msg(key ? `Reminder: ${presetLabel(key)}` : "Reminder removed");
+  } else {
+    remindKey = key;
+    msg(key ? `Reminder: ${presetLabel(key)} (set when you save)` : "No reminder");
+  }
+  showBell();
+}
+
+$("bell").onclick = (e) => {
+  e.stopPropagation();
+  $("bell-menu").hidden = !$("bell-menu").hidden;
+};
+document.addEventListener("click", (e) => { if (!e.target.closest(".bell-wrap")) $("bell-menu").hidden = true; });
+
+// ---------- pin star (the pinned sites themselves live in the Library) ----------
+
+async function showPinStar() {
   const pins = await getPins();
-  $("pins").replaceChildren(...pins.map((p) => {
-    const b = document.createElement("button");
-    b.className = "pin";
-    b.title = `${p.title} · ${hostOf(p.url)}`;
-    const img = document.createElement("img");
-    img.src = faviconFor(p.url, 32);
-    img.alt = "";
-    b.append(img);
-    b.onclick = () => chrome.tabs.create({ url: p.url });
-    return b;
-  }));
   const on = isWeb(tab) && pins.some((p) => p.url === tab.url);
   $("pin-cur").classList.toggle("on", on);
   $("pin-cur").textContent = on ? "★" : "☆";
@@ -172,7 +206,7 @@ $("pin-cur").onclick = async () => {
   if (!isWeb(tab)) return;
   if (await isPinned(tab.url)) await unpinSite(tab.url);
   else await pinSite(tab);
-  showPins();
+  showPinStar();
 };
 
 // ---------- window ----------
@@ -430,31 +464,13 @@ async function showAiStatus() {
   dot.classList.toggle("warn", a !== "available");
 }
 
-async function showFooter() {
-  const [items, phrases] = await Promise.all([getItems(), getPhrases()]);
-  $("n-words").textContent = phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length;
-  const inbox = items.filter((i) => i.stage === "inbox").length;
-  const due = items.filter((i) => isDue(i)).length;
-  const review = forReview(items).length + quizQueue(phrases).length;
-  $("n-inbox").textContent = inbox;
-  $("due-chip").hidden = !due;
-  $("due-chip").textContent = `${due} due`;
-  $("go-review").hidden = !review;
-  $("go-review").textContent = `Review ${review}`;
-}
-
 $("open-library").onclick = () => openLibrary();
-$("go-inbox").onclick = () => openLibrary("#inbox");
-$("go-review").onclick = () => openLibrary("#review");
-$("go-words").onclick = () => openLibrary("#phrases");
 
 (async function init() {
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  $("remind").replaceChildren(...REMIND_PRESETS.map(([v, l]) => new Option(l, v)));
   await migrate();
   await showPage();
-  showPins();
-  showFooter();
+  showPinStar();
   showProjects();
   showWorking();
   showSource();

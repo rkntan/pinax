@@ -13,8 +13,6 @@
     <button id="open-library" class="lib-btn" title="Open the Library">Library ↗</button>
   </header>
 
-  <div id="pins" class="pins"></div>
-
   <!-- shown when this tab is a source of a project: sort it, then read the next one -->
   <section id="src-card" class="srccard" hidden>
     <div class="src-top"><span class="small muted">Reading for</span> <b id="src-proj"></b><span id="src-prog" class="small muted"></span></div>
@@ -52,10 +50,6 @@
       <button data-dest="project">Project</button>
     </div>
 
-    <div class="dest-body" data-for="inbox">
-      <select id="remind" title="Reminder"></select>
-      <span class="muted small">review on Friday</span>
-    </div>
     <div class="dest-body" data-for="collection" hidden>
       <input id="col-input" class="input" list="paths" placeholder="e.g. AI › Agents › Papers" spellcheck="false">
       <datalist id="paths"></datalist>
@@ -67,7 +61,10 @@
 
     <div class="go">
       <button id="save" class="btn primary">Save to Inbox</button>
-      <label class="small check"><input id="close-after" type="checkbox"> close tab</label>
+      <div class="bell-wrap">
+        <button id="bell" class="bell" title="Remind me…" aria-haspopup="menu"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.2L4.5 15a1 1 0 0 0 .9 1.5h13.2a1 1 0 0 0 .9-1.5L18 12.2V9a6 6 0 0 0-6-6Zm-2.2 15a2.3 2.3 0 0 0 4.4 0Z" fill="currentColor"/></svg></button>
+        <div id="bell-menu" class="bell-menu" role="menu" hidden></div>
+      </div>
     </div>
   </section>
 
@@ -97,13 +94,7 @@
     <div id="ws" class="ws"></div>
   </section>
 
-  <footer>
-    <button id="go-inbox" class="foot-btn">Inbox <b id="n-inbox">0</b></button>
-    <span id="due-chip" class="chip lime" hidden></span>
-    <button id="go-words" class="foot-btn" title="Words saved this week">Words <b id="n-words">0</b></button>
-    <button id="go-review" class="foot-btn review" hidden>Review now</button>
-    <span id="msg" class="small muted"></span>
-  </footer>
+  <p id="msg" class="msg small muted"></p>
 
   <script src="core.js"></script>
   <script src="popup.js"></script>
