@@ -113,8 +113,10 @@ async function saveSelection(tab, fallbackText = "") {
     p.kind === "quote" ? p.text.slice(0, 120) : `${p.text}${p.sentence ? " — “" + p.sentence.slice(0, 90) + "”" : ""}`);
 }
 
-chrome.commands.onCommand.addListener(async (command) => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+chrome.commands.onCommand.addListener(async (command, cmdTab) => {
+  // the side panel may only open straight from the key press, before any await
+  if (command === "highlight" && cmdTab) chrome.sidePanel.open({ tabId: cmdTab.id }).catch((e) => console.warn("side panel", e));
+  const [tab] = cmdTab ? [cmdTab] : await chrome.tabs.query({ active: true, currentWindow: true });
   if (command === "open-library") return openLibraryTab();
   if (command === "organise-window" && tab) {
     const r = await organiseWindow(tab.windowId);
@@ -122,10 +124,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
   if (!tab || !/^https?:/.test(tab.url)) return;
   if (command === "save-phrase") return saveSelection(tab);
-  if (command === "highlight") {
-    chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
-    return highlightSelection(tab);
-  }
+  if (command === "highlight") return highlightSelection(tab);
   if (command !== "save-page") return;
   addStats((await saveForLater(tab)).id, tab);
   toast("Saved for later", tab.title);
@@ -394,16 +393,18 @@ chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
 });
 
 // The highlighter pen and the bar on highlights talk to the extension through messages.
+// One at a time: quick selections would otherwise overwrite each other's save.
+let penQueue = Promise.resolve();
 chrome.runtime.onMessage.addListener((m, sender) => {
   const tab = sender.tab;
   if (!tab || !/^pen-/.test(m?.type || "") || m.type === "pen-off") return;
-  (async () => {
+  penQueue = penQueue.then(async () => {
     if (m.type === "pen-highlight") await addHighlight(tab, m.data);
     else if (m.type === "pen-delete") await deleteHighlight(tab.url, m.id);
     else if (m.type === "pen-color") await updateHighlight(tab.url, m.id, { color: m.color });
     else if (m.type === "pen-comment") await updateHighlight(tab.url, m.id, { comment: m.comment });
-    await remark(tab);
-  })().catch((e) => console.warn("pen", e));
+    await remark(tab).catch((e) => console.warn("saved, but can't mark this page:", e.message));
+  }).catch((e) => console.warn("pen", e));
 });
 
 // Saved pages without a length get measured the next time they load, where the extension

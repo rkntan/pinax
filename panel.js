@@ -9,7 +9,8 @@ let note = null;     // its notes record (or null)
 let color = "yellow";
 let editing = null;  // highlight id whose comment is being edited
 let saveTimer = null;
-let penTab = null;   // tab where the highlighter pen is on
+let penTab = null;   // tab where the highlighter pen is on (re-read from the page, see syncPen)
+let myWin = null;    // the window this panel belongs to
 
 const isWeb = (t) => t && /^https?:/.test(t.url || "");
 
@@ -25,8 +26,13 @@ function el(tag, attrs = {}, ...kids) {
   return e;
 }
 
+// Pages where Chrome never lets extensions in.
+function blocked(t) {
+  return !isWeb(t) || /^https:\/\/(chromewebstore\.google\.com|chrome\.google\.com\/webstore)/.test(t.url);
+}
+
 async function currentTab() {
-  const [t] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const [t] = await chrome.tabs.query({ active: true, windowId: myWin });
   return t;
 }
 
@@ -34,6 +40,32 @@ async function load() {
   tab = await currentTab();
   note = isWeb(tab) ? await noteFor(tab.url) : null;
   render();
+  syncPen();
+}
+
+// The page knows whether its pen is on; the panel asks instead of guessing.
+async function syncPen() {
+  const t = tab;
+  if (blocked(t)) return;
+  const on = await inPage(t, penIsOn, [], false).catch(() => false);
+  if (on && penTab !== t.id) penTab = t.id;
+  else if (!on && penTab === t.id) penTab = null;
+  else return;
+  render();
+}
+
+// Site access: a click in the side panel doesn't give the extension the page, so ask Chrome.
+// Must be the FIRST thing a click handler does (no await before it). No prompt if already allowed.
+function askSite(t) {
+  return chrome.permissions.request({ origins: [new URL(t.url).origin + "/*"] });
+}
+
+function why(e) {
+  console.error(e);
+  const m = String(e?.message || e);
+  if (/gesture/i.test(m)) return "Chrome needs a direct click to allow this site: click again.";
+  if (/cannot be scripted|chrome:\/\/|Cannot access/i.test(m)) return "Chrome doesn't allow extensions on this page.";
+  return m;
 }
 
 async function where() {
@@ -58,9 +90,12 @@ function render() {
   $("colors").replaceChildren(...Object.entries(HL_COLORS).map(([name, hex]) =>
     el("button", {
       class: name === color ? "on" : null, title: name, style: `background:${hex}`,
-      onclick: () => { color = name; if (penTab === tab?.id) inPage(tab, startPen, [color, hex], false).catch(() => {}); render(); },
+      onclick: () => { color = name; if (penTab === tab?.id) inPage(tab, startPen, [color, hex], false).catch((e) => msg(why(e))); render(); },
     })));
   $("pen-btn").classList.toggle("on", !!tab && penTab === tab.id);
+  $("pen-btn").disabled = blocked(tab);
+  $("show-btn").disabled = blocked(tab);
+  if (blocked(tab) && isWeb(tab)) msg("Chrome doesn't let extensions highlight on this page.");
 
   const hls = note?.highlights || [];
   $("hl-count").textContent = hls.length ? String(hls.length) : "";
@@ -142,7 +177,7 @@ function hlEl(hl) {
     : hl.comment ? el("div", { class: "hl-comment", title: "Edit", onclick: () => { editing = hl.id; render(); } }, hl.comment) : null;
   if (comment?.tagName === "TEXTAREA") setTimeout(() => { comment.value = hl.comment || ""; comment.focus(); });
   return el("div", { class: "hl", style: `--c:${hex}` },
-    el("div", { class: "hl-text", title: "Show it on the page", onclick: () => showOnPage(hl.id) }, hl.text),
+    el("div", { class: "hl-text", title: "Show it on the page", onclick: () => showOnPage(hl.id, askSite(tab)) }, hl.text),
     comment,
     el("div", { class: "hl-tools" },
       Object.entries(HL_COLORS).map(([name, c]) => el("span", { class: "dot", title: name, style: `background:${c}`, onclick: () => updateHighlight(tab.url, hl.id, { color: name }) })),
@@ -153,44 +188,59 @@ function hlEl(hl) {
       el("button", { title: "Delete", onclick: async () => { await deleteHighlight(tab.url, hl.id); showOnPage(null, false); } }, "delete")));
 }
 
-async function showOnPage(scrollTo = null, ask = true) {
-  if (!isWeb(tab)) return;
+// access: the promise from askSite(), started in the click (null = don't ask, just try quietly)
+async function showOnPage(scrollTo = null, access = null) {
+  const t = tab;
+  if (blocked(t)) return;
   try {
-    const n = await noteFor(tab.url);
-    const found = await remark(tab, scrollTo, ask);
+    if (access && !(await access)) return msg("Site access not allowed, so highlights can't be shown here.");
+    const n = await noteFor(t.url);
+    const found = await remark(t, scrollTo, false);
     const total = n?.highlights.length || 0;
-    if (ask) msg(total ? `${found} of ${total} highlight${total > 1 ? "s" : ""} found on the page` : "No highlights yet");
+    if (access) msg(total ? `${found} of ${total} highlight${total > 1 ? "s" : ""} found on the page` : "No highlights yet");
   } catch (e) {
-    if (ask) msg("This page can't be marked (Chrome pages, PDFs and the Web Store block extensions).");
+    if (access) msg(why(e));
   }
 }
 
 // Highlighter pen: on = every selection in the page becomes a highlight.
-$("pen-btn").onclick = async () => {
-  if (!isWeb(tab)) return;
-  try {
-    if (penTab === tab.id) {
-      await inPage(tab, stopPen, [], false);
+$("pen-btn").onclick = () => {
+  const t = tab;
+  if (blocked(t)) return;
+  const access = askSite(t); // first, while Chrome still counts this as your click
+  (async () => {
+    try {
+      if (!(await access)) return msg("Site access not allowed, so the pen can't work on this site.");
+      if (await inPage(t, penIsOn, [], false)) {
+        await inPage(t, stopPen, [], false);
+      } else {
+        await remark(t, null, false); // shows existing highlights and their tools
+        await inPage(t, startPen, [color, HL_COLORS[color]], false);
+      }
+      penTab = (await inPage(t, penIsOn, [], false)) ? t.id : null; // what the page says
+      msg(penTab ? "Select text on the page to highlight it · Esc or the badge stops" : "Highlighter off");
+    } catch (e) {
       penTab = null;
-      msg("Highlighter off");
-    } else {
-      await remark(tab, null, true); // asks for this site once, shows existing highlights
-      await inPage(tab, startPen, [color, HL_COLORS[color]], false);
-      penTab = tab.id;
-      msg("Select text on the page to highlight it · Esc stops");
+      msg(why(e));
+    } finally {
+      render();
     }
-  } catch (e) {
-    msg("This page can't be highlighted (Chrome pages, PDFs and the Web Store block extensions).");
-  }
-  render();
+  })();
 };
+
+// Esc in the panel also stops the pen (after clicking here, the page no longer gets Esc)
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && penTab && penTab === tab?.id && !e.target.matches("textarea, input")) {
+    inPage(tab, stopPen, [], false).catch(() => {}).finally(() => { penTab = null; render(); });
+  }
+});
 
 // the pen was turned off on the page (Esc or its badge), or the page navigated
 chrome.runtime.onMessage.addListener((m, sender) => {
   if (m?.type === "pen-off" && sender.tab?.id === penTab) { penTab = null; render(); }
 });
 
-$("show-btn").onclick = () => showOnPage();
+$("show-btn").onclick = () => { if (!blocked(tab)) showOnPage(null, askSite(tab)); };
 
 $("text").oninput = () => {
   clearTimeout(saveTimer);
@@ -236,17 +286,19 @@ $("auto").onchange = async (e) => {
 };
 
 // follow the active tab and live changes
-chrome.tabs.onActivated.addListener(load);
-chrome.tabs.onUpdated.addListener((id, change) => {
+// follow the active tab of this panel's own window only
+chrome.tabs.onActivated.addListener((info) => { if (info.windowId === myWin) load(); });
+chrome.tabs.onUpdated.addListener((id, change, t) => {
+  if (t.windowId !== myWin) return;
   if (id === penTab && change.status === "loading") penTab = null; // a new page starts without the pen
-  if (id === tab?.id && (change.status === "complete" || change.title)) load();
+  if (id === tab?.id && (change.status === "complete" || change.title)) load(); // load re-reads the pen
 });
-chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) load(); });
 chrome.storage.onChanged.addListener(async (c) => {
   if (c.notes && isWeb(tab)) { note = await noteFor(tab.url); render(); }
 });
 
 (async function init() {
+  myWin = (await chrome.windows.getCurrent()).id;
   const { autoHighlights = false } = await chrome.storage.local.get("autoHighlights");
   $("auto").checked = autoHighlights;
   await load();

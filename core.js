@@ -1515,13 +1515,12 @@ function readPageText() {
 // Pen mode: while on, any text you select in the page becomes a highlight. Esc (or the
 // badge, or the panel) turns it off. Calling it again just changes the colour.
 function startPen(colorName, colorHex) {
-  const S = (window.__toPen ||= { on: false });
-  S.color = colorName;
-  if (S.on) {
-    S.badge?.shadowRoot?.querySelector(".dot")?.style.setProperty("background", colorHex);
-    return true;
-  }
-  S.on = true;
+  // always rebuild: a pen left over from an older copy of the extension (after a reload) has
+  // listeners that can no longer reach it
+  window.__toPen?.teardown?.();
+  const S = (window.__toPen = { on: true, color: colorName });
+  // after the extension is reloaded, messages throw: then the old pen switches itself off
+  const send = (m) => { try { chrome.runtime.sendMessage(m)?.catch?.(() => {}); } catch { S.teardown(); } };
   const norm = (s) => s.replace(/\s+/g, " ");
   const grab = () => {
     const sel = getSelection();
@@ -1536,7 +1535,7 @@ function startPen(colorName, colorHex) {
     const after = document.createRange();
     after.setStart(r.endContainer, r.endOffset);
     after.setEnd(document.body, document.body.childNodes.length);
-    chrome.runtime.sendMessage({
+    send({
       type: "pen-highlight",
       data: { text, prefix: norm(before.toString()).slice(-48), suffix: norm(after.toString()).slice(0, 48), color: S.color },
     });
@@ -1544,13 +1543,13 @@ function startPen(colorName, colorHex) {
   };
   S.up = () => setTimeout(grab, 10);
   S.key = (e) => { if (e.key === "Escape") S.stop(); };
-  S.stop = () => {
+  S.teardown = () => {
     S.on = false;
     document.removeEventListener("mouseup", S.up, true);
     document.removeEventListener("keydown", S.key, true);
     S.badge?.remove();
-    chrome.runtime.sendMessage({ type: "pen-off" });
   };
+  S.stop = () => { S.teardown(); send({ type: "pen-off" }); };
   document.addEventListener("mouseup", S.up, true);
   document.addEventListener("keydown", S.key, true);
 
@@ -1581,8 +1580,9 @@ function penIsOn() {
 
 // Click a highlight in the page: a small bar to recolour, comment on or delete it.
 function installMarkTools() {
-  if (window.__toTools) return true;
-  window.__toTools = true;
+  // rebuild every time (cheap), so tools from an older copy of the extension don't linger
+  window.__toTools?.teardown?.();
+  const send = (m) => { try { chrome.runtime.sendMessage(m)?.catch?.(() => {}); } catch { /* extension reloaded */ } };
   const host = document.createElement("div");
   host.id = "__to-ui";
   host.style.cssText = "position:absolute;top:0;left:0;z-index:2147483647;";
@@ -1605,10 +1605,11 @@ function installMarkTools() {
       <button class="t" data-a="copy">Copy</button>
       <button class="t" data-a="delete">Delete</button>
     </div>`;
+  document.querySelectorAll("#__to-ui").forEach((x) => x.remove());
   document.documentElement.append(host);
   const bar = root.querySelector(".bar");
   let current = null;
-  document.addEventListener("click", (e) => {
+  const onClick = (e) => {
     if (e.composedPath().includes(host)) return;
     const m = e.target.closest?.("mark[data-tohl]");
     if (!m || e.ctrlKey || e.metaKey || String(getSelection())) { bar.hidden = true; return; }
@@ -1619,17 +1620,19 @@ function installMarkTools() {
     bar.hidden = false;
     bar.style.left = `${Math.max(4, window.scrollX + r.left)}px`;
     bar.style.top = `${Math.max(4, window.scrollY + r.top - 42)}px`;
-  }, true);
+  };
+  document.addEventListener("click", onClick, true);
+  window.__toTools = { teardown: () => { document.removeEventListener("click", onClick, true); host.remove(); } };
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b || !current) return;
     const id = current.dataset.tohl;
-    if (b.dataset.c) chrome.runtime.sendMessage({ type: "pen-color", id, color: b.dataset.c });
-    else if (b.dataset.a === "delete") chrome.runtime.sendMessage({ type: "pen-delete", id });
+    if (b.dataset.c) send({ type: "pen-color", id, color: b.dataset.c });
+    else if (b.dataset.a === "delete") send({ type: "pen-delete", id });
     else if (b.dataset.a === "copy") navigator.clipboard.writeText([...document.querySelectorAll(`mark[data-tohl="${id}"]`)].map((x) => x.textContent).join(""));
     else if (b.dataset.a === "comment") {
       const t = prompt("Comment on this highlight:", current.title || "");
-      if (t !== null) chrome.runtime.sendMessage({ type: "pen-comment", id, comment: t.trim() });
+      if (t !== null) send({ type: "pen-comment", id, comment: t.trim() });
     }
     bar.hidden = true;
   });
