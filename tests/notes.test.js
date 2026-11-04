@@ -77,3 +77,11 @@ test("noteMarkdown ends with the AI key ideas; search finds summary text", () =>
 test("aiSummary says so when no local AI exists", async () => {
   await assert.rejects(() => core.aiSummary("some text"), /No local AI/);
 });
+
+test("roles: each colour has a meaning; counts only roles in use, in fixed order", () => {
+  assert.equal(core.roleOf({ color: "blue" }), "Question");
+  assert.equal(core.roleOf({ color: "nope" }), "Key point");
+  assert.equal(core.roleOf({}), "Key point");
+  const notes = [{ highlights: [{ color: "pink" }, { color: "yellow" }, {}] }, { highlights: [{ color: "pink" }] }];
+  assert.deepEqual(plain(core.roleCounts(notes)), [["yellow", "Key point", 2], ["pink", "Check", 2]]);
+});

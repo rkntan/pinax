@@ -469,6 +469,7 @@ $("open-library").onclick = () => openLibrary();
 (async function init() {
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   await migrate();
+  if (isWeb(tab)) pageTools(tab).catch(() => {}); // the bubble works on this page from now on
   await showPage();
   showPinStar();
   showProjects();

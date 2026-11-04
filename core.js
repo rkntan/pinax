@@ -1596,10 +1596,10 @@ function installMarkTools() {
     .t:hover{color:#c7ff01}
     .sep{width:1px;height:16px;background:rgba(255,255,255,.25)}</style>
     <div class="bar" hidden>
-      <button class="c" data-c="yellow" style="background:#ffe066" title="Yellow"></button>
-      <button class="c" data-c="green" style="background:#b2f2bb" title="Green"></button>
-      <button class="c" data-c="blue" style="background:#a5d8ff" title="Blue"></button>
-      <button class="c" data-c="pink" style="background:#fcc2d7" title="Pink"></button>
+      <button class="c" data-c="yellow" style="background:#ffe066" title="Key point"></button>
+      <button class="c" data-c="green" style="background:#b2f2bb" title="Idea"></button>
+      <button class="c" data-c="blue" style="background:#a5d8ff" title="Question"></button>
+      <button class="c" data-c="pink" style="background:#fcc2d7" title="Check"></button>
       <span class="sep"></span>
       <button class="t" data-a="comment">Comment</button>
       <button class="t" data-a="copy">Copy</button>
@@ -1639,9 +1639,179 @@ function installMarkTools() {
   return true;
 }
 
+// Puts the selection bubble and the highlight bar into a page we may access.
+async function pageTools(tab, askAccess = false) {
+  await inPage(tab, installBubble, [], askAccess);
+  await inPage(tab, installMarkTools, [], false);
+}
+
 // Shows the page's highlights and their tools (background and panel use this).
 async function remark(tab, scrollTo = null, askAccess = false) {
   const n = await noteFor(tab.url);
-  await inPage(tab, installMarkTools, [], askAccess);
+  await pageTools(tab, askAccess);
   return inPage(tab, markHighlights, [markList(n), scrollTo], false);
+}
+
+// ---------- highlight roles: each colour means something ----------
+
+const HL_ROLES = { yellow: "Key point", green: "Idea", blue: "Question", pink: "Check" };
+
+function roleOf(hl) {
+  return HL_ROLES[hl?.color] || HL_ROLES.yellow;
+}
+
+// Pure: how many highlights of each role a list of note records has (only roles in use).
+function roleCounts(notes) {
+  const c = {};
+  for (const n of notes) for (const x of n.highlights || []) c[x.color || "yellow"] = (c[x.color || "yellow"] || 0) + 1;
+  return Object.keys(HL_ROLES).filter((k) => c[k]).map((k) => [k, HL_ROLES[k], c[k]]);
+}
+
+// ---------- selection bubble (injected, self-contained) ----------
+// Select text on the page → a small dark bubble: 4 role colours, Note, Word, Copy.
+
+function installBubble() {
+  window.__toBubble?.teardown?.(); // rebuild: an older copy may belong to a reloaded extension
+  const ROLES = [["yellow", "#ffe066", "Key point"], ["green", "#b2f2bb", "Idea"], ["blue", "#a5d8ff", "Question"], ["pink", "#fcc2d7", "Check"]];
+  const norm = (s) => s.replace(/\s+/g, " ");
+  let dead = false;
+  const send = (m) => { try { chrome.runtime.sendMessage(m)?.catch?.(() => {}); return true; } catch { dead = true; teardown(); return false; } };
+
+  const host = document.createElement("div");
+  host.id = "__to-bubble";
+  host.style.cssText = "position:fixed;top:0;left:0;z-index:2147483647;";
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `<style>
+    .b{position:fixed;display:flex;align-items:center;gap:4px;padding:5px 6px;background:#130537;color:#fff;border-radius:10px;
+       box-shadow:0 8px 24px rgba(19,5,55,.28);font:600 12px/1 system-ui,-apple-system,"Segoe UI",sans-serif;opacity:0;transform:translateY(4px);
+       transition:opacity .12s,transform .12s;pointer-events:auto}
+    .b.show{opacity:1;transform:none}
+    .b[hidden]{display:none}
+    .d{width:18px;height:18px;border-radius:50%;border:0;padding:0;margin:0 1px;cursor:pointer;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+    .d:hover{transform:scale(1.15)}
+    .s{width:1px;height:16px;background:rgba(255,255,255,.22);margin:0 3px}
+    .t{border:0;background:none;color:#fff;cursor:pointer;padding:5px 7px;border-radius:6px;font:inherit}
+    .t:hover{background:rgba(255,255,255,.1);color:#c7ff01}
+    .i{width:220px;border:0;border-radius:6px;padding:6px 8px;font:500 12.5px system-ui,sans-serif;background:rgba(255,255,255,.1);color:#fff;outline:none}
+    .i::placeholder{color:rgba(255,255,255,.55)}
+    .ok{padding:5px 8px;color:#c7ff01}
+    svg{display:block}</style>
+    <div class="b" hidden role="toolbar" aria-label="Highlight">
+      ${ROLES.map(([c, hex, role]) => `<button class="d" data-c="${c}" style="background:${hex}" title="${role}" aria-label="Highlight as ${role}"></button>`).join("")}
+      <span class="s"></span>
+      <button class="t" data-a="note" title="Highlight with a note">Note</button>
+      <button class="t" data-a="word" title="Save to the Phrasebook">Word</button>
+      <button class="t" data-a="copy" title="Copy with source" aria-label="Copy"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M8 3h9a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h9V9H5Z"/></svg></button>
+    </div>`;
+  document.documentElement.append(host);
+  const bar = root.querySelector(".b");
+  const original = bar.innerHTML;
+  let grabbed = null; // { text, prefix, suffix, sentence }
+
+  const inEditable = (n) => {
+    const e = n?.nodeType === 1 ? n : n?.parentElement;
+    return !!e?.closest("input, textarea, select, [contenteditable=''], [contenteditable='true'], #__to-ui, #__to-pen, #__to-bubble");
+  };
+
+  function read() {
+    const sel = getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || inEditable(sel.anchorNode)) return null;
+    const text = norm(sel.toString()).trim();
+    if (text.length < 2) return null;
+    const r = sel.getRangeAt(0);
+    const before = document.createRange();
+    before.setStart(document.body, 0);
+    before.setEnd(r.startContainer, r.startOffset);
+    const after = document.createRange();
+    after.setStart(r.endContainer, r.endOffset);
+    after.setEnd(document.body, document.body.childNodes.length);
+    const pre = norm(before.toString()), suf = norm(after.toString());
+    // the sentence around it, for the Phrasebook
+    const s0 = Math.max(pre.lastIndexOf(". "), pre.lastIndexOf("? "), pre.lastIndexOf("! "));
+    const m = suf.search(/[.!?](\s|$)/);
+    const sentence = (pre.slice(s0 < 0 ? Math.max(0, pre.length - 200) : s0 + 2) + text + suf.slice(0, m < 0 ? 200 : m + 1)).trim().slice(0, 400);
+    return { text, prefix: pre.slice(-48), suffix: suf.slice(0, 48), sentence, rect: r.getBoundingClientRect() };
+  }
+
+  function place(rect) {
+    bar.hidden = false;
+    const w = bar.offsetWidth, h = bar.offsetHeight;
+    const vw = innerWidth || document.documentElement.clientWidth || 1024;
+    let x = rect.left + rect.width / 2 - w / 2;
+    x = Math.max(8, Math.min(x, vw - w - 8));
+    let y = rect.top - h - 10;
+    if (y < 8) y = rect.bottom + 10; // no room above: below the selection
+    bar.style.left = `${x}px`;
+    bar.style.top = `${y}px`;
+    requestAnimationFrame(() => bar.classList.add("show"));
+  }
+
+  function hide() {
+    bar.classList.remove("show");
+    bar.hidden = true;
+    bar.innerHTML = original;
+    grabbed = null;
+  }
+
+  function done(label) {
+    bar.innerHTML = `<span class="ok">${label}</span>`;
+    getSelection()?.removeAllRanges();
+    setTimeout(hide, 700);
+  }
+
+  const onUp = (e) => {
+    if (e.composedPath?.().includes(host) || window.__toPen?.on) return; // the pen highlights by itself
+    setTimeout(() => {
+      const g = read();
+      if (!g) return hide();
+      grabbed = g;
+      bar.innerHTML = original;
+      place(g.rect);
+    }, 10);
+  };
+  const onDown = (e) => { if (!e.composedPath?.().includes(host)) hide(); };
+  const onKey = (e) => { if (e.key === "Escape" && !bar.hidden) hide(); };
+  const onScroll = () => { if (!bar.hidden && !root.querySelector(".i")) hide(); };
+
+  root.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || !grabbed) return;
+    const g = grabbed;
+    const data = { text: g.text, prefix: g.prefix, suffix: g.suffix };
+    if (b.dataset.c) {
+      if (send({ type: "pen-highlight", data: { ...data, color: b.dataset.c } })) done("Highlighted");
+    } else if (b.dataset.a === "word") {
+      if (send({ type: "bubble-word", data: { text: g.text, sentence: g.sentence, pageLang: document.documentElement.lang || "" } })) done("Saved to Phrasebook");
+    } else if (b.dataset.a === "copy") {
+      navigator.clipboard.writeText(`“${g.text}” — ${document.title} (${location.href})`).then(() => done("Copied"));
+    } else if (b.dataset.a === "note") {
+      bar.innerHTML = `<input class="i" placeholder="Your note… Enter to save" aria-label="Note">`;
+      const input = root.querySelector(".i");
+      input.focus();
+      input.addEventListener("keydown", (k) => {
+        k.stopPropagation();
+        if (k.key === "Escape") return hide();
+        if (k.key !== "Enter") return;
+        if (send({ type: "pen-highlight", data: { ...data, color: "yellow", comment: input.value.trim() } })) done("Saved with note");
+      });
+    }
+  });
+
+  document.addEventListener("mouseup", onUp, true);
+  const onKeyUp = (e) => { if (e.shiftKey && !window.__toPen?.on) onUp(e); }; // keyboard selection
+  document.addEventListener("keyup", onKeyUp, true);
+  document.addEventListener("mousedown", onDown, true);
+  document.addEventListener("keydown", onKey, true);
+  window.addEventListener("scroll", onScroll, true);
+
+  function teardown() {
+    document.removeEventListener("mouseup", onUp, true);
+    document.removeEventListener("keyup", onKeyUp, true);
+    document.removeEventListener("mousedown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("scroll", onScroll, true);
+    host.remove();
+  }
+  window.__toBubble = { teardown };
+  return !dead;
 }

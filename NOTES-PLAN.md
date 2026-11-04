@@ -1,6 +1,6 @@
 # Plan: on-page note-taking (floating bar) — v1.7 to v1.9
 
-Status: **draft, waiting for Erkan's approval.** Edit anything here or reply in chat.
+Status: approved 2026-11-04 with the defaults. Phase A done (v1.7.0).
 
 ## Design rule (whole app): minimalist
 
@@ -89,7 +89,7 @@ A slim vertical dock on the right edge, collapsed to one small tab until hovered
 
 | Phase | Version | Content | Done when |
 |---|---|---|---|
-| A | v1.7 | Selection bubble + roles (1, 3) | Select → bubble → highlight with role / note / word / copy works on 3 real sites; roles shown + filterable in panel and Notes |
+| A ✓ | v1.7 | Selection bubble + roles (1, 3) | Select → bubble → highlight with role / note / word / copy works on 3 real sites; roles shown + filterable in panel and Notes |
 | B | v1.8 | Page dock + note card + continue reading (2, 4, 5) | Dock appears only when it should; note card edits the same notes as the panel; continue jumps back |
 | C | v1.9 | Shortcuts + Obsidian export (6, 7) | Keys work only while the page tools are active; export opens cleanly in Obsidian |
 

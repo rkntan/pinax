@@ -60,6 +60,9 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 - The weekly review shows what you read and saved this week and this month.
 
 ## Page notes (highlights + your notes)
+- **Selection bubble**: select text on a site you allowed (or after clicking the icon on a page):
+  4 colours with roles (Key point, Idea, Question, Check), Note, Word, Copy. Roles show and
+  filter in the panel and in Library › Notes.
 - **Highlighter pen**: side panel → Highlighter; while it's on, every text you select on the page
   is highlighted at once (Esc stops). Click a highlight on the page for a bar: colour, comment,
   copy, delete. The eye icon shows your highlights again. The popup header has a side-panel button.

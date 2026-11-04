@@ -378,18 +378,15 @@ async function highlightSelection(tab, fallbackText = "") {
   if (!got?.text) got = { text: fallbackText, prefix: "", suffix: "" };
   if (!got.text) return toast("Nothing selected", "Select some text first.");
   await addHighlight(tab, got);
-  remark(tab).catch(() => {});
+  remark(tab).catch(() => {}); // also puts the bubble and highlight bar on the page
 }
 
-// With "always show highlights" on (and site access given), mark them when a page loads.
+// On sites you allowed: the selection bubble is ready and your highlights show again.
 chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
   if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
-  const { autoHighlights = false } = await chrome.storage.local.get("autoHighlights");
-  if (!autoHighlights) return;
-  const n = await noteFor(tab.url);
-  if (!n?.highlights.length) return;
   if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
-  remark(tab).catch(() => {});
+  const n = await noteFor(tab.url);
+  (n?.highlights.length ? remark(tab) : pageTools(tab)).catch(() => {});
 });
 
 // The highlighter pen and the bar on highlights talk to the extension through messages.
@@ -397,8 +394,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
 let penQueue = Promise.resolve();
 chrome.runtime.onMessage.addListener((m, sender) => {
   const tab = sender.tab;
-  if (!tab || !/^pen-/.test(m?.type || "") || m.type === "pen-off") return;
+  if (!tab || !/^(pen|bubble)-/.test(m?.type || "") || m.type === "pen-off") return;
   penQueue = penQueue.then(async () => {
+    if (m.type === "bubble-word") {
+      const p = await savePhrase({ ...m.data, url: tab.url, title: tab.title });
+      if (p) enrichPhrase(p.id).catch(() => {});
+      return;
+    }
     if (m.type === "pen-highlight") await addHighlight(tab, m.data);
     else if (m.type === "pen-delete") await deleteHighlight(tab.url, m.id);
     else if (m.type === "pen-color") await updateHighlight(tab.url, m.id, { color: m.color });

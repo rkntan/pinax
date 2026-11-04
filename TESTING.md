@@ -1,4 +1,4 @@
-# Tab Organiser v1.6: Chrome test checklist
+# Tab Organiser v1.7: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
 open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
@@ -84,6 +84,16 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5a.6b Close and reopen the side panel while the pen is on: the button still shows it as on, and one click turns it off.
 - [ ] 5a.6c Reload the extension at chrome://extensions with a pen on: the old badge disappears at the next selection; turning the pen on again works.
 - [ ] 5a.7 The eye icon in the panel shows the highlights again after a page reload.
+
+## 5f. Selection bubble and roles (v1.7)
+
+- [ ] 5f.1 On a site you allowed (or right after clicking the extension icon on a page): select text → a small dark bar appears above it.
+- [ ] 5f.2 The 4 dots highlight as Key point (yellow) · Idea (green) · Question (blue) · Check (pink); the bar says "Highlighted" and closes.
+- [ ] 5f.3 **Note**: a text box appears in the bar; type, Enter → highlight with your note.
+- [ ] 5f.4 **Word**: saved to the Phrasebook with its sentence. **Copy**: quote + title + link on the clipboard.
+- [ ] 5f.5 Esc, a click elsewhere or scrolling closes the bar; it never appears when selecting inside a text box.
+- [ ] 5f.6 Side panel: each highlight shows its role; role chips (All / Key point / …) filter the list. Library › Notes has the same chips.
+- [ ] 5f.7 Panel switch "Work on every site": asks Chrome once; afterwards the bar works on any site. Switching it off goes back to sites you allowed.
 
 ## 5c. Inbox triage (v1.3)
 

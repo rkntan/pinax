@@ -335,3 +335,4 @@ a.title:hover { color: var(--violet); }
 .note-sum-text { white-space: pre-wrap; font-size: 13px; margin-top: 4px; }
 #map .leaf .has-note { font: 700 11px var(--body); fill: var(--violet); }
 #map .topic.notes rect { fill: color-mix(in srgb, var(--violet) 18%, var(--surface)); }
+.nhl-role { display: block; font: 700 10px var(--body); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }

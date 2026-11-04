@@ -52,3 +52,10 @@ h2 { font-size: 13px; }
 .icon-btn { display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; color: var(--ink); padding: 0; }
 .icon-btn:hover { border-color: var(--violet); color: var(--violet); }
 .hint { font-size: 11.5px; color: var(--muted); padding: 6px 14px 0; line-height: 1.4; }
+
+.roles { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.roles:empty { display: none; }
+.role { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 8px 2px 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.role[style]::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.role.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.hl-role { font: 700 10px var(--body); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }

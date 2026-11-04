@@ -9,6 +9,7 @@ let note = null;     // its notes record (or null)
 let color = "yellow";
 let editing = null;  // highlight id whose comment is being edited
 let saveTimer = null;
+let roleFilter = null; // colour key, or null for all
 let penTab = null;   // tab where the highlighter pen is on (re-read from the page, see syncPen)
 let myWin = null;    // the window this panel belongs to
 
@@ -89,7 +90,7 @@ function render() {
 
   $("colors").replaceChildren(...Object.entries(HL_COLORS).map(([name, hex]) =>
     el("button", {
-      class: name === color ? "on" : null, title: name, style: `background:${hex}`,
+      class: name === color ? "on" : null, title: HL_ROLES[name], style: `background:${hex}`,
       onclick: () => { color = name; if (penTab === tab?.id) inPage(tab, startPen, [color, hex], false).catch((e) => msg(why(e))); render(); },
     })));
   $("pen-btn").classList.toggle("on", !!tab && penTab === tab.id);
@@ -97,10 +98,15 @@ function render() {
   $("show-btn").disabled = blocked(tab);
   if (blocked(tab) && isWeb(tab)) msg("Chrome doesn't let extensions highlight on this page.");
 
-  const hls = note?.highlights || [];
-  $("hl-count").textContent = hls.length ? String(hls.length) : "";
+  const all = note?.highlights || [];
+  const roles = note ? roleCounts([note]) : [];
+  if (roleFilter && !roles.some(([k]) => k === roleFilter)) roleFilter = null;
+  const hls = roleFilter ? all.filter((x) => (x.color || "yellow") === roleFilter) : all;
+  $("hl-count").textContent = all.length ? String(all.length) : "";
+  $("roles").replaceChildren(...(roles.length > 1 ? [["", "All", all.length], ...roles].map(([k, label, n]) =>
+    el("button", { class: `role${(roleFilter || "") === k ? " on" : ""}`, style: k ? `--c:${HL_COLORS[k]}` : null, onclick: () => { roleFilter = k || null; render(); } }, `${label} ${n}`)) : []));
   $("hl-list").replaceChildren(...(hls.length ? hls.map(hlEl) : [el("p", { class: "empty" },
-    "Press “Highlighter”, then select text on the page: it is highlighted at once. Click a highlight on the page to recolour, comment or delete it.")]));
+    "Select text on the page: a small bar offers Key point · Idea · Question · Check, Note and Word. For many passages in a row, use the Highlighter.")]));
 
   renderSummary();
 
@@ -177,10 +183,11 @@ function hlEl(hl) {
     : hl.comment ? el("div", { class: "hl-comment", title: "Edit", onclick: () => { editing = hl.id; render(); } }, hl.comment) : null;
   if (comment?.tagName === "TEXTAREA") setTimeout(() => { comment.value = hl.comment || ""; comment.focus(); });
   return el("div", { class: "hl", style: `--c:${hex}` },
+    el("div", { class: "hl-role" }, roleOf(hl)),
     el("div", { class: "hl-text", title: "Show it on the page", onclick: () => showOnPage(hl.id, askSite(tab)) }, hl.text),
     comment,
     el("div", { class: "hl-tools" },
-      Object.entries(HL_COLORS).map(([name, c]) => el("span", { class: "dot", title: name, style: `background:${c}`, onclick: () => updateHighlight(tab.url, hl.id, { color: name }) })),
+      Object.entries(HL_COLORS).map(([name, c]) => el("span", { class: "dot", title: HL_ROLES[name], style: `background:${c}`, onclick: () => updateHighlight(tab.url, hl.id, { color: name }) })),
       el("span", { class: "spacer" }),
       new Date(hl.created).toLocaleDateString(undefined, { day: "numeric", month: "short" }),
       hl.comment ? null : el("button", { onclick: () => { editing = hl.id; render(); } }, "+ comment"),
@@ -274,15 +281,12 @@ $("export").onclick = async () => {
 
 $("library").onclick = () => openLibraryTab("#notes");
 
+// Every site (one "all sites" permission) vs. sites you allow one by one (the default).
 $("auto").onchange = async (e) => {
-  if (e.target.checked) {
-    // ask Chrome for access to all sites, only now and only if you want this
-    const ok = await chrome.permissions.request({ origins: ["<all_urls>"] });
-    e.target.checked = ok;
-    if (!ok) return msg("Not allowed: highlights still show when you press “Show on page”.");
-  }
-  await chrome.storage.local.set({ autoHighlights: e.target.checked });
-  msg(e.target.checked ? "Highlights will show on pages you annotated" : "Highlights show only when you press “Show on page”");
+  const all = { origins: ["<all_urls>"] };
+  const ok = e.target.checked ? await chrome.permissions.request(all) : !(await chrome.permissions.remove(all));
+  e.target.checked = e.target.checked && ok;
+  msg(e.target.checked ? "The bubble and your highlights now work on every site" : "Works on sites you allowed one by one");
 };
 
 // follow the active tab and live changes
@@ -299,7 +303,6 @@ chrome.storage.onChanged.addListener(async (c) => {
 
 (async function init() {
   myWin = (await chrome.windows.getCurrent()).id;
-  const { autoHighlights = false } = await chrome.storage.local.get("autoHighlights");
-  $("auto").checked = autoHighlights;
+  $("auto").checked = await chrome.permissions.contains({ origins: ["<all_urls>"] });
   await load();
 })();

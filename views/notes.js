@@ -23,8 +23,9 @@ function downloadMd(name, md) {
 }
 
 function highlightsEl(n) {
-  return h("div", { class: "nhl" }, n.highlights.map((x) => h("blockquote", { style: `--c:${HL_COLORS[x.color] || HL_COLORS.yellow}` },
-    x.text, x.comment ? h("div", { class: "nhl-c" }, x.comment) : null)));
+  const list = state.role ? n.highlights.filter((x) => (x.color || "yellow") === state.role) : n.highlights;
+  return h("div", { class: "nhl" }, list.map((x) => h("blockquote", { style: `--c:${HL_COLORS[x.color] || HL_COLORS.yellow}` },
+    h("span", { class: "nhl-role" }, roleOf(x)), x.text, x.comment ? h("div", { class: "nhl-c" }, x.comment) : null)));
 }
 
 function noteCard(n) {
@@ -66,11 +67,16 @@ function noteCard(n) {
 
 function viewNotes() {
   const all = noteRecords();
-  const list = all.filter((n) => noteHit(n, state.q));
+  const roles = roleCounts(all);
+  if (state.role && !roles.some(([k]) => k === state.role)) state.role = null;
+  const list = all.filter((n) => noteHit(n, state.q) && (!state.role || n.highlights.some((x) => (x.color || "yellow") === state.role)));
   const hl = all.reduce((a, n) => a + n.highlights.length, 0);
   setHead("Notes", `${all.length} page${all.length === 1 ? "" : "s"} · ${hl} highlight${hl === 1 ? "" : "s"}`);
   $("tools").replaceChildren(
-    h("span", { class: "small muted" }, "Highlight on a page: select text › right-click › “Highlight (page notes)”, or the ✎ Notes button in the popup."),
+    ...(roles.length > 1
+      ? [["", "All"], ...roles].map(([k, label, c]) => h("button", { class: `chip${(state.role || "") === k ? " on" : ""}`, onclick: () => { state.role = k || null; render(); } },
+          k ? h("i", { class: "dot", style: `background:${HL_COLORS[k]}` }) : null, c ? `${label} ${c}` : label))
+      : [h("span", { class: "small muted" }, "Select text on any page you allowed: a small bar lets you highlight it as Key point, Idea, Question or Check.")]),
     h("span", { class: "spacer" }),
     list.length ? h("button", {
       class: "btn",
