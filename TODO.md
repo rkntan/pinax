@@ -24,6 +24,15 @@ Goal: make the core loop excellent before adding more:
 10. [x] Page notes v2: AI summary of your highlights (Chrome's built-in Summarizer),
     "key ideas", notes in Ctrl+K and the mind map.
 
+## Planned: on-page note-taking (see NOTES-PLAN.md)
+
+14. [ ] A v1.7: selection bubble + highlight roles
+15. [ ] B v1.8: page dock, note card, continue reading
+16. [ ] C v1.9: page shortcuts, Obsidian export
+17. [ ] Popup redesign (one big Save, quiet tools row, ⋯ More)
+
+Design rule for everything: minimalist (see NOTES-PLAN.md, "Design rule").
+
 ## Later (only if the above feels good in daily use)
 
 11. [ ] Offline page text + "Ask your library".
