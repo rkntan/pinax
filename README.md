@@ -62,7 +62,8 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 ## Page notes (highlights + your notes)
 - **Selection bubble**: select text on a site you allowed (or after clicking the icon on a page):
   4 colours with roles (Key point, Idea, Question, Check), Note, Word, Copy. Roles show and
-  filter in the panel and in Library › Notes.
+  filter in the panel and in Library › Notes. Keys while the bubble shows: **H** Key point,
+  **N** note, **W** word, **Esc** close.
 - **Page dock** (right edge, on saved / annotated pages or after you used the icon): highlighter,
   note card (same notes as the panel), show/hide highlights, side panel, ⋯ hide on this site.
   Draggable. **Continue reading**: saved pages remember how far you read ("Continue at 64%").
@@ -121,6 +122,7 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 | Alt+Shift+L | open the Library |
 | Ctrl+K (Library) | jump to any page, collection, project, source, word or view |
 | Ctrl+Z (Library) | undo the last delete / discard / prune (also the Undo button, 8 s) |
+| H / N / W (page, text selected) | highlight as Key point / highlight with a note / save the word |
 
 Change the keys at `chrome://extensions/shortcuts`. When the AI sorts a page it also suggests
 up to 2 tags, so related pages in different collections get linked in the mind map.

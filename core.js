@@ -1704,10 +1704,10 @@ function installBubble() {
     .ok{padding:5px 8px;color:#c7ff01}
     svg{display:block}</style>
     <div class="b" hidden role="toolbar" aria-label="Highlight">
-      ${ROLES.map(([c, hex, role]) => `<button class="d" data-c="${c}" style="background:${hex}" title="${role}" aria-label="Highlight as ${role}"></button>`).join("")}
+      ${ROLES.map(([c, hex, role]) => `<button class="d" data-c="${c}" style="background:${hex}" title="${role}${c === "yellow" ? " (H)" : ""}" aria-label="Highlight as ${role}"></button>`).join("")}
       <span class="s"></span>
-      <button class="t" data-a="note" title="Highlight with a note">Note</button>
-      <button class="t" data-a="word" title="Save to the Phrasebook">Word</button>
+      <button class="t" data-a="note" title="Highlight with a note (N)">Note</button>
+      <button class="t" data-a="word" title="Save to the Phrasebook (W)">Word</button>
       <button class="t" data-a="copy" title="Copy with source" aria-label="Copy"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M8 3h9a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h9V9H5Z"/></svg></button>
     </div>`;
   document.documentElement.append(host);
@@ -1777,7 +1777,16 @@ function installBubble() {
     }, 10);
   };
   const onDown = (e) => { if (!e.composedPath?.().includes(host)) hide(); };
-  const onKey = (e) => { if (e.key === "Escape" && !bar.hidden) hide(); };
+  const KEYS = { h: '[data-c="yellow"]', n: '[data-a="note"]', w: '[data-a="word"]' };
+  const onKey = (e) => {
+    if (e.key === "Escape" && !bar.hidden) return hide();
+    const sel = KEYS[e.key?.toLowerCase()];
+    if (!sel || e.ctrlKey || e.metaKey || e.altKey || bar.hidden || !grabbed || inEditable(document.activeElement)) return;
+    if (e.composedPath?.().includes(host)) return; // typing in the note box
+    e.preventDefault();
+    e.stopPropagation();
+    root.querySelector(sel)?.click();
+  };
   const onScroll = () => { if (!bar.hidden && !root.querySelector(".i")) hide(); };
 
   root.addEventListener("click", (e) => {

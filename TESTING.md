@@ -106,6 +106,14 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 5g.7 Save a long article, scroll to the middle, close it, open it again: "You read N% of this · Continue" bottom right; Continue jumps there.
 - [ ] 5g.8 Library › Reading queue: started pages show "N% read" and come first ("Continue").
 
+## 5h. Page shortcuts (v1.9)
+
+- [ ] 5h.1 Select text on an allowed page (the bubble shows), press **H**: "Highlighted", yellow Key point in the side panel.
+- [ ] 5h.2 Select text, press **N**: the note box opens; type (letters like h/n/w just type), Enter saves the highlight with the note.
+- [ ] 5h.3 Select a word, press **W**: "Saved to Phrasebook".
+- [ ] 5h.4 With nothing selected, or while typing in a search box on the page, H/N/W do nothing extra; Ctrl+H still opens History.
+- [ ] 5h.5 **Esc** closes the bubble.
+
 ## 5c. Inbox triage (v1.3)
 
 - [ ] 5c.1 With 5+ pages in the Inbox: bundle cards appear (e.g. "→ AI › Agents 4", "Duplicates", "Old & never read", "No suggestion yet").

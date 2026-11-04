@@ -74,11 +74,7 @@ A slim vertical dock on the right edge, collapsed to one small tab until hovered
 - H highlight selection (Key point) · N note · W save word · Esc close.
 - Chrome-wide shortcuts stay as they are (max 4).
 
-### 7. Export for Obsidian
-
-- Markdown with frontmatter (title, url, date, tags, collection/project), highlights grouped
-  by role, comments under each, then your notes and the AI key ideas.
-- Per page, per collection, per project; "Copy" or download.
+(An Obsidian export was planned here; dropped on 2026-11-04, Erkan: "no need".)
 
 ### Later (not in this plan)
 
@@ -91,7 +87,7 @@ A slim vertical dock on the right edge, collapsed to one small tab until hovered
 |---|---|---|---|
 | A ✓ | v1.7 | Selection bubble + roles (1, 3) | Select → bubble → highlight with role / note / word / copy works on 3 real sites; roles shown + filterable in panel and Notes |
 | B ✓ | v1.8 | Page dock + note card + continue reading (2, 4, 5) | Dock appears only when it should; note card edits the same notes as the panel; continue jumps back |
-| C | v1.9 | Shortcuts + Obsidian export (6, 7) | Keys work only while the page tools are active; export opens cleanly in Obsidian |
+| C ✓ | v1.9 | Page shortcuts (6) | Keys work only while text is selected and you're not typing |
 
 Each phase: unit tests for the pure parts, a live check on real pages (Wikipedia, a blog, a
 docs site), TESTING.md steps, one commit.
