@@ -28,8 +28,13 @@ function render() {
   return renderQueued;
 }
 
+// Storage is re-read only after it changed (onChanged sets `stale`), not on every redraw.
+let stale = true;
+let sideFor = null; // view|col the sidebar was last drawn for
+
 async function renderNow() {
-  await load();
+  const reloaded = stale;
+  if (stale) { stale = false; await load(); }
   const inbox = data.items.filter((x) => x.stage === "inbox").length;
   const review = forReview(data.items).length;
   $("n-inbox").textContent = inbox || "";
@@ -44,9 +49,13 @@ async function renderNow() {
   $("density").style.visibility = ["inbox", "all", "col", "queue"].includes(state.view) ? "visible" : "hidden";
 
   listOrder = [];
-  renderPins();
-  renderTree();
-  renderProjects();
+  // the sidebar only changes with the data or the active view / collection / project
+  if (reloaded || sideFor !== `${state.view}|${state.col}`) {
+    sideFor = `${state.view}|${state.col}`;
+    renderPins();
+    renderTree();
+    renderProjects();
+  }
   reviewKeys = null;
   const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
@@ -63,9 +72,11 @@ $("add").onsubmit = async (e) => {
   const url = $("add-url").value.trim();
   $("add-url").value = "";
   const it = await saveForLater({ url, title: url });
-  $("ai-line").textContent = "Sorting with local AI…";
+  const line = $("ai-line");
+  const before = line.textContent;
+  line.textContent = "Sorting with local AI…";
   await it.sorted;
-  $("ai-line").textContent = "Local AI ready";
+  line.textContent = (await aiAvailability()) === "available" ? "Local AI ready" : before;
 };
 
 $("export").onclick = async () => {
@@ -138,8 +149,40 @@ async function showAi() {
 
 chrome.storage.onChanged.addListener((c) => {
   if (c.tidyDays || c.autoTidy) tidySettings().then((t) => (tidyPrefs = t));
-  if (c.items || c.projects || c.history || c.collections || c.pins || c.phrases || c.notes || c.tidyDays) render();
+  if (c.items || c.projects || c.history || c.collections || c.pins || c.phrases || c.notes || c.tidyDays) {
+    stale = true;
+    renderAfterTyping();
+  }
 });
+
+// A storage change while you type in a field of the page waits until you leave the field,
+// so the redraw doesn't wipe what you typed (the top search box is redrawn-safe).
+// (Selects, checkboxes and radios commit on change, so their own writes redraw at once.)
+// Leaving the field with a mouse press waits for that click, so the button you pressed still works.
+let renderDeferred = false, pointerDown = false;
+addEventListener("pointerdown", () => (pointerDown = true), true);
+addEventListener("pointerup", () => setTimeout(() => (pointerDown = false)), true);
+function renderAfterTyping() {
+  const el = document.activeElement;
+  if (el?.matches("textarea, input:not([type=checkbox]):not([type=radio])") && el.id !== "search" && el.closest("#tools, #content")) {
+    if (!renderDeferred) {
+      renderDeferred = true;
+      el.addEventListener("blur", () => {
+        const again = () => { renderDeferred = false; renderAfterTyping(); };
+        if (pointerDown) addEventListener("click", () => setTimeout(again), { once: true, capture: true });
+        else again();
+      }, { once: true });
+    }
+    return;
+  }
+  render();
+}
+
+// Redraw from fresh storage now: for a user action that saved while its field keeps focus.
+function reload() {
+  stale = true;
+  return render();
+}
 
 function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
@@ -149,7 +192,12 @@ function readHash() {
   else if (hash === "sessions" || hash === "archive") state.view = "history"; // old links
 }
 // the popup reuses an open Library tab and just changes its #view
-window.addEventListener("hashchange", () => { readHash(); render(); });
+window.addEventListener("hashchange", () => {
+  const [view, col] = [state.view, state.col];
+  readHash();
+  if (state.view !== view || state.col !== col) go(state.view, state.col);
+  else render();
+});
 
 (async function init() {
   await migrate();

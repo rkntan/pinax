@@ -47,7 +47,7 @@ function reviewPages(queue, wordsLeft) {
   reviewPath = h("input", {
     class: "input", list: "paths", value: it.path === UNSORTED ? "" : pathLabel(it.path),
     placeholder: "Collection, e.g. AI › Agents",
-    onkeydown: (e) => { if (e.key === "Enter") act("keep"); },
+    onkeydown: async (e) => { if (e.key === "Enter") { await act("keep"); reload(); } },
   });
   const act = async (what) => {
     const path = reviewPath.value || UNSORTED;

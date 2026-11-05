@@ -38,13 +38,14 @@ function detailEl(it) {
     class: "input", value: (it.tags || []).join(", "), placeholder: "tags, comma separated",
     onchange: (e) => updateItem(it.id, { tags: mergeTags([], e.target.value.split(",")) }),
   });
+  const note = notesForUrl(it.url);
   return h("div", { class: "detail" },
     it.why ? h("p", { class: "why-full" }, it.why) : null,
-    notesForUrl(it.url)
+    note
       ? h("div", { class: "quotes" },
-          highlightsEl(notesForUrl(it.url)),
-          notesForUrl(it.url).text.trim() ? h("div", { class: "note-text" }, notesForUrl(it.url).text) : null,
-          h("button", { class: "link small", onclick: () => openWithNotes(notesForUrl(it.url)) }, "Open with notes"))
+          highlightsEl(note),
+          note.text.trim() ? h("div", { class: "note-text" }, note.text) : null,
+          h("button", { class: "link small", onclick: () => openWithNotes(note) }, "Open with notes"))
       : null,
     h("label", { class: "check", title: "Pages are marked read after 2 minutes of viewing" }, "Read",
       h("input", { type: "checkbox", checked: !!it.read, onchange: (e) => updateItem(it.id, { read: e.target.checked, readAt: e.target.checked ? Date.now() : null }) })),
@@ -67,6 +68,8 @@ function rowEl(it, pinned) {
   const suggested = inbox && it.path !== UNSORTED;
   listOrder.push(it.id);
   const selected = state.sel.has(it.id);
+  const note = notesForUrl(it.url);
+  const pct = resumePct(it);
   const row = h("div", {
     class: `row t-${it.type}${open ? " open" : ""}${it.read ? " read" : " unread"}${selected ? " sel" : ""}${state.focusId === it.id ? " focus" : ""}`,
     "data-id": it.id,
@@ -84,13 +87,13 @@ function rowEl(it, pinned) {
         h("a", { class: "title", href: it.url, target: "_blank", title: it.url }, it.title),
         h("span", { class: "why" }, it.why || hostOf(it.url))),
       h("div", { class: "right" },
-        notesForUrl(it.url) ? h("span", { class: "small", title: "Has highlights / notes" }, "✎") : null,
+        note ? h("span", { class: "small", title: "Has highlights / notes" }, "✎") : null,
         isOld(it) ? h("span", { class: "chip", title: "In the Inbox for more than 2 weeks" }, "old") : null,
         isDue(it) ? h("span", { class: "chip lime" }, "due") : null,
         it.remindAt && !isDue(it) ? h("span", { class: "small remind-on", title: "Reminder" }, shortWhen(it.remindAt)) : null,
         it.progress ? h("span", { class: "small muted" }, `${it.progress.done}/${it.progress.total}`) : null,
         it.minutes ? h("span", { class: "small muted len", title: it.words ? `${it.words} words` : "video length" }, lengthLabel(it)) : null,
-        resumePct(it) ? h("span", { class: "chip resume", title: "Where you stopped reading" }, `${resumePct(it)}% read`) : null,
+        pct ? h("span", { class: "chip resume", title: "Where you stopped reading" }, `${pct}% read`) : null,
         state.view !== "col" || inbox
           ? h("button", {
               class: `chip path-chip${inbox ? " suggest" : ""}`,
@@ -182,7 +185,7 @@ function selBar() {
 
 const BUNDLE_FILTER = {
   path: (b) => (it) => it.path === b.path,
-  dupes: () => (it) => inboxBundles(data.items).duplicates.some((x) => x.id === it.id),
+  dupes: () => { const ids = new Set(inboxBundles(data.items).duplicates.map((x) => x.id)); return (it) => ids.has(it.id); },
   old: () => (it) => isOld(it) && !it.read,
   unsorted: () => (it) => !it.path || it.path === UNSORTED,
 };
@@ -266,7 +269,7 @@ function viewAll() {
     h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
 
-// Gmail-style keys in page lists (Inbox, All pages, collections).
+// Gmail-style keys in page lists (Inbox, All pages, collections, queue).
 document.addEventListener("keydown", async (e) => {
   if (!["inbox", "all", "col", "queue"].includes(state.view)) return;
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.matches("input, select, textarea") || document.querySelector(".quick-back")) return;

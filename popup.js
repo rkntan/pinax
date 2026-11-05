@@ -23,10 +23,13 @@ const isWeb = (t) => t && /^https?:/.test(t.url);
 
 function busy(on) {
   document.querySelectorAll("button").forEach((b) => (b.disabled = on));
+  if (on) return;
+  updateSaveLabel(); // Save stays off for non-web pages and pages already in the Inbox
+  if (reading) $("src-next").disabled = !nextUnread(reading.project.sources, reading.source.id);
 }
 
-async function openLibrary(hash = "") {
-  await openLibraryTab(hash);
+async function openLibrary() {
+  await openLibraryTab();
   window.close();
 }
 
@@ -127,14 +130,14 @@ $("save").onclick = async () => {
   try {
     if (dest === "inbox") {
       const it = await saveForLater(tab, remindKey);
-      addStats(it.id, tab);
+      await addStats(it.id, tab);
       msg(remindKey ? `Saved to Inbox · reminder ${presetLabel(remindKey)}` : "Saved to Inbox");
       if (!existing) it.sorted.then((p) => p?.path && p.path !== UNSORTED && msg(`Saved · AI suggests ${pathLabel(p.path)}`));
     } else if (dest === "collection") {
       const p = $("col-input").value.trim();
       if (!p) { msg("Type a collection first"); $("col-input").focus(); return; }
       const it = await saveForLater(tab, remindKey);
-      addStats(it.id, tab);
+      await addStats(it.id, tab);
       await keepItem(it.id, p);
       msg(`Saved in ${pathLabel(cleanPath(p))}`);
     } else {
@@ -208,7 +211,7 @@ async function showPinStar() {
   const on = isWeb(tab) && pins.some((p) => p.url === tab.url);
   $("pin-cur").classList.toggle("on", on);
   $("pin-cur").textContent = on ? "★" : "☆";
-  $("pin-cur").title = on ? "Unpin" : "Pin to dock";
+  $("pin-cur").title = on ? "Unpin" : "Pin to Library";
 }
 
 $("open-panel").onclick = () => {
@@ -218,7 +221,7 @@ $("open-panel").onclick = () => {
 
 $("pin-cur").onclick = async () => {
   if (!isWeb(tab)) return;
-  if (await isPinned(tab.url)) await unpinSite(tab.url);
+  if ($("pin-cur").classList.contains("on")) await unpinSite(tab.url);
   else await pinSite(tab);
   showPinStar();
 };
@@ -278,7 +281,7 @@ $("all-inbox").onclick = async () => {
     // the AI sorts them one by one when the Library opens (not 30 at once here)
     for (const t of tabs) {
       const it = await saveForLater(t, "", { sort: false });
-      addStats(it.id, t); // works where Chrome lets the extension read the tab
+      await addStats(it.id, t); // works where Chrome lets the extension read the tab
     }
     await chrome.tabs.create({ url: chrome.runtime.getURL("library.html#inbox"), windowId: tab.windowId });
     await chrome.tabs.remove(tabs.map((t) => t.id));

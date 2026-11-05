@@ -16,8 +16,22 @@ function buildTree() {
   return root;
 }
 
+// Kept pages per collection, sub-collections included; rebuilt when data.items is reloaded.
+let pathCountsFor = null, pathCounts = new Map();
 function countIn(path) {
-  return data.items.filter((it) => it.stage === "kept" && inPath(it.path, path)).length;
+  if (pathCountsFor !== data.items) {
+    pathCountsFor = data.items;
+    pathCounts = new Map();
+    for (const it of data.items) {
+      if (it.stage !== "kept" || !it.path) continue;
+      const parts = it.path.split("/");
+      for (let i = 1; i <= parts.length; i++) {
+        const p = parts.slice(0, i).join("/");
+        pathCounts.set(p, (pathCounts.get(p) || 0) + 1);
+      }
+    }
+  }
+  return pathCounts.get(path) || 0;
 }
 
 function dropTarget(el, onDrop) {
@@ -103,6 +117,6 @@ function viewCollection() {
     direct.length ? listEl(direct) : null,
     subs.map((s) => {
       const inSub = list.filter((it) => inPath(it.path, s.path));
-      return inSub.length ? [h("h3", { class: "section-title" }, s.name, h("span", { class: "muted small" }, String(inSub.length))), listEl(inSub)] : null;
+      return inSub.length ? [sectionEl(s.name, inSub.length), listEl(inSub)] : null;
     }));
 }

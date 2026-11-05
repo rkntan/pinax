@@ -79,6 +79,8 @@ function viewPhrasebook() {
   const base = vocab.filter(phraseHit);
   const langs = {};
   base.forEach((p) => (langs[p.lang] = (langs[p.lang] || 0) + 1));
+  if (state.lang !== "All" && !langs[state.lang]) state.lang = "All";
+  const quiz = quizQueue(data.phrases).length;
   const langChips = Object.keys(langs).length > 1
     ? ["All", ...Object.keys(langs).sort((a, b) => langs[b] - langs[a])].map((l) =>
         h("button", { class: `chip${state.lang === l ? " on" : ""}`, title: l === "All" ? "" : langName(l), onclick: () => { state.lang = l; render(); } },
@@ -89,13 +91,15 @@ function viewPhrasebook() {
     class: "add",
     onsubmit: async (e) => {
       e.preventDefault();
+      if (phraseKind(addIn.value) === "quote") return flash("Too long: highlight it on the page instead");
       const p = await savePhrase({ text: addIn.value });
       addIn.value = "";
+      reload(); // the field keeps focus, so the storage-change redraw would wait
       if (p) enrichPhrase(p.id);
     },
   }, addIn, h("button", { class: "btn" }, "Add"));
   $("tools").replaceChildren(...langChips, h("span", { class: "spacer" }),
-    forReviewWords().length ? h("button", { class: "btn primary", onclick: () => { state.rtab = "words"; go("review"); } }, `Quiz ${forReviewWords().length} words`) : null,
+    quiz ? h("button", { class: "btn primary", onclick: () => { state.rtab = "words"; go("review"); } }, `Quiz ${quiz} words`) : null,
     add);
 
   const list = base.filter((p) => state.lang === "All" || p.lang === state.lang).sort((a, b) => b.created - a.created);
@@ -106,8 +110,4 @@ function viewPhrasebook() {
   // the 10 newest words saved this week get highlighted
   const fresh = new Set(list.filter((p) => p.created >= weekStart()).slice(0, 10).map((p) => p.id));
   return h("div", {}, byWeek(list, (p) => wordCard(p, fresh.has(p.id))));
-}
-
-function forReviewWords() {
-  return quizQueue(data.phrases);
 }

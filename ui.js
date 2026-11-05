@@ -1,10 +1,9 @@
 // Library page: shared state and small DOM helpers. Loaded before views/*.js and library.js.
 
 const $ = (id) => document.getElementById(id);
-const MAP_COLORS = { Course: "#8959ff", Video: "#ff5a5f", Tool: "#12b886", Article: "#f59f00", Docs: "#228be6", Paper: "#e64980", Other: "#868e96" };
 const PLURAL = { Course: "Courses", Video: "Videos", Tool: "Tools", Article: "Articles", Docs: "Docs", Paper: "Papers", Other: "Other" };
 
-const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), pkind: "vocab", lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null };
+const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null };
 const data = { items: [], cols: [], pins: [], projects: [], history: [], phrases: [], notes: {} };
 
 // Per-viewer UI prefs (layout, collapsed tree branches). Storage may be blocked: never required.
@@ -38,6 +37,11 @@ function svg(tag, attrs = {}, ...kids) {
   }
   for (const kid of kids.flat()) if (kid != null) el.append(kid);
   return el;
+}
+
+// Section heading with a muted count: "Continue reading 3".
+function sectionEl(label, n) {
+  return h("h3", { class: "section-title" }, label, h("span", { class: "muted small" }, String(n)));
 }
 
 function matches(it) {

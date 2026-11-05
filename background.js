@@ -37,12 +37,13 @@ async function syncAlarms() {
 
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.contextMenus.removeAll(); // updates keep old menus; start clean
-  chrome.contextMenus.create({ id: "save-page", title: "Save page for later", contexts: ["page"] });
+  const web = ["http://*/*", "https://*/*"]; // page menus: not on the extension's own pages
+  chrome.contextMenus.create({ id: "save-page", title: "Save page for later", contexts: ["page"], documentUrlPatterns: web });
   chrome.contextMenus.create({ id: "save-link", title: "Save link for later", contexts: ["link"] });
-  chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"] });
-  chrome.contextMenus.create({ id: "highlight", title: "Highlight (page notes)", contexts: ["selection"] });
-  chrome.contextMenus.create({ id: "save-phrase", title: "Save “%s” to Phrasebook", contexts: ["selection"] });
-  chrome.contextMenus.create({ id: "notes-panel", title: "Open notes for this page", contexts: ["page"] });
+  chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "highlight", title: "Highlight (page notes)", contexts: ["selection"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "save-phrase", title: "Save “%s” to Phrasebook", contexts: ["selection"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "notes-panel", title: "Open notes for this page", contexts: ["page"], documentUrlPatterns: web });
   syncAlarms();
 });
 chrome.runtime.onStartup.addListener(syncAlarms);
@@ -61,7 +62,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await saveForLater({ url: info.linkUrl, title: info.selectionText || info.linkUrl });
     toast("Saved for later", info.selectionText || info.linkUrl);
   } else if (info.menuItemId === "save-page" && tab) {
-    addStats((await saveForLater(tab)).id, tab);
+    await addStats((await saveForLater(tab)).id, tab);
     toast("Saved for later", tab.title);
   } else if (info.menuItemId === "pin-site" && tab) {
     await pinSite({ url: tab.url, title: tab.title });
@@ -126,7 +127,7 @@ chrome.commands.onCommand.addListener(async (command, cmdTab) => {
   if (command === "save-phrase") return saveSelection(tab);
   if (command === "highlight") return highlightSelection(tab);
   if (command !== "save-page") return;
-  addStats((await saveForLater(tab)).id, tab);
+  await addStats((await saveForLater(tab)).id, tab);
   toast("Saved for later", tab.title);
 });
 
@@ -220,7 +221,11 @@ chrome.notifications.onButtonClicked.addListener(async (nid, button) => {
   if (!nid.startsWith("item:")) return;
   const id = nid.slice(5);
   if (button === 0) await openItem(id);
-  else await setReminder(id, "tomorrow");
+  else if ((await getItems()).find((x) => x.id === id)?.repeat === "weekly") {
+    const { when } = presetTime("tomorrow"); // snooze, but keep it weekly
+    chrome.alarms.create("remind:" + id, { when });
+    await updateItem(id, { remindAt: when });
+  } else await setReminder(id, "tomorrow");
   chrome.notifications.clear(nid);
 });
 
@@ -229,6 +234,9 @@ chrome.notifications.onButtonClicked.addListener(async (nid, button) => {
 // (in session storage) and turn it into a temporary session when the window closes.
 
 const snapTimers = {};
+// One winSnaps read-modify-write at a time (at startup every window snaps at once).
+let snapQueue = Promise.resolve();
+const serialSnap = (fn) => (snapQueue = snapQueue.then(fn).catch((e) => console.warn("window snapshot", e)));
 
 function scheduleSnap(windowId) {
   if (windowId == null || windowId < 0) return;
@@ -240,10 +248,12 @@ async function snapWindow(windowId) {
   let win;
   try { win = await chrome.windows.get(windowId, { populate: true }); } catch { return; }
   if (win.type !== "normal" || win.incognito) return;
-  const tabs = win.tabs.filter((t) => /^https?:/.test(t.url));
-  const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
-  winSnaps[windowId] = await snapshotTabs(tabs);
-  await chrome.storage.session.set({ winSnaps });
+  const snap = await snapshotTabs(win.tabs.filter((t) => /^https?:/.test(t.url)));
+  await serialSnap(async () => {
+    const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
+    winSnaps[windowId] = snap;
+    await chrome.storage.session.set({ winSnaps });
+  });
 }
 
 chrome.tabs.onCreated.addListener((t) => scheduleSnap(t.windowId));
@@ -256,18 +266,25 @@ chrome.tabGroups.onUpdated.addListener((g) => scheduleSnap(g.windowId));
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
   clearTimeout(snapTimers[windowId]);
-  const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
-  const snap = winSnaps[windowId];
-  delete winSnaps[windowId];
-  await chrome.storage.session.set({ winSnaps });
+  const snap = await serialSnap(async () => {
+    const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
+    const s = winSnaps[windowId];
+    delete winSnaps[windowId];
+    await chrome.storage.session.set({ winSnaps });
+    return s;
+  });
   const { autoSession = true } = await chrome.storage.local.get("autoSession");
   if (autoSession && snap && snap.length >= 2) {
     await addSession(snap, "auto", `closed window · ${snap.length} tabs`, true);
   }
 });
 
-// Snapshot windows that were already open when the worker started.
-chrome.windows.getAll({ windowTypes: ["normal"] }).then((wins) => wins.forEach((w) => scheduleSnap(w.id)));
+// Snapshot windows that were already open when the worker started (and have no snapshot yet:
+// the worker also restarts after sleeping).
+chrome.windows.getAll({ windowTypes: ["normal"] }).then(async (wins) => {
+  const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
+  wins.filter((w) => !winSnaps[w.id]).forEach((w) => scheduleSnap(w.id));
+});
 
 // ---------- research trail: pages opened in a "working on" window join that project ----------
 // tabSource[tabId] = the source that tab shows now; openerOf[tabId] = the tab it was opened
@@ -319,28 +336,21 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.windows.onRemoved.addListener((windowId) => serial(() => setWorkingOn(windowId, null)));
 
-// Badge "●" on the icon while the current window is working on a project.
-async function showWorkingBadge(windowId) {
-  const on = (await getWorkingOn())[windowId];
-  const due = (await getItems()).filter((i) => isDue(i)).length;
-  if (!due) chrome.action.setBadgeText({ text: on ? "●" : "" });
-}
-chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) showWorkingBadge(w); });
-chrome.storage.session.onChanged?.addListener?.((c) => {
-  if (c.workingOn) chrome.windows.getLastFocused().then((w) => showWorkingBadge(w.id)).catch(() => {});
-});
+// Badge "●" on the icon while the current window is working on a project (see refreshBadge).
+chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) refreshBadge(); });
+chrome.storage.session.onChanged.addListener((c) => { if (c.workingOn) refreshBadge(); });
 
 // ---------- auto "read": a saved page counts as read after 2 minutes of real viewing ----------
 // Time only counts while the page is the active tab of a focused window and you are not idle.
 
 const READ_AFTER_MS = 2 * 60 * 1000;
 const READ_TICK = "read-tick";
-let idleState = "active";
+const VIEW_KEYS_MAX = 200; // pages whose viewing time is kept (least recently viewed go first)
 let viewQueue = Promise.resolve();
 const serialView = (fn) => (viewQueue = viewQueue.then(fn).catch((e) => console.warn("read tracking", e)));
 
 async function currentViewUrl() {
-  if (idleState !== "active") return null;
+  if ((await chrome.idle.queryState(60)) !== "active") return null; // asked each time: a cold start forgets state
   const win = await chrome.windows.getLastFocused().catch(() => null);
   if (!win?.focused) return null;
   const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
@@ -354,16 +364,21 @@ function trackView() {
     const { viewing = null, viewTime = {} } = await chrome.storage.session.get(["viewing", "viewTime"]);
     const now = Date.now();
     if (viewing?.url) {
-      const total = (viewTime[viewing.url] || 0) + Math.min(now - viewing.since, 5 * 60 * 1000);
-      viewTime[viewing.url] = total;
-      if (total >= READ_AFTER_MS) await markReadByUrl(viewing.url);
+      const key = pageKey(viewing.url);
+      const prev = viewTime[key] || 0;
+      const total = prev + Math.min(now - viewing.since, 5 * 60 * 1000);
+      delete viewTime[key]; // re-added last: keys stay in least-recently-viewed order
+      viewTime[key] = total;
+      if (prev < READ_AFTER_MS && total >= READ_AFTER_MS) await markReadByUrl(viewing.url);
+      const keys = Object.keys(viewTime);
+      for (const k of keys.slice(0, Math.max(0, keys.length - VIEW_KEYS_MAX))) delete viewTime[k];
     }
     await chrome.storage.session.set({ viewing: next ? { url: next, since: now } : null, viewTime });
   });
 }
 
 chrome.idle.setDetectionInterval(60);
-chrome.idle.onStateChanged.addListener((s) => { idleState = s; trackView(); });
+chrome.idle.onStateChanged.addListener(() => trackView());
 chrome.tabs.onActivated.addListener(trackView);
 chrome.windows.onFocusChanged.addListener(trackView);
 chrome.tabs.onUpdated.addListener((id, change, tab) => { if (change.url && tab.active) trackView(); });
@@ -381,12 +396,15 @@ async function highlightSelection(tab, fallbackText = "") {
   remark(tab).catch(() => {}); // also puts the bubble and highlight bar on the page
 }
 
-// On sites you allowed: the selection bubble is ready and your highlights show again.
+// On sites you allowed (one by one, or "always show highlights"): a saved page without a
+// length gets measured, the selection bubble is ready and your highlights show again.
 chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
   if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
   if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
+  const it = (await getItems()).find((x) => x.url === tab.url && !x.minutes);
+  if (it) await addStats(it.id, tab);
   const n = await noteFor(tab.url);
-  (n?.highlights.length ? remark(tab) : pageTools(tab)).catch(() => {});
+  (n?.highlights.length ? remark(tab) : pageTools(tab, false, false, n)).catch(() => {});
 });
 
 // The highlighter pen and the bar on highlights talk to the extension through messages.
@@ -397,11 +415,14 @@ chrome.runtime.onMessage.addListener((m, sender) => {
   if (!tab || !/^(pen|bubble)-/.test(m?.type || "") || m.type === "pen-off") return;
   penQueue = penQueue.then(async () => {
     if (m.type === "bubble-word") {
-      const p = await savePhrase({ ...m.data, url: tab.url, title: tab.title });
-      if (p) enrichPhrase(p.id).catch(() => {});
-      return;
-    }
-    if (m.type === "pen-highlight") await addHighlight(tab, m.data);
+      if (phraseKind(m.data.text) !== "quote") {
+        const p = await savePhrase({ ...m.data, url: tab.url, title: tab.title });
+        if (p) enrichPhrase(p.id).catch(() => {});
+        return;
+      }
+      // a whole passage is a highlight, not a word (as with the right-click menu)
+      await addHighlight(tab, { text: m.data.text, prefix: m.data.prefix || "", suffix: m.data.suffix || "" });
+    } else if (m.type === "pen-highlight") await addHighlight(tab, m.data);
     else if (m.type === "pen-delete") await deleteHighlight(tab.url, m.id);
     else if (m.type === "pen-color") await updateHighlight(tab.url, m.id, { color: m.color });
     else if (m.type === "pen-comment") await updateHighlight(tab.url, m.id, { comment: m.comment });
@@ -409,21 +430,12 @@ chrome.runtime.onMessage.addListener((m, sender) => {
   }).catch((e) => console.warn("pen", e));
 });
 
-// Saved pages without a length get measured the next time they load, where the extension
-// may read the site (sites you allowed for highlights, or "always show highlights").
-chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
-  if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
-  const it = (await getItems()).find((x) => x.url === tab.url && !x.minutes);
-  if (!it) return;
-  if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
-  addStats(it.id, tab);
-});
-
 // ---------- the page dock and reading position ----------
 
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   const tab = sender.tab;
   if (!tab || !/^(dock-|read-pos|pen-off)/.test(m?.type || "")) return;
+  const answers = ["dock-get", "dock-note", "dock-pen"].includes(m.type); // these reply
   if (m.type === "dock-panel") {
     chrome.sidePanel.open({ tabId: tab.id }).catch((e) => console.warn("side panel", e)); // right after the click
     return;
@@ -449,8 +461,12 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     if (m.type === "dock-pos") return chrome.storage.local.set({ dockY: m.y });
     if (m.type === "read-pos") {
       const it = (await getItems()).find((x) => pageKey(x.url) === pageKey(tab.url));
-      if (it) await updateItem(it.id, { pos: { pct: m.pct, at: Date.now() } });
+      if (!it || (it.pos && Math.abs(it.pos.pct - m.pct) < 10 && Date.now() - it.pos.at < 60000 && m.pct <= 95)) return; // small, recent move (the end is always saved)
+      await updateItem(it.id, { pos: { pct: m.pct, at: Date.now() } });
     }
-  })().catch((e) => console.warn("dock", e));
-  return ["dock-get", "dock-note", "dock-pen"].includes(m.type); // these answer
+  })().catch((e) => {
+    console.warn("dock", e);
+    if (answers) reply({ error: String(e?.message || e) }); // don't leave the page waiting
+  });
+  return answers;
 });

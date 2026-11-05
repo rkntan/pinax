@@ -1,10 +1,11 @@
-// Shared by the popup, the Library page and the background worker (plain script, no modules).
+// Shared by the popup, the side panel, the Library page and the background worker (plain script, no modules).
 // Items: pages you saved. They land in the Inbox (stage "inbox") with an AI-suggested collection
 // path such as "AI/Agents"; the weekly review files them (stage "kept") or discards them.
 
 const TYPES = ["Course", "Video", "Tool", "Article", "Docs", "Paper", "Other"];
 const TAB_COLORS = ["blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange", "grey"];
 const UNSORTED = "Unsorted";
+const DAY_MS = 864e5;
 
 // ---------- small helpers ----------
 
@@ -55,7 +56,7 @@ async function aiAvailability() {
 let aiBase = null;
 async function aiSession(options) {
   if (options) return LanguageModel.create({ ...AI_LANGS, ...options });
-  aiBase ||= LanguageModel.create(AI_LANGS);
+  aiBase ||= LanguageModel.create(AI_LANGS).catch((e) => { aiBase = null; throw e; });
   const base = await aiBase;
   try { return await base.clone(); } catch { return LanguageModel.create(AI_LANGS); }
 }
@@ -112,7 +113,7 @@ function isDue(item, now = Date.now()) {
   return !item.read && item.remindAt && item.remindAt <= now;
 }
 
-const OLD_INBOX_MS = 14 * 24 * 60 * 60 * 1000;
+const OLD_INBOX_MS = 14 * DAY_MS;
 function isOld(item, now = Date.now()) {
   return item.stage === "inbox" && item.created < now - OLD_INBOX_MS;
 }
@@ -122,10 +123,18 @@ function forReview(items, now = Date.now()) {
   return items.filter((x) => x.stage === "inbox" && !(x.reviewAfter > now));
 }
 
+// The number of due reminders, else "●" while the last focused window works on a project.
 async function refreshBadge() {
   const due = (await getItems()).filter((i) => isDue(i)).length;
+  let text = due ? String(due) : "";
+  if (!due) {
+    try {
+      const w = await chrome.windows.getLastFocused();
+      if ((await getWorkingOn())[w.id]) text = "●";
+    } catch {}
+  }
   chrome.action.setBadgeBackgroundColor({ color: "#8959FF" });
-  chrome.action.setBadgeText({ text: due ? String(due) : "" });
+  chrome.action.setBadgeText({ text });
 }
 
 // ---------- items ----------
@@ -150,7 +159,7 @@ async function updateItem(id, patch) {
 // Marks a saved page read (auto after real viewing, see background.js). True if it changed.
 async function markReadByUrl(url) {
   const items = await getItems();
-  const it = items.find((x) => x.url === url && !x.read);
+  const it = items.find((x) => pageKey(x.url) === pageKey(url) && !x.read);
   if (!it) return false;
   it.read = true;
   it.readAt = Date.now();
@@ -158,17 +167,10 @@ async function markReadByUrl(url) {
   return true;
 }
 
-async function deleteItem(id) {
-  await chrome.alarms.clear("remind:" + id);
-  await setItems((await getItems()).filter((x) => x.id !== id));
-}
+const deleteItem = (id) => deleteMany([id]);
 
 // Files an inbox item into a collection (creates the collection if new).
-async function keepItem(id, path) {
-  const p = cleanPath(path);
-  await addCollection(p);
-  await updateItem(id, { stage: "kept", path: p, reviewAfter: null });
-}
+const keepItem = (id, path) => keepMany([id], path);
 
 async function laterItem(id) {
   await updateItem(id, { reviewAfter: nextReviewTime() });
@@ -259,9 +261,11 @@ async function aiClassify(item, paths, tags = []) {
     `- units: if it is a course with a known number of units/lessons, that number, else 0\n` +
     `- tags: 0-2 short lowercase tags that link it to related pages in other collections ` +
     `(reuse these if they fit: ${tags.slice(0, 40).join(", ") || "none yet"}); no tag that only repeats the path`;
-  const out = JSON.parse(await session.prompt(prompt, { responseConstraint: schema }));
-  session.destroy();
-  return out;
+  try {
+    return JSON.parse(await session.prompt(prompt, { responseConstraint: schema }));
+  } finally {
+    session.destroy();
+  }
 }
 
 async function classifyItem(id) {
@@ -272,7 +276,7 @@ async function classifyItem(id) {
   const r = await aiClassify(it, paths, allTags(items));
   // re-read: the user may have filed it while the AI was thinking
   const now = (await getItems()).find((x) => x.id === id);
-  if (!now) return;
+  if (!now?.needsAi) return;
   const patch = {
     type: TYPES.includes(r.type) ? r.type : now.type,
     why: (r.why || "").trim().slice(0, 120),
@@ -351,7 +355,7 @@ async function deleteCollection(path) {
   await chrome.storage.local.set(deletePaths(await getCollections(), await getItems(), path));
 }
 
-// ---------- pins (favourite sites dock) ----------
+// ---------- pins (pinned sites, Library pins row) ----------
 
 async function getPins() {
   const { pins = [] } = await chrome.storage.local.get("pins");
@@ -370,10 +374,6 @@ async function pinSite({ url, title }) {
 
 async function unpinSite(url) {
   await setPins((await getPins()).filter((p) => p.url !== url));
-}
-
-async function isPinned(url) {
-  return (await getPins()).some((p) => p.url === url);
 }
 
 // ---------- storage schema and migration ----------
@@ -457,8 +457,9 @@ function migrateData(input, now = Date.now()) {
 
 // Runs once per upgrade. Keeps a copy of the old data in `backupV2` first.
 async function migrate() {
+  const { schema = 1 } = await chrome.storage.local.get("schema");
+  if (schema >= SCHEMA) return; // cheap check first: most calls find nothing to do
   const d = await chrome.storage.local.get(DATA_KEYS);
-  if ((d.schema || 1) >= SCHEMA) return;
   const { backupV2 } = await chrome.storage.local.get("backupV2");
   if (!backupV2 && (d.items?.length || d.library?.length)) {
     await chrome.storage.local.set({ backupV2: { ...d, savedAt: Date.now() } });
@@ -516,7 +517,7 @@ function isTemporary(s) {
 }
 function expiresInDays(s, now = Date.now()) {
   const from = Math.max(s.saved || 0, s.keepFrom || 0);
-  return Math.max(0, Math.ceil((from + SESSION_DAYS * 864e5 - now) / 864e5));
+  return Math.max(0, Math.ceil((from + SESSION_DAYS * DAY_MS - now) / DAY_MS));
 }
 function freshHistory(list, now = Date.now()) {
   return list.filter((s) => !isTemporary(s) || expiresInDays(s, now) > 0);
@@ -577,18 +578,6 @@ async function promoteSession(id, name) {
   const p = await addProject(name, s.tabs, true);
   await setHistory((await getHistory()).filter((x) => x.id !== id));
   return p;
-}
-
-// Replaces a project's tabs with the given chrome tabs.
-async function updateProject(id, tabs) {
-  const snap = await snapshotTabs(tabs);
-  await editProject(id, (p) => (p.tabs = snap));
-}
-
-async function addTabToProject(id, { url, title, favIconUrl }) {
-  await editProject(id, (p) => {
-    if (!p.tabs.some((t) => t.url === url)) p.tabs.push({ url, title, favIconUrl: favIconUrl || "", group: "", color: "" });
-  });
 }
 
 // Opens tabs in a new window and rebuilds their groups and colours.
@@ -678,8 +667,8 @@ function weekStart(ts = Date.now()) {
 function quizQueue(phrases, now = Date.now(), max = 10) {
   return phrases
     .filter((p) => p.kind !== "quote")
-    .filter((p) => p.created >= now - 7 * 864e5 || p.again)
-    .filter((p) => !(p.quizzedAt > now - 3 * 864e5))
+    .filter((p) => p.created >= now - 7 * DAY_MS || p.again)
+    .filter((p) => !(p.quizzedAt > now - 3 * DAY_MS))
     .sort((a, b) => (b.again ? 1 : 0) - (a.again ? 1 : 0) || b.created - a.created)
     .slice(0, max);
 }
@@ -742,16 +731,40 @@ async function savePhrase({ text, sentence = "", url = "", title = "", pageLang 
   return p;
 }
 
+// The language detector and translators (one per language) for a batch of phrases, each made
+// once on first use; done() destroys them.
+function phraseTools() {
+  let det = null;
+  const trs = new Map();
+  return {
+    detector: () => (det ||= LanguageDetector.create()),
+    translator(lang) {
+      if (!trs.has(lang)) {
+        const opts = { sourceLanguage: lang, targetLanguage: "en" };
+        trs.set(lang, Translator.availability(opts).then((a) => (a !== "unavailable" ? Translator.create(opts) : null)));
+      }
+      return trs.get(lang);
+    },
+    async done() {
+      for (const x of [det, ...trs.values()]) { try { (await x)?.destroy?.(); } catch {} }
+    },
+  };
+}
+
 // Adds language detection, an AI definition and a translation, using whichever of Chrome's
 // built-in APIs exist here. Leaves `needsAi` on if the main model isn't ready yet.
-async function enrichPhrase(id) {
+async function enrichPhrase(id, tools) {
+  if (!tools) {
+    const own = phraseTools();
+    try { return await enrichPhrase(id, own); } finally { await own.done(); }
+  }
   const p = (await getPhrases()).find((x) => x.id === id);
   if (!p) return;
   const patch = { detected: true };
   // language + translation run once; only the AI definition is retried while the model loads
   if (!p.detected && typeof LanguageDetector !== "undefined") {
     try {
-      const det = await LanguageDetector.create();
+      const det = await tools.detector();
       const [top] = await det.detect(p.sentence || p.text);
       if (top && top.confidence > 0.6 && top.detectedLanguage !== "und") patch.lang = top.detectedLanguage.split("-")[0];
     } catch (e) { console.warn("language detect", e); }
@@ -759,12 +772,8 @@ async function enrichPhrase(id) {
   const lang = patch.lang || p.lang;
   if (!p.detected && lang !== "en" && typeof Translator !== "undefined") {
     try {
-      const opts = { sourceLanguage: lang, targetLanguage: "en" };
-      if ((await Translator.availability(opts)) !== "unavailable") {
-        const tr = await Translator.create(opts);
-        patch.translation = (await tr.translate(p.text)).slice(0, 300);
-        tr.destroy?.();
-      }
+      const tr = await tools.translator(lang);
+      if (tr) patch.translation = (await tr.translate(p.text)).slice(0, 300);
     } catch (e) { console.warn("translate", e); }
   }
   let aiDone = p.kind === "quote";
@@ -776,13 +785,17 @@ async function enrichPhrase(id) {
         properties: { definition: { type: "string" }, example: { type: "string" }, pos: { type: "string" } },
         required: ["definition", "example", "pos"],
       };
-      const out = JSON.parse(await s.prompt(
-        `Explain the ${langName(lang)} ${p.kind} "${p.text}" like a learner's dictionary, in English.\n` +
-        (p.sentence ? `It appeared in this sentence: "${p.sentence}"\nGive the meaning used there.\n` : "") +
-        `Return: definition (max 20 words), example (one new short sentence in ${langName(lang)} using it), ` +
-        `pos (noun, verb, adjective, adverb, phrase, idiom or other).`,
-        { responseConstraint: schema }));
-      s.destroy();
+      let out;
+      try {
+        out = JSON.parse(await s.prompt(
+          `Explain the ${langName(lang)} ${p.kind} "${p.text}" like a learner's dictionary, in English.\n` +
+          (p.sentence ? `It appeared in this sentence: "${p.sentence}"\nGive the meaning used there.\n` : "") +
+          `Return: definition (max 20 words), example (one new short sentence in ${langName(lang)} using it), ` +
+          `pos (noun, verb, adjective, adverb, phrase, idiom or other).`,
+          { responseConstraint: schema }));
+      } finally {
+        s.destroy();
+      }
       patch.ai = { definition: String(out.definition).slice(0, 200), example: String(out.example).slice(0, 200), pos: String(out.pos).slice(0, 20) };
       aiDone = true;
     } catch (e) { console.warn("AI define", e); }
@@ -795,7 +808,12 @@ async function enrichPendingPhrases(onProgress) {
   const ready = (await aiAvailability()) === "available";
   const pending = (await getPhrases()).filter((x) => x.needsAi && (ready || !x.detected));
   let n = 0;
-  for (const p of pending) { await enrichPhrase(p.id); onProgress?.(++n, pending.length); }
+  const tools = phraseTools();
+  try {
+    for (const p of pending) { await enrichPhrase(p.id, tools); onProgress?.(++n, pending.length); }
+  } finally {
+    await tools.done();
+  }
   return n;
 }
 
@@ -804,8 +822,6 @@ async function enrichPendingPhrases(onProgress) {
 // was opened from (Chrome's "opener", or the previous page in the same tab).
 // status: "unread" | "useful" | "later" (sent to Inbox) | "skip" (not needed).
 // `tabs` stay the project's working tabs ("Open all").
-
-const SOURCE_STATUS = ["unread", "useful", "later", "skip"];
 
 // Search result pages are steps, not sources: they are skipped but keep the chain going.
 function isSearchPage(url) {
@@ -875,7 +891,7 @@ function withSource(p, { url, title, favIconUrl }, parent = null, now = Date.now
   return { project: { ...p, sources: [...sources, source] }, source, added: true };
 }
 
-// Pure: Markdown list of the useful sources, with notes and saved quotes.
+// Pure: Markdown list of the useful sources, with notes and highlights.
 function projectMarkdown(p, quotes = [], now = Date.now()) {
   const c = projectProgress(p);
   const useful = sourceTree(p.sources).map((n) => n.s).filter((s) => s.status === "useful");
@@ -986,11 +1002,11 @@ async function finishProject(projectId, filing = {}, rest = "skip") {
   if (!p) return;
   for (const s of p.sources || []) {
     if (s.status === "useful" && filing[s.id]) {
-      const it = await saveForLater(s);
+      const it = await saveForLater(s, "", { sort: false });
       await keepItem(it.id, filing[s.id]);
       if (s.note) await updateItem(it.id, { why: s.note, needsAi: false });
     }
-    if (s.status === "unread" && rest === "inbox") await saveForLater(s);
+    if (s.status === "unread" && rest === "inbox") await saveForLater(s, "", { sort: false });
   }
   await editProject(projectId, (x) => {
     (x.sources || []).forEach((s) => { if (s.status === "unread") s.status = rest === "inbox" ? "later" : "skip"; });
@@ -1055,8 +1071,12 @@ async function aiGroups(tabs, onProgress) {
   const prompt =
     `Sort these browser tabs into 2-8 groups by topic or task (not just by website).\n` +
     `Give each group a short name (1-3 words) and a color. Every tab number must appear in exactly one group.\n\n${list}`;
-  const out = await session.prompt(prompt, { responseConstraint: schema });
-  session.destroy();
+  let out;
+  try {
+    out = await session.prompt(prompt, { responseConstraint: schema });
+  } finally {
+    session.destroy();
+  }
   return JSON.parse(out).groups;
 }
 
@@ -1366,13 +1386,17 @@ async function keepMany(ids, path) {
 async function keepSuggested(ids) {
   const set = new Set(ids);
   const items = await getItems();
-  let cols = await getCollections();
+  const cols = await getCollections();
+  const add = [];
   for (const it of items) {
     if (!set.has(it.id) || !it.path || it.path === UNSORTED) continue;
     Object.assign(it, { stage: "kept", reviewAfter: null });
-    cols = withPath(cols, it.path);
+    const p = cleanPath(it.path);
+    if (p === UNSORTED) continue;
+    const parts = p.split("/");
+    for (let i = 1; i <= parts.length; i++) add.push(parts.slice(0, i).join("/"));
   }
-  await chrome.storage.local.set({ items, collections: cols });
+  await chrome.storage.local.set({ items, collections: add.length ? sortPaths([...cols, ...add]) : cols });
 }
 
 async function deleteMany(ids) {
@@ -1484,9 +1508,11 @@ async function aiSummary(text, kind = "key-points", context = "", onProgress) {
   const ask = kind === "key-points"
     ? "List the 3-7 key ideas as short Markdown bullets (- ...). Use only what is in the text."
     : "Summarise it in 2-3 plain sentences. Use only what is in the text.";
-  const out = await s.prompt(`${context ? context + "\n\n" : ""}${ask}\n\nText:\n${input.slice(0, 8000)}`);
-  s.destroy();
-  return out.trim();
+  try {
+    return (await s.prompt(`${context ? context + "\n\n" : ""}${ask}\n\nText:\n${input.slice(0, 8000)}`)).trim();
+  } finally {
+    s.destroy();
+  }
 }
 
 // Summarises a page's highlights + notes (source "highlights") or given page text ("page"),
@@ -1641,10 +1667,10 @@ function installMarkTools() {
 
 // Puts the selection bubble, the highlight bar and the dock into a page we may access.
 // used: you just used the extension on this page (icon, panel, bubble), so the dock shows.
-async function pageTools(tab, askAccess = false, used = false) {
+async function pageTools(tab, askAccess = false, used = false, note) {
   await inPage(tab, installBubble, [], askAccess);
   await inPage(tab, installMarkTools, [], false);
-  const [items, n, prefs] = await Promise.all([getItems(), noteFor(tab.url), chrome.storage.local.get(["dockHidden", "dockY"])]);
+  const [items, n, prefs] = await Promise.all([getItems(), note !== undefined ? note : noteFor(tab.url), chrome.storage.local.get(["dockHidden", "dockY"])]);
   const cfg = dockConfig({
     item: items.find((x) => pageKey(x.url) === pageKey(tab.url)) || null,
     note: n, used, hiddenSites: prefs.dockHidden || [], origin: new URL(tab.url).origin, y: prefs.dockY ?? 40,
@@ -1655,7 +1681,7 @@ async function pageTools(tab, askAccess = false, used = false) {
 // Shows the page's highlights and their tools (background and panel use this).
 async function remark(tab, scrollTo = null, askAccess = false, used = false) {
   const n = await noteFor(tab.url);
-  await pageTools(tab, askAccess, used);
+  await pageTools(tab, askAccess, used, n);
   return inPage(tab, markHighlights, [markList(n), scrollTo], false);
 }
 
@@ -1797,7 +1823,8 @@ function installBubble() {
     if (b.dataset.c) {
       if (send({ type: "pen-highlight", data: { ...data, color: b.dataset.c } })) done("Highlighted");
     } else if (b.dataset.a === "word") {
-      if (send({ type: "bubble-word", data: { text: g.text, sentence: g.sentence, pageLang: document.documentElement.lang || "" } })) done("Saved to Phrasebook");
+      const long = g.text.split(/\s+/).filter(Boolean).length > 5; // QUOTE_WORDS: a passage becomes a highlight
+      if (send({ type: "bubble-word", data: { text: g.text, prefix: g.prefix, suffix: g.suffix, sentence: g.sentence, pageLang: document.documentElement.lang || "" } })) done(long ? "Highlighted" : "Saved to Phrasebook");
     } else if (b.dataset.a === "copy") {
       navigator.clipboard.writeText(`“${g.text}” — ${document.title} (${location.href})`).then(() => done("Copied"));
     } else if (b.dataset.a === "note") {
@@ -1837,7 +1864,7 @@ function installBubble() {
 // Pure: where to pick up a saved page again (null if not started, finished, or too old).
 function resumePct(item, now = Date.now()) {
   const p = item?.pos;
-  if (!p || item.read || p.pct < 5 || p.pct > 95 || now - p.at > 30 * 864e5) return null;
+  if (!p || item.read || p.pct < 5 || p.pct > 95 || now - p.at > 30 * DAY_MS) return null;
   return Math.round(p.pct);
 }
 

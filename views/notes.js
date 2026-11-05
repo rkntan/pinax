@@ -22,21 +22,21 @@ function downloadMd(name, md) {
   URL.revokeObjectURL(a.href);
 }
 
-function highlightsEl(n) {
-  const list = state.role ? n.highlights.filter((x) => (x.color || "yellow") === state.role) : n.highlights;
+function highlightsEl(n, role = null) {
+  const list = role ? n.highlights.filter((x) => (x.color || "yellow") === role) : n.highlights;
   return h("div", { class: "nhl" }, list.map((x) => h("blockquote", { style: `--c:${HL_COLORS[x.color] || HL_COLORS.yellow}` },
     h("span", { class: "nhl-role" }, roleOf(x)), x.text, x.comment ? h("div", { class: "nhl-c" }, x.comment) : null)));
 }
 
-function noteCard(n) {
-  const it = data.items.find((x) => pageKey(x.url) === n.url);
+function noteCard(n, itemByKey) {
+  const it = itemByKey.get(n.url);
   const where = it ? (it.stage === "kept" ? pathLabel(it.path) : "Inbox") : null;
   return h("article", { class: "note" },
     h("div", { class: "note-head" },
       h("img", { src: n.favIconUrl || faviconFor(n.url, 16), alt: "" }),
       h("a", { class: "title", href: n.url, target: "_blank", title: n.url }, n.title),
       h("span", { class: "muted small" }, [hostOf(n.url), where, stamp(n.updated)].filter(Boolean).join(" · "))),
-    n.highlights.length ? highlightsEl(n) : null,
+    n.highlights.length ? highlightsEl(n, state.role) : null,
     n.text.trim() ? h("div", { class: "note-text" }, n.text) : null,
     n.summary?.text ? h("div", { class: "note-sum" },
       h("div", { class: "muted small" }, h("span", { class: "ai-tag" }, "AI"), ` ${n.summary.source === "page" ? "Summary of the page" : "Key ideas from your highlights"} · ${stamp(n.summary.at)}`),
@@ -85,5 +85,7 @@ function viewNotes() {
   if (!list.length) {
     return emptyEl(all.length ? "No matches" : "No notes yet", "Open any article, select a passage and highlight it. Your notes and highlights stay linked to the page.");
   }
-  return h("div", { class: "notes" }, list.map(noteCard));
+  const itemByKey = new Map();
+  for (const x of data.items) if (!itemByKey.has(pageKey(x.url))) itemByKey.set(pageKey(x.url), x);
+  return h("div", { class: "notes" }, list.map((n) => noteCard(n, itemByKey)));
 }

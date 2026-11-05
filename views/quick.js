@@ -22,7 +22,7 @@ function quickEntries() {
   for (const it of data.items) out.push({ kind: it.stage === "inbox" ? "Inbox" : "Page", label: it.title, sub: `${pathLabel(it.path)} · ${hostOf(it.url)}`, extra: `${it.url} ${(it.tags || []).join(" ")} ${it.why}`, fav: it.url, go: () => window.open(it.url, "_blank") });
   for (const n of Object.values(data.notes)) out.push({ kind: "Note", label: n.title, sub: n.highlights[0]?.text || n.text.slice(0, 80), extra: `${n.text} ${n.summary?.text || ""} ${n.highlights.map((x) => `${x.text} ${x.comment}`).join(" ")}`, fav: n.url, go: () => { setSearch(n.title); go("notes"); } });
   for (const p of data.pins) out.push({ kind: "Pin", label: p.title, sub: hostOf(p.url), fav: p.url, go: () => window.open(p.url, "_blank") });
-  for (const w of data.phrases) out.push({ kind: w.kind === "quote" ? "Quote" : "Word", label: w.text, sub: w.translation || w.ai?.definition || w.title, go: () => { state.pkind = w.kind === "quote" ? "quotes" : "vocab"; setSearch(w.text); go("phrases"); } });
+  for (const w of data.phrases) out.push({ kind: w.kind === "quote" ? "Quote" : "Word", label: w.text, sub: w.translation || w.ai?.definition || w.title, go: () => { setSearch(w.text); go("phrases"); } });
   const views = [["Inbox", "inbox"], ["Weekly review", "review"], ["All pages", "all"], ["Notes", "notes"], ["Phrasebook", "phrases"], ["History", "history"], ["Mind map", "map"]];
   for (const [label, v] of views) out.push({ kind: "View", label, go: () => go(v) });
   return out;

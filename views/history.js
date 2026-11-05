@@ -10,7 +10,7 @@ function tabSetEl(s, mode) {
   const toggle = () => { open ? state.openSessions.delete(s.id) : state.openSessions.add(s.id); render(); };
   // a history entry with no tabs left disappears; a project may be empty
   const edit = (fn) => (isProject ? editProject(s.id, fn) : editHistory(s.id, fn));
-  const remove = () => setHistory(data.history.filter((x) => x.id !== s.id));
+  const remove = async () => setHistory((await getHistory()).filter((x) => x.id !== s.id));
   const targets = data.projects.filter((x) => x.id !== s.id && x.status !== "finished");
   const cols = data.cols.filter((c) => c !== UNSORTED);
   const days = isProject ? null : expiresInDays(s);
@@ -83,11 +83,13 @@ function tabSetEl(s, mode) {
 }
 
 // Short message at the bottom of the sidebar.
+let flashBase = null, flashTimer = null;
 function flash(text) {
   const line = $("ai-line");
-  const before = line.textContent;
+  if (flashBase === null) flashBase = line.textContent;
   line.textContent = text;
-  setTimeout(() => { if (line.textContent === text) line.textContent = before; }, 2500);
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { if (line.textContent === text) line.textContent = flashBase; flashBase = null; }, 2500);
 }
 
 function sessionHit(s) {
@@ -133,7 +135,7 @@ function viewHistory() {
   $("tools").replaceChildren(
     ...[["all", "All"], ...Object.entries(HISTORY_KINDS)].map(([k, label]) =>
       h("button", { class: `chip${kind === k ? " on" : ""}`, onclick: () => { state.hkind = k; render(); } },
-        `${label}${k === "all" ? "" : "s"} ${k === "all" ? all.length : counts[k] || 0}`)),
+        `${label}${k === "all" || k === "tidied" ? "" : "s"} ${k === "all" ? all.length : counts[k] || 0}`)),
     h("span", { class: "spacer" }),
     h("label", { class: "small check" },
       h("input", { type: "checkbox", checked: autoSessionOn, onchange: (e) => { autoSessionOn = e.target.checked; chrome.storage.local.set({ autoSession: autoSessionOn }); } }),

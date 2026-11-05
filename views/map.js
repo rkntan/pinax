@@ -9,8 +9,10 @@ let mapFitted = false;
 function mapTree() {
   const live = data.items.filter((it) => matches(it));
   const tree = buildTree();
+  const keptByPath = {};
+  for (const it of live) if (it.stage === "kept") (keptByPath[it.path] ||= []).push(it);
   const toNode = (t) => {
-    const pages = live.filter((it) => it.stage === "kept" && it.path === t.path);
+    const pages = keptByPath[t.path] || [];
     const kids = Object.values(t.children).map(toNode).filter((n) => n.count);
     return {
       id: "c:" + t.path, label: t.name, kind: "col", path: t.path,
@@ -20,7 +22,7 @@ function mapTree() {
   };
   const pageNode = (it) => ({ id: "p:" + it.id, label: it.title, kind: "page", item: it, children: [], count: 1 });
   const top = Object.values(tree.children).map(toNode).filter((n) => n.count);
-  const unsorted = live.filter((it) => it.stage === "kept" && it.path === UNSORTED);
+  const unsorted = keptByPath[UNSORTED] || [];
   if (unsorted.length) top.push({ id: "c:" + UNSORTED, label: UNSORTED, kind: "col", path: UNSORTED, children: unsorted.map(pageNode), count: unsorted.length });
   const inbox = live.filter((it) => it.stage === "inbox");
   if (inbox.length) top.push({ id: "inbox", label: "Inbox", kind: "inbox", children: inbox.map(pageNode), count: inbox.length });
@@ -134,7 +136,7 @@ function nodeEl(n, toggle) {
     const it = n.item;
     const label = it.title.length > 46 ? it.title.slice(0, 45) + "…" : it.title;
     return svg("g", {
-      class: `leaf${isDue(it) ? " due" : ""}${it.read ? " read" : ""}`, style: `--type:${MAP_COLORS[it.type]}`,
+      class: `leaf t-${it.type}${isDue(it) ? " due" : ""}${it.read ? " read" : ""}`,
       transform: `translate(${n.x} ${n.y})`, onclick: () => window.open(it.url, "_blank"),
     },
       svg("title", {}, `${it.title}\n${pathLabel(it.path)} · ${it.type}${it.why ? "\n" + it.why : ""}${it.tags?.length ? "\n#" + it.tags.join(" #") : ""}${noteTip(it.url)}`),

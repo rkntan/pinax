@@ -10,6 +10,7 @@ function showTip(el, text) {
 function hideTip() { tip?.remove(); tip = null; }
 
 function renderPins() {
+  hideTip();
   const box = $("pins");
   box.replaceChildren();
   let dragId = null;
@@ -21,13 +22,15 @@ function renderPins() {
       onmouseenter: (e) => showTip(e.currentTarget, `${p.title} · ${hostOf(p.url)}`),
       onmouseleave: hideTip,
       ondragstart: () => { dragId = p.id; hideTip(); },
-      ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add("drag-over"); },
+      ondragover: (e) => { if (!dragId) return; e.preventDefault(); e.currentTarget.classList.add("drag-over"); },
       ondragleave: (e) => e.currentTarget.classList.remove("drag-over"),
       ondrop: async (e) => {
         e.preventDefault();
-        const pins = data.pins.filter((x) => x.id !== dragId);
-        const moved = data.pins.find((x) => x.id === dragId);
-        if (!moved) return;
+        e.currentTarget.classList.remove("drag-over");
+        const all = await getPins();
+        const pins = all.filter((x) => x.id !== dragId);
+        const moved = all.find((x) => x.id === dragId);
+        if (!moved || dragId === p.id) return; // dropped on itself: nothing moves
         pins.splice(pins.findIndex((x) => x.id === p.id), 0, moved);
         await setPins(pins);
       },

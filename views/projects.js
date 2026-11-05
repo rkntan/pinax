@@ -106,10 +106,7 @@ function finishView(p) {
 
 function exportMarkdown(p) {
   const md = projectMarkdown(p, Object.values(data.notes).flatMap((n) => n.highlights.map((x) => ({ url: n.url, text: x.text }))));
-  navigator.clipboard?.writeText(md).catch(() => {});
-  const a = h("a", { href: URL.createObjectURL(new Blob([md], { type: "text/markdown" })), download: `${p.name.replace(/[\\/:*?"<>|]+/g, "-")}.md` });
-  a.click();
-  URL.revokeObjectURL(a.href);
+  downloadMd(p.name, md);
 }
 
 function viewProject() {

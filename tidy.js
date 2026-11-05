@@ -1,8 +1,7 @@
-// Auto-tidy: tabs not used for N days go to the Archive (Library > Archive), then close.
+// Auto-tidy: tabs not used for N days go to History (kind "tidied", kept 30 days), then close.
 // Needs core.js loaded first.
 
 const TIDY_DEFAULTS = { tidyDays: 3, autoTidy: false };
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function tidySettings() {
   return chrome.storage.local.get(TIDY_DEFAULTS);
@@ -21,7 +20,7 @@ async function tidyTabs(days) {
   const tabs = await idleTabs(days);
   if (!tabs.length) return 0;
   await addSession(tabs, "tidied", `${tabs.length} idle tab${tabs.length > 1 ? "s" : ""}`);
-  // Only close once the archive entry has been written.
+  // Only close once the History entry has been written.
   await chrome.tabs.remove(tabs.map((t) => t.id));
   return tabs.length;
 }

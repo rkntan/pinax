@@ -12,6 +12,7 @@ let saveTimer = null;
 let roleFilter = null; // colour key, or null for all
 let penTab = null;   // tab where the highlighter pen is on (re-read from the page, see syncPen)
 let myWin = null;    // the window this panel belongs to
+let whereText = "";  // "host · in Inbox · source in …", from where() (read in load, not every render)
 
 const isWeb = (t) => t && /^https?:/.test(t.url || "");
 
@@ -39,7 +40,7 @@ async function currentTab() {
 
 async function load() {
   tab = await currentTab();
-  note = isWeb(tab) ? await noteFor(tab.url) : null;
+  [note, whereText] = await Promise.all([isWeb(tab) ? noteFor(tab.url) : null, where()]);
   render();
   syncPen();
 }
@@ -85,8 +86,10 @@ function render() {
   const web = isWeb(tab);
   $("title").textContent = web ? tab.title : "Open a web page to take notes";
   $("fav").src = web ? tab.favIconUrl || faviconFor(tab.url) : "icons/icon32.png";
-  where().then((w) => ($("where").textContent = w));
-  document.querySelectorAll(".bar, .colors, section").forEach((s) => s.classList.toggle("off", !web));
+  $("where").textContent = whereText;
+  // "This page" stays usable (Library ↗, Work on every site); only its Save needs a web page
+  document.querySelectorAll(".bar, .colors, section:not(.actions)").forEach((s) => s.classList.toggle("off", !web));
+  $("save-inbox").disabled = !web;
 
   $("colors").replaceChildren(...Object.entries(HL_COLORS).map(([name, hex]) =>
     el("button", {
@@ -110,8 +113,11 @@ function render() {
 
   renderSummary();
 
-  // don't overwrite what you are typing
-  if (document.activeElement !== $("text")) $("text").value = note?.text || "";
+  // don't overwrite what you are typing (unless the box still holds another page's notes)
+  if (document.activeElement !== $("text") || $("text").dataset.url !== tab?.url) {
+    $("text").value = note?.text || "";
+    $("text").dataset.url = tab?.url || "";
+  }
   $("export").disabled = !note;
 }
 
@@ -148,7 +154,8 @@ function renderSummary() {
     el("button", { onclick: () => editNote(tab, (x) => delete x.summary) }, "Remove"))] : []));
 }
 
-async function summarise(source) {
+// access: for "page", the promise from askSite(), started in the click
+async function summarise(source, access = null) {
   if (!isWeb(tab)) return;
   const btn = source === "page" ? $("sum-page") : $("sum-hl");
   const label = btn.textContent;
@@ -156,11 +163,14 @@ async function summarise(source) {
   btn.textContent = "✦ Thinking…";
   try {
     let text = "";
-    if (source === "page") text = await inPage(tab, readPageText);
+    if (source === "page") {
+      if (!(await access)) throw new Error("Site access not allowed, so the page can't be read.");
+      text = await inPage(tab, readPageText, [], false);
+    }
     await summariseNote(tab, source, text, (m) => msg(m));
     msg("");
   } catch (e) {
-    msg(e.message || "The local AI couldn't summarise this.");
+    msg(why(e) || "The local AI couldn't summarise this.");
   } finally {
     btn.textContent = label;
     btn.disabled = false;
@@ -169,7 +179,10 @@ async function summarise(source) {
 }
 
 $("sum-hl").onclick = () => summarise("highlights");
-$("sum-page").onclick = () => summarise("page");
+$("sum-page").onclick = () => {
+  if (blocked(tab)) return msg("Chrome doesn't allow extensions on this page.");
+  summarise("page", askSite(tab)); // first, while Chrome still counts this as your click
+};
 
 function hlEl(hl) {
   const hex = HL_COLORS[hl.color] || HL_COLORS.yellow;
@@ -291,16 +304,18 @@ $("auto").onchange = async (e) => {
   msg(e.target.checked ? "The bubble and your highlights now work on every site" : "Works on sites you allowed one by one");
 };
 
-// follow the active tab and live changes
 // follow the active tab of this panel's own window only
 chrome.tabs.onActivated.addListener((info) => { if (info.windowId === myWin) load(); });
 chrome.tabs.onUpdated.addListener((id, change, t) => {
   if (t.windowId !== myWin) return;
   if (id === penTab && change.status === "loading") penTab = null; // a new page starts without the pen
-  if (id === tab?.id && (change.status === "complete" || change.title)) load(); // load re-reads the pen
+  if (id !== tab?.id) return;
+  if (change.status === "complete" || change.url) load(); // load re-reads the pen
+  else if (change.title && isWeb(t)) { tab = t; $("title").textContent = t.title; }
 });
 chrome.storage.onChanged.addListener(async (c) => {
   if (c.notes && isWeb(tab)) { note = await noteFor(tab.url); render(); }
+  if (c.items || c.projects) { whereText = await where(); $("where").textContent = whereText; }
 });
 
 (async function init() {

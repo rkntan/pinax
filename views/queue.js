@@ -32,9 +32,9 @@ function viewQueue() {
           : `Up next · ${lengthLabel(first) || "length unknown"} · ${first.stage === "kept" ? pathLabel(first.path) : "Inbox"}`),
         h("b", {}, first.title)),
       h("button", { class: "btn primary", onclick: () => window.open(first.url, "_blank") }, resumePct(first) ? "▶ Continue" : "▶ Read now")),
-    started.length > 1 ? [h("h3", { class: "section-title" }, "Continue reading", h("span", { class: "muted small" }, String(started.length))), listEl(started)] : null,
+    started.length > 1 ? [sectionEl("Continue reading", started.length), listEl(started)] : null,
     selBar(),
     withLen.length ? listEl(withLen) : null,
-    unknown.length ? [h("h3", { class: "section-title" }, "Length unknown", h("span", { class: "muted small" }, String(unknown.length))), listEl(unknown)] : null,
+    unknown.length ? [sectionEl("Length unknown", unknown.length), listEl(unknown)] : null,
     h("p", { class: "keys-hint small muted" }, `${KEYS_HINT} · a page leaves the queue once read (2 min of viewing, or M)`));
 }
