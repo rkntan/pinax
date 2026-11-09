@@ -23,7 +23,7 @@ function noteEl(p) {
 function sourceEl(p) {
   if (!p.url) return h("span", { class: "muted small" }, stamp(p.created));
   return h("span", { class: "ph-src" },
-    h("img", { src: faviconFor(p.url, 16), alt: "" }),
+    h("img", { src: faviconFor(p.url, 16), loading: "lazy", alt: "" }),
     h("a", { href: p.url, target: "_blank", title: p.url }, p.title || hostOf(p.url)),
     h("span", { class: "muted" }, ` · ${stamp(p.created)}`));
 }
@@ -109,5 +109,6 @@ function viewPhrasebook() {
   }
   // the 10 newest words saved this week get highlighted
   const fresh = new Set(list.filter((p) => p.created >= weekStart()).slice(0, 10).map((p) => p.id));
-  return h("div", {}, byWeek(list, (p) => wordCard(p, fresh.has(p.id))));
+  const { shown, more } = pageOf("words", list);
+  return h("div", {}, byWeek(shown, (p) => wordCard(p, fresh.has(p.id))), more);
 }

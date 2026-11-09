@@ -23,7 +23,7 @@ function tabSetEl(s, mode) {
   };
 
   const tabRow = (t, i) => h("div", { class: "tabrow" },
-    h("img", { src: t.favIconUrl || faviconFor(t.url, 16), alt: "" }),
+    h("img", { src: faviconFor(t.url, 16), loading: "lazy", alt: "" }),
     h("a", { href: t.url, target: "_blank", title: t.url }, t.title || t.url),
     t.group ? h("span", { class: "grp" }, t.group) : null,
     isProject ? null : h("button", {

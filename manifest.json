@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Tab Organiser",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "description": "Groups your tabs with Chrome's built-in Gemini Nano, saves pages for later with reminders, and keeps a library.",
   "minimum_chrome_version": "138",
-  "permissions": ["tabs", "tabGroups", "storage", "alarms", "notifications", "contextMenus", "favicon", "scripting", "activeTab", "idle", "sidePanel"],
+  "permissions": ["tabs", "tabGroups", "storage", "unlimitedStorage", "alarms", "notifications", "contextMenus", "favicon", "scripting", "activeTab", "idle", "sidePanel"],
   "optional_host_permissions": ["<all_urls>"],
   "side_panel": { "default_path": "panel.html" },
   "background": { "service_worker": "background.js" },

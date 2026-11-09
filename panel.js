@@ -85,7 +85,7 @@ async function where() {
 function render() {
   const web = isWeb(tab);
   $("title").textContent = web ? tab.title : "Open a web page to take notes";
-  $("fav").src = web ? tab.favIconUrl || faviconFor(tab.url) : "icons/icon32.png";
+  $("fav").src = web ? faviconFor(tab.url) : "icons/icon32.png";
   $("where").textContent = whereText;
   // "This page" stays usable (Library ↗, Work on every site); only its Save needs a web page
   document.querySelectorAll(".bar, .colors, section:not(.actions)").forEach((s) => s.classList.toggle("off", !web));

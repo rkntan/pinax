@@ -51,7 +51,7 @@ function sourceRow(p, node, collapsed) {
       },
     }, children ? (isCollapsed ? `▸ ${children}` : "▾") : ""),
     h("i", { class: "sdot", title: STATUS_LABEL[s.status] }),
-    h("img", { class: "fav", src: s.favIconUrl || faviconFor(s.url, 16), alt: "" }),
+    h("img", { class: "fav", src: faviconFor(s.url, 16), loading: "lazy", alt: "" }),
     h("div", { class: "src-main" },
       h("a", { class: "title", href: s.url, target: "_blank", title: s.url }, s.title),
       h("span", { class: "why" }, s.note ? s.note : hostOf(s.url))),
@@ -84,7 +84,7 @@ function finishView(p) {
           h("p", { class: "small muted" }, `File the ${useful.length} useful source${useful.length > 1 ? "s" : ""} into collections (leave empty to keep them only in this project):`),
           all,
           h("div", { class: "finish-list" }, useful.map((s) => h("div", { class: "tabrow" },
-            h("img", { src: s.favIconUrl || faviconFor(s.url, 16), alt: "" }),
+            h("img", { src: faviconFor(s.url, 16), loading: "lazy", alt: "" }),
             h("a", { href: s.url, target: "_blank" }, s.title),
             (inputs[s.id] = h("input", { class: "input", list: "paths", value: p.collection ? pathLabel(p.collection) : "", placeholder: "Collection" }))))))
       : h("p", { class: "small muted" }, "No sources marked useful."),

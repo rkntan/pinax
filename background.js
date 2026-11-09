@@ -5,6 +5,12 @@ const TIDY_ALARM = "auto-tidy";
 const RESURFACE_ALARM = "resurface";
 const REVIEW_ALARM = "weekly-review";
 
+// In-memory copy of the saved items, filled on first use and kept fresh by storage.onChanged,
+// so read tracking, page loads and the badge don't read storage each time. Read-only.
+let itemsCache = null;
+const cachedItems = () => (itemsCache ||= getItems().catch((e) => { itemsCache = null; throw e; }));
+const badge = async () => refreshBadge(await cachedItems());
+
 function next10am() {
   const d = new Date();
   d.setHours(10, 0, 0, 0);
@@ -13,6 +19,7 @@ function next10am() {
 }
 
 async function syncAlarms() {
+  chrome.alarms.clear("read-tick"); // the old 1-minute tick; read tracking now uses READ_CHECK
   await migrate();
   await pruneHistory();
   if (!(await chrome.alarms.get(REVIEW_ALARM))) {
@@ -32,7 +39,7 @@ async function syncAlarms() {
       chrome.alarms.create("remind:" + it.id, { when: Math.max(it.remindAt, Date.now() + 60_000) });
     }
   }
-  refreshBadge();
+  badge();
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -47,10 +54,18 @@ chrome.runtime.onInstalled.addListener(async () => {
   syncAlarms();
 });
 chrome.runtime.onStartup.addListener(syncAlarms);
+// the Library asks after a backup import, so imported reminders get their alarms
+chrome.runtime.onMessage.addListener((m) => { if (m?.type === "sync-alarms") syncAlarms(); });
 
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.autoTidy || changes.resurface) syncAlarms();
-  if (changes.items) refreshBadge();
+  if (changes.items && area === "local") {
+    const items = changes.items.newValue || [];
+    itemsCache = Promise.resolve(items);
+    refreshBadge(items);
+    // a page saved, removed or marked read: the page in view may need its read check (re)set
+    if (unreadKeys(changes.items.oldValue) !== unreadKeys(items)) trackView();
+  }
 });
 
 function toast(title, message) {
@@ -177,7 +192,7 @@ async function remind(id) {
     chrome.alarms.create("remind:" + id, { when });
     await updateItem(id, { remindAt: when });
   }
-  refreshBadge();
+  badge();
 }
 
 // Once a day: bring back one forgotten kept page (saved 3+ days ago, not done, no reminder).
@@ -317,7 +332,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
     if (isSearchPage(tab.url)) {
       // a search page is a step: the next page found from it hangs under the page before
       if (parent) tabSource[tabId] = parent;
-    } else {
+    } else if (trailMayAdd(p, tab.url)) {
       const src = await addSource(projectId, tab, parent);
       tabSource[tabId] = src.id;
     }
@@ -337,14 +352,14 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.windows.onRemoved.addListener((windowId) => serial(() => setWorkingOn(windowId, null)));
 
 // Badge "●" on the icon while the current window is working on a project (see refreshBadge).
-chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) refreshBadge(); });
-chrome.storage.session.onChanged.addListener((c) => { if (c.workingOn) refreshBadge(); });
+chrome.windows.onFocusChanged.addListener((w) => { if (w > 0) badge(); });
+chrome.storage.session.onChanged.addListener((c) => { if (c.workingOn) badge(); });
 
 // ---------- auto "read": a saved page counts as read after 2 minutes of real viewing ----------
 // Time only counts while the page is the active tab of a focused window and you are not idle.
 
 const READ_AFTER_MS = 2 * 60 * 1000;
-const READ_TICK = "read-tick";
+const READ_CHECK = "read-check"; // one-shot, only while a saved unread page is in view
 const VIEW_KEYS_MAX = 200; // pages whose viewing time is kept (least recently viewed go first)
 let viewQueue = Promise.resolve();
 const serialView = (fn) => (viewQueue = viewQueue.then(fn).catch((e) => console.warn("read tracking", e)));
@@ -357,23 +372,36 @@ async function currentViewUrl() {
   return tab && /^https?:/.test(tab.url) ? tab.url : null;
 }
 
+// The saved pages not read yet, as one string (to notice when that set changes).
+function unreadKeys(items = []) {
+  return items.filter((x) => !x.read).map((x) => pageKey(x.url)).sort().join("\n");
+}
+
 // Adds the time since the last check to the page being viewed, then starts timing `next`.
+// If `next` is a saved unread page, one alarm wakes the worker when it would reach
+// READ_AFTER_MS; any other view (or idle, or no focus) clears it. Nothing ticks otherwise.
 function trackView() {
   return serialView(async () => {
     const next = await currentViewUrl();
     const { viewing = null, viewTime = {} } = await chrome.storage.session.get(["viewing", "viewTime"]);
     const now = Date.now();
+    const unread = async (url) => (await cachedItems()).some((x) => !x.read && pageKey(x.url) === pageKey(url));
     if (viewing?.url) {
       const key = pageKey(viewing.url);
       const prev = viewTime[key] || 0;
       const total = prev + Math.min(now - viewing.since, 5 * 60 * 1000);
       delete viewTime[key]; // re-added last: keys stay in least-recently-viewed order
       viewTime[key] = total;
-      if (prev < READ_AFTER_MS && total >= READ_AFTER_MS) await markReadByUrl(viewing.url);
+      // only time spent while it was already saved and unread can mark it read
+      if (viewing.unread && prev < READ_AFTER_MS && total >= READ_AFTER_MS) await markReadByUrl(viewing.url);
       const keys = Object.keys(viewTime);
       for (const k of keys.slice(0, Math.max(0, keys.length - VIEW_KEYS_MAX))) delete viewTime[k];
     }
-    await chrome.storage.session.set({ viewing: next ? { url: next, since: now } : null, viewTime });
+    const nextUnread = !!next && (await unread(next));
+    await chrome.storage.session.set({ viewing: next ? { url: next, since: now, unread: nextUnread } : null, viewTime });
+    const left = nextUnread ? READ_AFTER_MS - (viewTime[pageKey(next)] || 0) : 0;
+    if (left > 0) await chrome.alarms.create(READ_CHECK, { when: now + left });
+    else await chrome.alarms.clear(READ_CHECK);
   });
 }
 
@@ -382,8 +410,7 @@ chrome.idle.onStateChanged.addListener(() => trackView());
 chrome.tabs.onActivated.addListener(trackView);
 chrome.windows.onFocusChanged.addListener(trackView);
 chrome.tabs.onUpdated.addListener((id, change, tab) => { if (change.url && tab.active) trackView(); });
-chrome.alarms.get(READ_TICK).then((a) => a || chrome.alarms.create(READ_TICK, { periodInMinutes: 1 }));
-chrome.alarms.onAlarm.addListener((a) => { if (a.name === READ_TICK) trackView(); });
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === READ_CHECK) trackView(); });
 
 // ---------- page notes: highlight the selection, show highlights again ----------
 
@@ -401,10 +428,12 @@ async function highlightSelection(tab, fallbackText = "") {
 chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
   if (change.status !== "complete" || !/^https?:/.test(tab.url || "")) return;
   if (!(await chrome.permissions.contains({ origins: [new URL(tab.url).origin + "/*"] }))) return;
-  const it = (await getItems()).find((x) => x.url === tab.url && !x.minutes);
+  const items = await cachedItems(); // no storage read once the cache is warm
+  const it = items.find((x) => x.url === tab.url && !x.minutes);
   if (it) await addStats(it.id, tab);
   const n = await noteFor(tab.url);
-  (n?.highlights.length ? remark(tab) : pageTools(tab, false, false, n)).catch(() => {});
+  const item = items.find((x) => pageKey(x.url) === pageKey(tab.url)) || null; // for the dock
+  (n?.highlights.length ? remark(tab, null, false, false, n, item) : pageTools(tab, false, false, n, item)).catch(() => {});
 });
 
 // The highlighter pen and the bar on highlights talk to the extension through messages.

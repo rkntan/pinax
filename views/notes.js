@@ -33,7 +33,7 @@ function noteCard(n, itemByKey) {
   const where = it ? (it.stage === "kept" ? pathLabel(it.path) : "Inbox") : null;
   return h("article", { class: "note" },
     h("div", { class: "note-head" },
-      h("img", { src: n.favIconUrl || faviconFor(n.url, 16), alt: "" }),
+      h("img", { src: faviconFor(n.url, 16), loading: "lazy", alt: "" }),
       h("a", { class: "title", href: n.url, target: "_blank", title: n.url }, n.title),
       h("span", { class: "muted small" }, [hostOf(n.url), where, stamp(n.updated)].filter(Boolean).join(" · "))),
     n.highlights.length ? highlightsEl(n, state.role) : null,
@@ -87,5 +87,6 @@ function viewNotes() {
   }
   const itemByKey = new Map();
   for (const x of data.items) if (!itemByKey.has(pageKey(x.url))) itemByKey.set(pageKey(x.url), x);
-  return h("div", { class: "notes" }, list.map((n) => noteCard(n, itemByKey)));
+  const { shown, more } = pageOf("notes", list);
+  return h("div", {}, h("div", { class: "notes" }, shown.map((n) => noteCard(n, itemByKey))), more);
 }

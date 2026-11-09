@@ -25,16 +25,16 @@ function viewQueue() {
   const unknown = list.filter((it) => !it.minutes);
   return h("div", {},
     h("div", { class: "queue-next" },
-      h("img", { src: first.favIconUrl || faviconFor(first.url, 32), alt: "" }),
+      h("img", { src: faviconFor(first.url, 32), alt: "" }),
       h("div", { class: "t" },
         h("span", { class: "muted small" }, resumePct(first)
           ? `Continue · you read ${resumePct(first)}% · ${lengthLabel(first) || ""}`
           : `Up next · ${lengthLabel(first) || "length unknown"} · ${first.stage === "kept" ? pathLabel(first.path) : "Inbox"}`),
         h("b", {}, first.title)),
       h("button", { class: "btn primary", onclick: () => window.open(first.url, "_blank") }, resumePct(first) ? "▶ Continue" : "▶ Read now")),
-    started.length > 1 ? [sectionEl("Continue reading", started.length), listEl(started)] : null,
+    started.length > 1 ? [sectionEl("Continue reading", started.length), listEl(started, "started")] : null,
     selBar(),
-    withLen.length ? listEl(withLen) : null,
-    unknown.length ? [sectionEl("Length unknown", unknown.length), listEl(unknown)] : null,
+    withLen.length ? listEl(withLen, "len") : null,
+    unknown.length ? [sectionEl("Length unknown", unknown.length), listEl(unknown, "unknown")] : null,
     h("p", { class: "keys-hint small muted" }, `${KEYS_HINT} · a page leaves the queue once read (2 min of viewing, or M)`));
 }

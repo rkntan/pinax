@@ -26,11 +26,19 @@
   --ink: #130537;
   --muted: rgba(19, 5, 55, 0.58);
   --line: rgba(19, 5, 55, 0.12);
-  --violet: #8959ff;
+  --line-strong: rgba(19, 5, 55, 0.46);
+  --violet: #6c38ff;
+  --violet-btn: #6c38ff;
   --violet-ink: #ffffff;
   --lav: #ece9ff;
   --lime: #c7ff01;
   --lime-ink: #130537;
+  --lime-on-ink: #c7ff01;
+  --ok: #0d8561;
+  --ok-btn: #0d8561;
+  --muted-btn: rgba(19, 5, 55, 0.58);
+  --warn: #b04409;
+  --danger: #e0262c;
   --head: "Space Grotesk", "Segoe UI", sans-serif;
   --body: "Inter", "Segoe UI", system-ui, sans-serif;
   --radius: 10px;
@@ -43,8 +51,14 @@
     --ink: #f1eefc;
     --muted: rgba(241, 238, 252, 0.58);
     --line: rgba(241, 238, 252, 0.12);
+    --line-strong: rgba(241, 238, 252, 0.4);
     --violet: #9d78ff;
     --lav: #241b45;
+    --lime-on-ink: #4d6600;
+    --ok: #12b886;
+    --muted-btn: #6b6780;
+    --warn: #e8590c;
+    --danger: #ff5a5f;
     color-scheme: dark;
   }
 }
@@ -58,15 +72,15 @@ button:disabled { opacity: 0.45; cursor: default; }
 .muted { color: var(--muted); }
 .small { font-size: 11.5px; }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-weight: 500; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface); font-weight: 500; }
 .btn:hover:not(:disabled) { border-color: var(--violet); }
-.btn.primary { background: var(--violet); border-color: var(--violet); color: var(--violet-ink); font-weight: 600; }
+.btn.primary { background: var(--violet-btn); border-color: var(--violet-btn); color: var(--violet-ink); font-weight: 600; }
 .btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .btn.dark { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
 .link { padding: 0; border: none; background: none; color: var(--violet); font-weight: 500; }
 .link:hover:not(:disabled) { text-decoration: underline; }
 
-.input, select { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 7px 10px; outline: none; }
+.input, select { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); padding: 7px 10px; outline: none; }
 .input:focus, select:focus { border-color: var(--violet); }
 select { padding: 5px 8px; }
 
@@ -77,8 +91,8 @@ select { padding: 5px 8px; }
 /* Type colours (also used in the mind map). */
 .t-Course { --type: #8959ff; }
 .t-Video { --type: #ff5a5f; }
-.t-Tool { --type: #12b886; }
-.t-Article { --type: #f59f00; }
+.t-Tool { --type: var(--ok); }
+.t-Article { --type: #ca8300; }
 .t-Docs { --type: #228be6; }
 .t-Paper { --type: #e64980; }
 .t-Other { --type: #868e96; }

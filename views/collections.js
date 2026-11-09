@@ -114,9 +114,9 @@ function viewCollection() {
   const direct = list.filter((it) => it.path === path);
   return h("div", {},
     selBar(),
-    direct.length ? listEl(direct) : null,
+    direct.length ? listEl(direct, "direct") : null,
     subs.map((s) => {
       const inSub = list.filter((it) => inPath(it.path, s.path));
-      return inSub.length ? [sectionEl(s.name, inSub.length), listEl(inSub)] : null;
+      return inSub.length ? [sectionEl(s.name, inSub.length), listEl(inSub, "sub:" + s.path)] : null;
     }));
 }

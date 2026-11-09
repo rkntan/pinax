@@ -183,13 +183,19 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 9.3 Undo message disappears after ~8 s; Ctrl+Z after that does nothing.
 - [ ] 9.4 **Export** again, then **Import** the file from 0.1: message says how many pages/projects/pins you have; nothing is duplicated.
 - [ ] 9.5 Dark mode (Windows → Settings → Colours → Dark): popup and Library are readable.
+- [ ] 9.6 The export file has `"schema": 7` and a `settings` block; importing it into a fresh profile brings back your settings (daily nudge, auto-tidy, hidden docks) and reminders fire without restarting Chrome.
+- [ ] 9.7 Colours (v1.11): violet buttons look slightly deeper; highlights on a dark website (e.g. GitHub dark) show dark, readable text; the collapsed page dock shows a thin edge on dark sites.
 
 ## 10. Speed
 
 - [ ] 10.1 Popup opens in well under a second; saving returns at once (AI note arrives later).
 - [ ] 10.2 With 30+ pages and the AI sorting, the Library stays responsive (no freezing while sorting).
+- [ ] 10.3 Long lists show 100 rows and a quiet **Show 100 more**; J/K past the last row shows more; `*` still selects every matching page.
+- [ ] 10.4 Typing in the Library search waits a moment, then filters (no lag per key).
+- [ ] 10.5 Leave a saved, unread article open for 2+ minutes: it turns read. Read an unsaved page 3 minutes, then save it: it stays unread.
+- [ ] 10.6 Page icons in the Library come from Chrome (DevTools → Network on the Library: no requests to other sites).
 
 ## Found a problem?
 
 Write the step number, what you expected, what happened, and the Console error (if any).
-Your data is safe: the backup from 0.1, plus `backupV2` inside the extension from the first upgrade.
+Your data is safe: the backup from 0.1 (the old `backupV2` copy inside the extension is removed in v1.11).

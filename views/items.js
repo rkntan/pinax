@@ -66,7 +66,6 @@ function rowEl(it, pinned) {
   const open = state.open === it.id;
   const inbox = it.stage === "inbox";
   const suggested = inbox && it.path !== UNSORTED;
-  listOrder.push(it.id);
   const selected = state.sel.has(it.id);
   const note = notesForUrl(it.url);
   const pct = resumePct(it);
@@ -82,7 +81,7 @@ function rowEl(it, pinned) {
       onclick: (e) => { if (e.target.closest("a, button, select, input")) return; state.open = open ? null : it.id; render(); },
     },
       h("input", { type: "checkbox", class: "pick", checked: selected, title: "Select (X)", onclick: () => toggleSel(it.id) }),
-      h("img", { class: "fav", src: it.favIconUrl || faviconFor(it.url, 16), alt: "" }),
+      h("img", { class: "fav", src: faviconFor(it.url, 16), loading: "lazy", alt: "" }),
       h("div", { class: "line" },
         h("a", { class: "title", href: it.url, target: "_blank", title: it.url }, it.title),
         h("span", { class: "why" }, it.why || hostOf(it.url))),
@@ -112,9 +111,12 @@ function rowEl(it, pinned) {
   return row;
 }
 
-function listEl(items) {
+// `key` names the list within its view, for its own "Show more" count.
+function listEl(items, key) {
   const pinned = new Set(data.pins.map((p) => p.url));
-  return h("div", { class: `list ${prefs.get("density", "rows")}` }, items.map((it) => rowEl(it, pinned.has(it.url))));
+  for (const it of items) listOrder.push(it.id); // J/K and * work on the whole list, not only the drawn rows
+  const { shown, more } = pageOf(key, items, items.findIndex((it) => it.id === state.focusId));
+  return [h("div", { class: `list ${prefs.get("density", "rows")}` }, shown.map((it) => rowEl(it, pinned.has(it.url)))), more];
 }
 
 function typeChips(base) {
@@ -140,7 +142,7 @@ function emptyEl(title, text) {
 
 // ---------- selecting many, bundles, keys ----------
 
-let listOrder = []; // ids in the order shown, for J/K (reset on each render)
+let listOrder = []; // ids of every listed page in order (drawn or behind "Show more"), for J/K and * (reset on each render)
 
 function toggleSel(id) {
   state.sel.has(id) ? state.sel.delete(id) : state.sel.add(id);
@@ -193,7 +195,7 @@ const BUNDLE_FILTER = {
 function bundleCard(title, list, actions, filter) {
   return h("div", { class: "bundle" },
     h("div", { class: "b-head" }, h("b", {}, title), h("span", { class: "muted small" }, String(list.length))),
-    h("div", { class: "b-favs" }, list.slice(0, 8).map((it) => h("img", { src: it.favIconUrl || faviconFor(it.url, 16), title: it.title, alt: "" }))),
+    h("div", { class: "b-favs" }, list.slice(0, 8).map((it) => h("img", { src: faviconFor(it.url, 16), title: it.title, loading: "lazy", alt: "" }))),
     h("div", { class: "b-act" }, actions, h("button", { class: "link small", onclick: () => { state.bundle = filter; render(); } }, "Show")));
 }
 
@@ -252,7 +254,7 @@ function viewInbox() {
   return h("div", {},
     f || base.length < 3 ? null : bundlesEl(),
     selBar(),
-    list.length ? listEl(list) : emptyEl("Nothing here", "Try another filter."),
+    list.length ? listEl(list, "inbox") : emptyEl("Nothing here", "Try another filter."),
     h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
 
@@ -264,8 +266,8 @@ function viewAll() {
   const rest = base.filter(byType);
   return h("div", {},
     selBar(),
-    due.length ? [h("h3", { class: "section-title" }, h("span", { class: "chip lime" }, "Due now"), String(due.length)), listEl(due), h("br")] : null,
-    rest.length ? listEl(rest) : emptyEl("Nothing here", "Try another filter or search."),
+    due.length ? [h("h3", { class: "section-title" }, h("span", { class: "chip lime" }, "Due now"), String(due.length)), listEl(due, "due"), h("br")] : null,
+    rest.length ? listEl(rest, "all") : emptyEl("Nothing here", "Try another filter or search."),
     h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
 

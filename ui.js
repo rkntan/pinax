@@ -3,7 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const PLURAL = { Course: "Courses", Video: "Videos", Tool: "Tools", Article: "Articles", Docs: "Docs", Paper: "Papers", Other: "Other" };
 
-const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null };
+const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null, limit: {} };
 const data = { items: [], cols: [], pins: [], projects: [], history: [], phrases: [], notes: {} };
 
 // Per-viewer UI prefs (layout, collapsed tree branches). Storage may be blocked: never required.
@@ -25,8 +25,24 @@ function h(tag, attrs = {}, ...kids) {
     else if (k === "style") el.style.cssText = v;
     else el.setAttribute(k, v === true ? "" : v);
   }
-  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid);
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) el.append(kid);
   return el;
+}
+
+// Long lists draw the first 100 entries, then a quiet "Show N more" button that adds 100.
+// The count per list lives in state.limit[key]: go() resets it, storage-triggered redraws keep it.
+// `keep` is an index that must be drawn (J/K focus moving past the last drawn row).
+const LIST_STEP = 100;
+function pageOf(key, list, keep = -1) {
+  const n = Math.max(state.limit[key] || LIST_STEP, Math.ceil((keep + 1) / LIST_STEP) * LIST_STEP);
+  if (n > LIST_STEP) state.limit[key] = n;
+  const left = list.length - n;
+  if (left <= 0) return { shown: list, more: null };
+  return {
+    shown: list.slice(0, n),
+    more: h("div", { class: "more", style: "margin:10px 2px" },
+      h("button", { class: "link small", title: `${left} not shown yet`, onclick: () => { state.limit[key] = n + LIST_STEP; render(); } }, `Show ${Math.min(LIST_STEP, left)} more`)),
+  };
 }
 
 function svg(tag, attrs = {}, ...kids) {
@@ -68,6 +84,7 @@ function go(view, col = "") {
   state.sel.clear();
   state.bundle = null;
   state.focusId = null;
+  state.limit = {};
   history.replaceState(null, "", "#" + (view === "col" || view === "project" ? `${view}:${encodeURIComponent(col)}` : view));
   render();
 }

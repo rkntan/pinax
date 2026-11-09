@@ -41,7 +41,7 @@ async function showPage() {
   existing = isWeb(tab) ? items.find((x) => x.url === tab.url) : null;
 
   $("cur-title").textContent = isWeb(tab) ? tab.title : "This page can't be saved";
-  $("cur-fav").src = isWeb(tab) ? tab.favIconUrl || faviconFor(tab.url) : "icons/icon32.png";
+  $("cur-fav").src = isWeb(tab) ? faviconFor(tab.url) : "icons/icon32.png";
   const where = $("cur-where");
   where.replaceChildren();
   if (isWeb(tab)) {

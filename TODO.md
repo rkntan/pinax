@@ -33,6 +33,20 @@ Goal: make the core loop excellent before adding more:
 
 Design rule for everything: minimalist (see NOTES-PLAN.md, "Design rule").
 
+## Audit 2026-11-09 (end-to-end: journey, naming, colour, speed, storage, a11y)
+
+18. [x] v1.11: storage (unlimitedStorage, no stored favicons, schema 7, trail cap), Library paging +
+    debounced search, worker without the 1-min alarm, Chrome favicons only, WCAG AA colours, backup fixes.
+19. [ ] Naming: one word per concept (Inbox, Collection + Keep, Project + sources, Pins, Dock, Notes,
+    comment, Highlight, Delete; "Save" only for the Inbox).
+20. [ ] Keyboard: real buttons for tree / pins / map / rows, focus kept after redraw, Import as a button, narrow nav.
+21. [ ] Screen-reader basics: lang, titles, aria-labels, aria-pressed/expanded, live status.
+22. [ ] First run + dead ends: Inbox empty state with "Download AI model", undo "hide dock", weekly review on/off.
+23. [ ] Memory: destroy aiBase on pagehide, Summarizer in try/finally, prune snapTimers.
+24. [ ] Cut list (Erkan decides): Mind map, Pins row, daily nudge, Rows/Cards + stats; merge Park/Save session/All tabs.
+25. [ ] Per-record storage keys (schema 8) so one change doesn't rewrite all items.
+26. [ ] Split core.js: injected page code into its own files (popup JS < 60 KB).
+
 ## Later (only if the above feels good in daily use)
 
 11. [ ] Offline page text + "Ask your library".

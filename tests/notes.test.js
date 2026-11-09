@@ -53,7 +53,7 @@ test("migrateData v5 -> v6 moves Phrasebook quotes into page notes", () => {
     ],
   };
   const out = plain(core.migrateData(v5));
-  assert.equal(out.schema, 6);
+  assert.equal(out.schema, 7);
   assert.deepEqual(out.phrases.map((p) => p.id), ["w"]);
   const n = out.notes["https://a.test/x"];
   assert.deepEqual(n.highlights.map((h) => [h.id, h.comment]), [["q1", "nice"], ["q2", ""]]);

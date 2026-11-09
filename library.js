@@ -65,7 +65,14 @@ async function renderNow() {
 
 document.querySelectorAll(".nav").forEach((b) => (b.onclick = () => go(b.dataset.view)));
 $("density").onclick = (e) => { const b = e.target.closest("button"); if (b) { prefs.set("density", b.dataset.d); render(); } };
-$("search").oninput = (e) => { state.q = e.target.value.toLowerCase(); render(); };
+// Search redraws 150 ms after the last keystroke; Enter redraws at once.
+let searchTimer = null;
+$("search").oninput = (e) => {
+  state.q = e.target.value.toLowerCase();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(render, 150);
+};
+$("search").onkeydown = (e) => { if (e.key === "Enter") { clearTimeout(searchTimer); render(); } };
 
 $("add").onsubmit = async (e) => {
   e.preventDefault();
@@ -79,49 +86,33 @@ $("add").onsubmit = async (e) => {
   line.textContent = (await aiAvailability()) === "available" ? "Local AI ready" : before;
 };
 
+const BACKUP_KEYS = ["items", "collections", "pins", "projects", "history", "phrases", "notes"];
+
 $("export").onclick = async () => {
-  const d = await chrome.storage.local.get(["schema", "items", "collections", "pins", "projects", "history", "phrases", "notes"]);
-  const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: 4, exported: Date.now(), ...d }, null, 2)], { type: "application/json" });
+  await migrate(); // the file says SCHEMA, so the data must be at SCHEMA
+  const [d, settings] = await Promise.all([chrome.storage.local.get(BACKUP_KEYS), chrome.storage.local.get(SETTINGS_KEYS)]);
+  const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: SCHEMA, schema: SCHEMA, exported: Date.now(), ...d, settings }, null, 2)], { type: "application/json" });
   const a = h("a", { href: URL.createObjectURL(blob), download: `tab-organiser-backup-${new Date().toISOString().slice(0, 10)}.json` });
   a.click();
   URL.revokeObjectURL(a.href);
+  showToast("Backup exported");
 };
 
 $("import").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   try {
-    // bring any older backup up to the current schema first, then merge without duplicates
-    const raw = JSON.parse(await file.text());
-    if (raw.app !== "tab-organiser") throw new Error("missing app marker");
-    const d = migrateData({ ...raw, schema: raw.schema || (raw.version >= 3 ? 2 : 1) });
-    const merge = (mine = [], theirs = [], key = "id") => {
-      const ids = new Set(mine.map((x) => x[key]));
-      return [...mine, ...(theirs || []).filter((x) => x[key] && !ids.has(x[key]))];
-    };
-    const cur = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases", "notes"]);
-    const next = {
-      items: merge(cur.items, d.items),
-      pins: merge(cur.pins, d.pins, "url"),
-      projects: merge(cur.projects, d.projects),
-      history: merge(cur.history, d.history),
-      phrases: merge(cur.phrases, d.phrases),
-      // notes merge per page: keep yours, add highlights you don't have
-      notes: Object.entries(d.notes || {}).reduce((acc, [k, n]) => {
-        const mine = acc[k];
-        if (!mine) acc[k] = n;
-        else {
-          mine.highlights = merge(mine.highlights, n.highlights);
-          if (!mine.text.trim()) mine.text = n.text || "";
-        }
-        return acc;
-      }, { ...(cur.notes || {}) }),
-      collections: sortPaths([...(cur.collections || []), ...(d.collections || [])]),
-    };
+    // older backups are brought up to SCHEMA first; newer ones are refused before any write
+    let raw;
+    try { raw = JSON.parse(await file.text()); } catch { throw new Error("not a Tab Organiser backup"); }
+    const next = mergeBackup(await chrome.storage.local.get(BACKUP_KEYS), raw);
     await chrome.storage.local.set(next);
-    alert(`Imported. You now have ${next.items.length} pages, ${next.projects.length} projects and ${next.pins.length} pins.`);
+    if ("resurface" in next) $("resurface").checked = next.resurface;
+    if ("autoSession" in next) autoSessionOn = next.autoSession;
+    chrome.runtime.sendMessage({ type: "sync-alarms" }).catch(() => {}); // reminder alarms for imported pages
+    showToast(`Imported. You now have ${next.items.length} pages, ${next.projects.length} projects and ${next.pins.length} pins.`);
   } catch (err) {
-    alert("That file is not a Tab Organiser backup: " + err.message);
+    showToast(`Nothing imported: ${err.message}.`);
   }
   e.target.value = "";
 };
@@ -208,4 +199,12 @@ window.addEventListener("hashchange", () => {
   tidyPrefs = await tidySettings();
   await render();
   showAi();
+  storageWarning();
 })();
+
+// No quota (unlimitedStorage); above 25 MB (a heavy year is ≈ 7.6 MB) suggest a backup under Export.
+const STORAGE_WARN_BYTES = 25 * 1024 * 1024;
+async function storageWarning() {
+  const bytes = await chrome.storage.local.getBytesInUse(null);
+  if (bytes > STORAGE_WARN_BYTES) $("export").parentElement.before(h("div", { class: "muted small" }, `Storage ${(bytes / 1048576).toFixed(1)} MB · export a backup`));
+}

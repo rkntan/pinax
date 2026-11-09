@@ -125,7 +125,7 @@ test("migrateData: v1 -> v3", () => {
     ],
   };
   const out = plain(core.migrateData(v1, 1000));
-  assert.equal(out.schema, 6);
+  assert.equal(out.schema, 7);
   assert.equal(out.items[0].read, false);
   assert.equal(out.items[0].stage, "inbox");
   assert.equal(out.items[0].path, "ai agents");
@@ -159,7 +159,7 @@ test("migrateData: v2 workspaces become projects, sessions and archive become hi
 test("migrateData: v3 -> v4 only adds keepFrom to tidied entries", () => {
   const v3 = { schema: 3, history: [{ id: "t", kind: "tidied", saved: 5, tabs: [] }, { id: "a", kind: "auto", saved: 6, tabs: [] }] };
   const out = plain(core.migrateData(v3, 777));
-  assert.equal(out.schema, 6);
+  assert.equal(out.schema, 7);
   assert.deepEqual(out.history.map((s) => s.keepFrom), [777, undefined]);
 });
 

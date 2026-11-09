@@ -124,8 +124,9 @@ function forReview(items, now = Date.now()) {
 }
 
 // The number of due reminders, else "●" while the last focused window works on a project.
-async function refreshBadge() {
-  const due = (await getItems()).filter((i) => isDue(i)).length;
+// items: optional, the worker passes its in-memory copy so a badge update reads no storage.
+async function refreshBadge(items) {
+  const due = (items || (await getItems())).filter((i) => isDue(i)).length;
   let text = due ? String(due) : "";
   if (!due) {
     try {
@@ -133,7 +134,7 @@ async function refreshBadge() {
       if ((await getWorkingOn())[w.id]) text = "●";
     } catch {}
   }
-  chrome.action.setBadgeBackgroundColor({ color: "#8959FF" });
+  chrome.action.setBadgeBackgroundColor({ color: "#6C38FF" });
   chrome.action.setBadgeText({ text });
 }
 
@@ -191,7 +192,7 @@ function guessType(url, title = "") {
 // Saves a page into the Inbox (dedupes by URL) and returns at once. The AI sort runs after,
 // without blocking; if it can't finish here (popup closed, no AI in the worker) the Library
 // page sorts it on next open. `sorted` resolves when the AI is done (or skipped).
-async function saveForLater({ url, title, favIconUrl }, remindKey = "", { sort = true } = {}) {
+async function saveForLater({ url, title }, remindKey = "", { sort = true } = {}) {
   const items = await getItems();
   let it = items.find((x) => x.url === url);
   if (!it) {
@@ -199,7 +200,6 @@ async function saveForLater({ url, title, favIconUrl }, remindKey = "", { sort =
       id: crypto.randomUUID(),
       url,
       title: title || url,
-      favIconUrl: favIconUrl || "",
       type: guessType(url, title),
       stage: "inbox",
       path: UNSORTED,
@@ -383,9 +383,12 @@ async function unpinSite(url) {
 // entries from before v4 get 30 days from the upgrade (`keepFrom`) instead of vanishing.
 // v5: page `status` (todo / doing / done) replaced by `read` (done = read).
 // v6: Phrasebook quotes move into page notes (`notes`) as highlights.
+// v7: no stored favicon URLs (shown with faviconFor(url)); the old `backupV2` copy is dropped.
 
-const SCHEMA = 6;
+const SCHEMA = 7;
 const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library", "phrases", "notes"];
+// user settings in chrome.storage.local (go into backups; caches and session data do not)
+const SETTINGS_KEYS = ["resurface", "autoSession", "autoTidy", "tidyDays", "dockHidden", "dockY"];
 
 function sessionKind(s) {
   return s.kind || (s.tidied ? "tidied" : "saved");
@@ -451,21 +454,60 @@ function migrateData(input, now = Date.now()) {
     if (Object.keys(notes).length) d.notes = notes;
     schema = 6;
   }
+  if (schema < 7) {
+    const strip = (list) => (list || []).forEach((x) => delete x.favIconUrl);
+    strip(d.items);
+    strip(d.pins);
+    for (const s of d.history || []) strip(s.tabs);
+    for (const p of d.projects || []) { strip(p.tabs); strip(p.sources); }
+    strip(Object.values(d.notes || {}));
+    delete d.backupV2;
+    schema = 7;
+  }
   d.schema = schema;
   return d;
 }
 
-// Runs once per upgrade. Keeps a copy of the old data in `backupV2` first.
+// Runs once per upgrade (export a backup from the Library to keep a copy).
 async function migrate() {
   const { schema = 1 } = await chrome.storage.local.get("schema");
   if (schema >= SCHEMA) return; // cheap check first: most calls find nothing to do
   const d = await chrome.storage.local.get(DATA_KEYS);
-  const { backupV2 } = await chrome.storage.local.get("backupV2");
-  if (!backupV2 && (d.items?.length || d.library?.length)) {
-    await chrome.storage.local.set({ backupV2: { ...d, savedAt: Date.now() } });
-  }
   await chrome.storage.local.set(migrateData(d));
-  await chrome.storage.local.remove("library");
+  await chrome.storage.local.remove(["library", "backupV2"]);
+}
+
+// Pure: a backup file (any older schema) merged into the current data without duplicates,
+// plus the settings it carries. Throws before merging anything if the file can't be used.
+function mergeBackup(cur, raw, now = Date.now()) {
+  if (raw?.app !== "tab-organiser") throw new Error("not a Tab Organiser backup");
+  const schema = raw.schema || (raw.version >= 3 ? 2 : 1);
+  if (schema > SCHEMA) throw new Error(`this backup is from a newer Tab Organiser (schema ${schema}, this one reads up to ${SCHEMA}); update the extension first`);
+  const d = migrateData({ ...raw, schema }, now);
+  const merge = (mine = [], theirs = [], key = "id") => {
+    const ids = new Set(mine.map((x) => x[key]));
+    return [...mine, ...(theirs || []).filter((x) => x[key] && !ids.has(x[key]))];
+  };
+  const settings = Object.fromEntries(SETTINGS_KEYS.filter((k) => raw.settings?.[k] !== undefined).map((k) => [k, raw.settings[k]]));
+  return {
+    ...settings,
+    items: merge(cur.items, d.items),
+    pins: merge(cur.pins, d.pins, "url"),
+    projects: merge(cur.projects, d.projects),
+    history: merge(cur.history, d.history),
+    phrases: merge(cur.phrases, d.phrases),
+    // notes merge per page: keep yours, add highlights you don't have
+    notes: Object.entries(d.notes || {}).reduce((acc, [k, n]) => {
+      const mine = acc[k];
+      if (!mine) acc[k] = n;
+      else {
+        acc[k] = { ...mine, highlights: merge(mine.highlights, n.highlights) };
+        if (!mine.text?.trim()) acc[k].text = n.text || "";
+      }
+      return acc;
+    }, { ...(cur.notes || {}) }),
+    collections: sortPaths([...(cur.collections || []), ...(d.collections || [])]),
+  };
 }
 
 // ---------- history: temporary window snapshots and tidied tabs ----------
@@ -486,7 +528,6 @@ async function snapshotTabs(tabs) {
   return tabs.map((t) => ({
     url: t.url,
     title: t.title,
-    favIconUrl: t.favIconUrl || "",
     group: groupOf[t.groupId]?.title || "",
     color: groupOf[t.groupId]?.color || "",
   }));
@@ -878,13 +919,22 @@ function projectProgress(p) {
   return c;
 }
 
+// The trail stops adding visited pages by itself at this many sources (adding by hand still works).
+const TRAIL_MAX_SOURCES = 300;
+
+// Pure: may the trail add this visited page? (A page already in the project always matches.)
+function trailMayAdd(p, url) {
+  const sources = p.sources || [];
+  return sources.length < TRAIL_MAX_SOURCES || sources.some((s) => s.url === url);
+}
+
 // Pure: adds a page as a source (or returns the existing one with that URL).
-function withSource(p, { url, title, favIconUrl }, parent = null, now = Date.now()) {
+function withSource(p, { url, title }, parent = null, now = Date.now()) {
   const sources = p.sources || [];
   const found = sources.find((s) => s.url === url);
   if (found) return { project: p, source: found, added: false };
   const source = {
-    id: crypto.randomUUID(), url, title: title || url, favIconUrl: favIconUrl || "",
+    id: crypto.randomUUID(), url, title: title || url,
     parent: parent && sources.some((s) => s.id === parent) ? parent : null,
     status: "unread", note: "", added: now,
   };
@@ -931,7 +981,7 @@ async function setSourceStatus(projectId, sourceId, status, prune = false) {
     if (!s) return;
     s.status = status;
     s.readAt = Date.now();
-    page = { url: s.url, title: s.title, favIconUrl: s.favIconUrl };
+    page = { url: s.url, title: s.title };
     if (prune && status === "skip") {
       const ids = new Set(descendants(p.sources, sourceId));
       p.sources.forEach((x) => { if (ids.has(x.id) && x.status === "unread") x.status = "skip"; });
@@ -961,7 +1011,7 @@ async function toggleWorkingTab(projectId, source) {
   await editProject(projectId, (p) => {
     const i = p.tabs.findIndex((t) => t.url === source.url);
     if (i >= 0) p.tabs.splice(i, 1);
-    else p.tabs.push({ url: source.url, title: source.title, favIconUrl: source.favIconUrl || "", group: "", color: "" });
+    else p.tabs.push({ url: source.url, title: source.title, group: "", color: "" });
   });
 }
 
@@ -1129,7 +1179,7 @@ async function openLibraryTab(hash = "") {
 }
 
 // ---------- page notes: highlights + your own notes, one record per page ----------
-// notes = { [pageKey]: { url, title, favIconUrl, highlights: [...], text, created, updated } }
+// notes = { [pageKey]: { url, title, highlights: [...], text, created, updated } }
 // A highlight keeps a little text before and after it (prefix / suffix) so it can be found
 // again on the page even if the page changes a bit.
 
@@ -1158,9 +1208,8 @@ async function editNote(page, fn) {
   const notes = await getNotes();
   const k = pageKey(page.url);
   const now = Date.now();
-  const n = (notes[k] ||= { url: k, title: page.title || k, favIconUrl: page.favIconUrl || "", highlights: [], text: "", created: now, updated: now });
+  const n = (notes[k] ||= { url: k, title: page.title || k, highlights: [], text: "", created: now, updated: now });
   if (page.title && page.title !== k) n.title = page.title;
-  if (page.favIconUrl) n.favIconUrl = page.favIconUrl;
   fn(n);
   n.updated = now;
   if (!n.highlights.length && !n.text.trim() && !n.summary) delete notes[k]; // nothing left
@@ -1290,7 +1339,7 @@ function markHighlights(list, scrollTo) {
       if (to - from < mid.nodeValue.length) mid.splitText(to - from);
       const m = document.createElement("mark");
       m.dataset.tohl = f.hl.id;
-      m.style.cssText = `background:${f.hl.color};color:inherit;border-radius:2px;padding:0 1px;box-shadow:0 1px 0 rgba(0,0,0,.15);`;
+      m.style.cssText = `background:${f.hl.color};color:#130537;border-radius:2px;padding:0 1px;box-shadow:0 1px 0 rgba(0,0,0,.15);`;
       if (f.hl.comment) m.title = f.hl.comment;
       mid.replaceWith(m);
       m.append(mid);
@@ -1300,7 +1349,7 @@ function markHighlights(list, scrollTo) {
     const m = document.querySelector(`mark[data-tohl="${scrollTo}"]`);
     if (m) {
       m.scrollIntoView({ block: "center", behavior: "smooth" });
-      m.animate([{ outline: "3px solid #8959ff" }, { outline: "3px solid transparent" }], { duration: 1600 });
+      m.animate([{ outline: "3px solid #6c38ff" }, { outline: "3px solid transparent" }], { duration: 1600 });
     }
   }
   return found.length;
@@ -1667,21 +1716,22 @@ function installMarkTools() {
 
 // Puts the selection bubble, the highlight bar and the dock into a page we may access.
 // used: you just used the extension on this page (icon, panel, bubble), so the dock shows.
-async function pageTools(tab, askAccess = false, used = false, note) {
+// note / item: pass them when already known (null = none), so storage isn't read again.
+async function pageTools(tab, askAccess = false, used = false, note, item) {
   await inPage(tab, installBubble, [], askAccess);
   await inPage(tab, installMarkTools, [], false);
-  const [items, n, prefs] = await Promise.all([getItems(), note !== undefined ? note : noteFor(tab.url), chrome.storage.local.get(["dockHidden", "dockY"])]);
+  const [items, n, prefs] = await Promise.all([item !== undefined ? null : getItems(), note !== undefined ? note : noteFor(tab.url), chrome.storage.local.get(["dockHidden", "dockY"])]);
   const cfg = dockConfig({
-    item: items.find((x) => pageKey(x.url) === pageKey(tab.url)) || null,
+    item: item !== undefined ? item : items.find((x) => pageKey(x.url) === pageKey(tab.url)) || null,
     note: n, used, hiddenSites: prefs.dockHidden || [], origin: new URL(tab.url).origin, y: prefs.dockY ?? 40,
   });
   await inPage(tab, installDock, [cfg], false);
 }
 
 // Shows the page's highlights and their tools (background and panel use this).
-async function remark(tab, scrollTo = null, askAccess = false, used = false) {
-  const n = await noteFor(tab.url);
-  await pageTools(tab, askAccess, used, n);
+async function remark(tab, scrollTo = null, askAccess = false, used = false, note, item) {
+  const n = note !== undefined ? note : await noteFor(tab.url);
+  await pageTools(tab, askAccess, used, n, item);
   return inPage(tab, markHighlights, [markList(n), scrollTo], false);
 }
 
@@ -1925,29 +1975,29 @@ function installDock(cfg) {
   root.innerHTML = `<style>
     *{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
     .dock{position:fixed;right:0;display:flex;flex-direction:column;gap:2px;padding:6px 4px;background:#130537;color:#fff;
-      border-radius:12px 0 0 12px;box-shadow:0 8px 24px rgba(19,5,55,.25);transform:translateX(calc(100% - 7px));transition:transform .15s ease}
+      border:1px solid rgba(255,255,255,.35);border-right:0;border-radius:12px 0 0 12px;box-shadow:0 8px 24px rgba(19,5,55,.25);transform:translateX(calc(100% - 7px));transition:transform .15s ease}
     .dock:hover,.dock.open{transform:none}
     .grip{height:10px;cursor:grab;display:grid;place-items:center}
     .grip::before{content:"";width:16px;height:3px;border-radius:2px;background:rgba(255,255,255,.3)}
     button{width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:#fff;cursor:pointer;padding:0}
     button:hover{background:rgba(255,255,255,.1);color:#c7ff01}
-    button.on{background:#8959ff;color:#fff}
+    button.on{background:#6c38ff;color:#fff}
     .menu{position:fixed;right:46px;background:#130537;border-radius:10px;padding:4px;box-shadow:0 8px 24px rgba(19,5,55,.25)}
     .menu[hidden],.card[hidden],.pill[hidden]{display:none}
     .menu button{width:auto;height:auto;padding:8px 10px;font:600 12px/1 inherit;white-space:nowrap}
     .card{position:fixed;right:52px;width:300px;background:#fff;color:#130537;border-radius:12px;box-shadow:0 14px 40px rgba(19,5,55,.25);
-      border-top:4px solid #8959ff;padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+      border-top:4px solid #6c38ff;padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
     .card .h{display:flex;align-items:center;gap:8px;font:700 13px/1 inherit}
     .card .h span{flex:1}
-    .card .h small{font:500 11px/1 inherit;color:rgba(19,5,55,.55)}
+    .card .h small{font:500 11px/1 inherit;color:rgba(19,5,55,.6)}
     .card .h button{width:24px;height:24px;color:rgba(19,5,55,.6)}
     .card .h button:hover{background:#ece9ff;color:#130537}
-    textarea{width:100%;min-height:150px;resize:vertical;border:1px solid rgba(19,5,55,.15);border-radius:8px;padding:8px 10px;
+    textarea{width:100%;min-height:150px;resize:vertical;border:1px solid rgba(19,5,55,.46);border-radius:8px;padding:8px 10px;
       font:13px/1.5 inherit;color:#130537;background:#fafaf7;outline:none}
-    textarea:focus{border-color:#8959ff;background:#fff}
+    textarea:focus{border-color:#6c38ff;background:#fff}
     .pill{position:fixed;right:16px;bottom:18px;display:flex;align-items:center;gap:8px;background:#130537;color:#fff;border-radius:999px;
       padding:8px 8px 8px 14px;box-shadow:0 8px 24px rgba(19,5,55,.25);font:600 12px/1 inherit}
-    .pill button{width:auto;height:auto;padding:5px 10px;border-radius:999px;background:#8959ff;font:600 12px/1 inherit}
+    .pill button{width:auto;height:auto;padding:5px 10px;border-radius:999px;background:#6c38ff;font:600 12px/1 inherit}
     .pill .x{background:none;padding:4px 6px;color:rgba(255,255,255,.6)}</style>
     <div class="dock" role="toolbar" aria-label="Page notes">
       <div class="grip" title="Drag up or down"></div>

@@ -135,6 +135,6 @@ Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
 
 ## Development
 - Plain JavaScript, no build step. Library page scripts: `core.js`, `tidy.js`, `ui.js`, `views/*.js`, `library.js`.
-- Data lives in `chrome.storage.local` (schema 6: `items`, `collections`, `pins`, `projects`, `history`, `phrases`, `notes`).
-  Upgrades run in `migrate()`; the previous data is kept once in `backupV2`.
+- Data lives in `chrome.storage.local` (schema 7: `items`, `collections`, `pins`, `projects`, `history`, `phrases`, `notes`).
+  Upgrades run in `migrate()` (export a backup first to keep a copy). Favicons are not stored; they are shown with `faviconFor(url)`.
 - Tests (pure logic in `core.js`): `node --test "tests/*.test.js"`

@@ -29,7 +29,7 @@ function mapTree() {
   // annotated pages you never saved get their own branch
   const saved = new Set(data.items.map((it) => pageKey(it.url)));
   const loose = Object.values(data.notes).filter((n) => !saved.has(n.url) && noteHit(n, state.q))
-    .map((n) => ({ id: "n:" + n.url, title: n.title, url: n.url, favIconUrl: n.favIconUrl, type: "Other", path: "Notes", tags: [], why: n.highlights[0]?.text || "" }));
+    .map((n) => ({ id: "n:" + n.url, title: n.title, url: n.url, type: "Other", path: "Notes", tags: [], why: n.highlights[0]?.text || "" }));
   if (loose.length) top.push({ id: "c:__notes", label: "Notes", kind: "col", notes: true, path: "__notes", children: loose.map(pageNode), count: loose.length });
   return { id: "root", label: "Library", kind: "root", children: top, count: live.length };
 }
@@ -141,7 +141,7 @@ function nodeEl(n, toggle) {
     },
       svg("title", {}, `${it.title}\n${pathLabel(it.path)} · ${it.type}${it.why ? "\n" + it.why : ""}${it.tags?.length ? "\n#" + it.tags.join(" #") : ""}${noteTip(it.url)}`),
       svg("rect", { class: "leaf-bg", x: -2, y: -11, width: 22, height: 22, rx: 6 }),
-      svg("image", { href: it.favIconUrl || faviconFor(it.url, 32), x: 1, y: -8, width: 16, height: 16 }),
+      svg("image", { href: faviconFor(it.url, 32), x: 1, y: -8, width: 16, height: 16 }),
       svg("circle", { class: "type-dot", cx: 20, cy: -9, r: 3.5 }),
       svg("text", { x: 28, y: 4 }, label),
       data.notes[pageKey(it.url)] ? svg("text", { class: "has-note", x: 28 + label.length * 6.4 + 6, y: 4 }, "✎") : null);
