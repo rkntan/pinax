@@ -1,4 +1,4 @@
-// Weekly review: Pages (one at a time — keep / discard / next week / pin) and
+// Weekly review: Pages (one at a time — keep / delete / next week / pin) and
 // Words (this week's 10 words — show meaning, then Got it / Again).
 
 let reviewPath = null;
@@ -52,7 +52,7 @@ function reviewPages(queue, wordsLeft) {
   const act = async (what) => {
     const path = reviewPath.value || UNSORTED;
     if (what === "keep") await withUndo(`Kept in ${pathLabel(cleanPath(path))}`, ["items", "collections"], () => keepItem(it.id, path));
-    else if (what === "discard") await withUndo(`Discarded “${it.title}”`, ["items"], () => deleteItem(it.id));
+    else if (what === "discard") await withUndo(`Deleted “${it.title}”`, ["items"], () => deleteItem(it.id));
     else if (what === "later") await withUndo("Pushed to next week", ["items"], () => laterItem(it.id));
     else if (what === "pin") await (pinned ? unpinSite(it.url) : pinSite(it));
   };
@@ -65,14 +65,14 @@ function reviewPages(queue, wordsLeft) {
         h("div", {},
           h("h3", {}, it.title),
           h("div", { class: "meta" }, hostOf(it.url), "·", h("span", { class: "type" }, h("i", { class: "dot", style: "background:var(--type)" }), it.type)))),
-      h("span", { class: "why" }, it.why || "No AI note yet."),
+      h("span", { class: "why" }, it.why || "No AI reason yet."),
       h("div", { class: "meta" },
         h("a", { class: "link", href: it.url, target: "_blank" }, "Open page ↗"),
         it.progress ? `· ${it.progress.done}/${it.progress.total} units` : null,
         it.remindAt ? `· reminder ${shortWhen(it.remindAt)}` : null),
       h("div", { class: "file" }, h("span", { class: "small muted" }, "Keep in"), reviewPath),
       h("div", { class: "decide" },
-        h("button", { class: "btn discard", onclick: () => act("discard") }, "Discard", h("kbd", {}, "←")),
+        h("button", { class: "btn discard", onclick: () => act("discard") }, "Delete", h("kbd", {}, "←")),
         h("button", { class: "btn", onclick: () => act("later") }, "Next week", h("kbd", {}, "↓")),
         h("button", { class: "btn", onclick: () => act("pin") }, pinned ? "Unpin" : "Pin", h("kbd", {}, "P")),
         h("button", { class: "btn primary", onclick: () => act("keep") }, "Keep", h("kbd", {}, "→ / Enter")))));
@@ -83,7 +83,7 @@ function reviewWords(queue) {
     const done = quiz.got + quiz.again;
     return emptyEl("Words done", done
       ? `${quiz.got} known, ${quiz.again} to see again next week.`
-      : "No new words this week. Save some with right-click › “Save to Phrasebook” or Alt+Shift+W.");
+      : "No new words this week. Add some with right-click › “Add to Phrasebook” or Alt+Shift+W.");
   }
   const p = queue[0];
   const answer = async (known) => {

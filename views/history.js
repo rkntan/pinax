@@ -1,4 +1,4 @@
-// History: one timeline of closed windows, saved sessions and tidied tabs (kept 30 days),
+// History: one timeline of closed windows, snapshots and tidied tabs (kept 30 days),
 // plus the tab-set card shared with projects' working tabs.
 
 // One card for a set of tabs. mode: "history" (temporary entry) or "project" (working tabs).
@@ -33,7 +33,7 @@ function tabSetEl(s, mode) {
     h("button", { class: "link small", onclick: async () => { await saveForLater(t); await moved(i, "Saved to Inbox"); } }, "→ Inbox"),
     targets.length
       ? h("select", {
-          title: "Add to a project's trail",
+          title: "Add to a project's sources",
           onchange: async (e) => {
             const id = e.target.value;
             e.target.value = "";
@@ -56,7 +56,7 @@ function tabSetEl(s, mode) {
       },
     }, h("option", { value: "" }, "→ Collection"), cols.map((c) => h("option", { value: c }, pathLabel(c))), h("option", { value: "__new" }, "+ New…")),
     h("button", { class: "link small", onclick: () => { pinSite(t); flash("Pinned"); } }, "Pin"),
-    h("button", { class: "link small", title: "Remove this tab", onclick: () => withUndo("Tab removed", [isProject ? "projects" : "history"], () => edit((x) => x.tabs.splice(i, 1))) }, "×"));
+    h("button", { class: "link small", title: isProject ? "Remove this tab" : "Delete this tab", onclick: () => withUndo(isProject ? "Tab removed" : "Tab deleted", [isProject ? "projects" : "history"], () => edit((x) => x.tabs.splice(i, 1))) }, "×"));
 
   const promote = async () => {
     const n = prompt("Project name:", s.name.replace(/^.*? · /, "").replace(/^(closed window|\d+ idle tab).*$/, ""));
@@ -79,7 +79,7 @@ function tabSetEl(s, mode) {
       isProject ? null : h("button", { class: "link small", onclick: () => withUndo(`Deleted “${s.name}”`, ["history"], remove) }, "Delete")),
     Object.keys(counts).length ? h("div", { class: "chips" }, Object.entries(counts).map(([g, n]) => h("span", { class: "chip" }, `${g} ${n}`))) : null,
     open ? h("div", { class: "tablist" },
-      s.tabs.length ? s.tabs.map(tabRow) : h("div", { class: "muted small" }, "No tabs yet. Use “Update from this window”, or mark sources with ▣ in the trail.")) : null);
+      s.tabs.length ? s.tabs.map(tabRow) : h("div", { class: "muted small" }, "No tabs yet. Use “Update from this window”, or mark sources with ▣.")) : null);
 }
 
 // Short message at the bottom of the sidebar.
@@ -139,12 +139,12 @@ function viewHistory() {
     h("span", { class: "spacer" }),
     h("label", { class: "small check" },
       h("input", { type: "checkbox", checked: autoSessionOn, onchange: (e) => { autoSessionOn = e.target.checked; chrome.storage.local.set({ autoSession: autoSessionOn }); } }),
-      "save closed windows"),
+      "remember closed windows"),
     h("div", { class: "break" }),
     ...tidyTools());
 
   if (!list.length) {
-    return emptyEl("Nothing in History", "Closed windows (2+ tabs), “Save session” from the popup and tabs closed by Tidy land here for 30 days.");
+    return emptyEl("Nothing in History", "Closed windows (2+ tabs), “Snapshot window” from the popup and tabs closed by Tidy land here for 30 days.");
   }
   const out = [];
   let lastDay = "";

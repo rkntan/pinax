@@ -480,9 +480,9 @@ async function migrate() {
 // Pure: a backup file (any older schema) merged into the current data without duplicates,
 // plus the settings it carries. Throws before merging anything if the file can't be used.
 function mergeBackup(cur, raw, now = Date.now()) {
-  if (raw?.app !== "tab-organiser") throw new Error("not a Tab Organiser backup");
+  if (raw?.app !== "tab-organiser") throw new Error("not a Pinax backup");
   const schema = raw.schema || (raw.version >= 3 ? 2 : 1);
-  if (schema > SCHEMA) throw new Error(`this backup is from a newer Tab Organiser (schema ${schema}, this one reads up to ${SCHEMA}); update the extension first`);
+  if (schema > SCHEMA) throw new Error(`this backup is from a newer Pinax (schema ${schema}, this one reads up to ${SCHEMA}); update the extension first`);
   const d = migrateData({ ...raw, schema }, now);
   const merge = (mine = [], theirs = [], key = "id") => {
     const ids = new Set(mine.map((x) => x[key]));
@@ -511,7 +511,7 @@ function mergeBackup(cur, raw, now = Date.now()) {
 }
 
 // ---------- history: temporary window snapshots and tidied tabs ----------
-// kind: "saved" (Save session), "auto" (a window you closed) or "tidied" (closed by Tidy).
+// kind: "saved" (Snapshot window), "auto" (a window you closed) or "tidied" (closed by Tidy).
 
 async function getHistory() {
   const { history = [] } = await chrome.storage.local.get("history");
@@ -552,7 +552,7 @@ async function addSession(tabs, kind, label, snap = false) {
 // Everything in History is temporary: 30 days, unless you move it somewhere (a project,
 // the Inbox, a collection).
 const SESSION_DAYS = 30;
-const HISTORY_KINDS = { auto: "Closed window", saved: "Saved session", tidied: "Tidied" };
+const HISTORY_KINDS = { auto: "Closed window", saved: "Snapshot", tidied: "Tidied" };
 function isTemporary(s) {
   return sessionKind(s) in HISTORY_KINDS;
 }
@@ -1751,7 +1751,7 @@ function roleCounts(notes) {
 }
 
 // ---------- selection bubble (injected, self-contained) ----------
-// Select text on the page → a small dark bubble: 4 role colours, Note, Word, Copy.
+// Select text on the page → a small dark bubble: 4 role colours, Comment, Word, Copy.
 
 function installBubble() {
   window.__toBubble?.teardown?.(); // rebuild: an older copy may belong to a reloaded extension
@@ -1782,8 +1782,8 @@ function installBubble() {
     <div class="b" hidden role="toolbar" aria-label="Highlight">
       ${ROLES.map(([c, hex, role]) => `<button class="d" data-c="${c}" style="background:${hex}" title="${role}${c === "yellow" ? " (H)" : ""}" aria-label="Highlight as ${role}"></button>`).join("")}
       <span class="s"></span>
-      <button class="t" data-a="note" title="Highlight with a note (N)">Note</button>
-      <button class="t" data-a="word" title="Save to the Phrasebook (W)">Word</button>
+      <button class="t" data-a="note" title="Comment (C)">Comment</button>
+      <button class="t" data-a="word" title="Add to the Phrasebook (W)">Word</button>
       <button class="t" data-a="copy" title="Copy with source" aria-label="Copy"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M8 3h9a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h9V9H5Z"/></svg></button>
     </div>`;
   document.documentElement.append(host);
@@ -1853,7 +1853,7 @@ function installBubble() {
     }, 10);
   };
   const onDown = (e) => { if (!e.composedPath?.().includes(host)) hide(); };
-  const KEYS = { h: '[data-c="yellow"]', n: '[data-a="note"]', w: '[data-a="word"]' };
+  const KEYS = { h: '[data-c="yellow"]', c: '[data-a="note"]', w: '[data-a="word"]' };
   const onKey = (e) => {
     if (e.key === "Escape" && !bar.hidden) return hide();
     const sel = KEYS[e.key?.toLowerCase()];
@@ -1874,18 +1874,18 @@ function installBubble() {
       if (send({ type: "pen-highlight", data: { ...data, color: b.dataset.c } })) done("Highlighted");
     } else if (b.dataset.a === "word") {
       const long = g.text.split(/\s+/).filter(Boolean).length > 5; // QUOTE_WORDS: a passage becomes a highlight
-      if (send({ type: "bubble-word", data: { text: g.text, prefix: g.prefix, suffix: g.suffix, sentence: g.sentence, pageLang: document.documentElement.lang || "" } })) done(long ? "Highlighted" : "Saved to Phrasebook");
+      if (send({ type: "bubble-word", data: { text: g.text, prefix: g.prefix, suffix: g.suffix, sentence: g.sentence, pageLang: document.documentElement.lang || "" } })) done(long ? "Highlighted" : "Added to Phrasebook");
     } else if (b.dataset.a === "copy") {
       navigator.clipboard.writeText(`“${g.text}” — ${document.title} (${location.href})`).then(() => done("Copied"));
     } else if (b.dataset.a === "note") {
-      bar.innerHTML = `<input class="i" placeholder="Your note… Enter to save" aria-label="Note">`;
+      bar.innerHTML = `<input class="i" placeholder="Your comment… Enter to save" aria-label="Comment">`;
       const input = root.querySelector(".i");
       input.focus();
       input.addEventListener("keydown", (k) => {
         k.stopPropagation();
         if (k.key === "Escape") return hide();
         if (k.key !== "Enter") return;
-        if (send({ type: "pen-highlight", data: { ...data, color: "yellow", comment: input.value.trim() } })) done("Saved with note");
+        if (send({ type: "pen-highlight", data: { ...data, color: "yellow", comment: input.value.trim() } })) done("Highlighted with comment");
       });
     }
   });
@@ -1999,12 +1999,12 @@ function installDock(cfg) {
       padding:8px 8px 8px 14px;box-shadow:0 8px 24px rgba(19,5,55,.25);font:600 12px/1 inherit}
     .pill button{width:auto;height:auto;padding:5px 10px;border-radius:999px;background:#6c38ff;font:600 12px/1 inherit}
     .pill .x{background:none;padding:4px 6px;color:rgba(255,255,255,.6)}</style>
-    <div class="dock" role="toolbar" aria-label="Page notes">
+    <div class="dock" role="toolbar" aria-label="Notes">
       <div class="grip" title="Drag up or down"></div>
       <button data-a="pen" title="Highlighter: select text to highlight (Esc stops)">${icon("pen")}</button>
       <button data-a="note" title="Notes for this page">${icon("note")}</button>
       <button data-a="eye" title="Show / hide my highlights" class="on">${icon("eye")}</button>
-      <button data-a="panel" title="Open the side panel (summary, all highlights)">${icon("panel")}</button>
+      <button data-a="panel" title="Open Notes (summary, all highlights)">${icon("panel")}</button>
       <button data-a="more" title="More">${icon("more")}</button>
     </div>
     <div class="menu" hidden><button data-a="hide-site">Hide the dock on this site</button></div>

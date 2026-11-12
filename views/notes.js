@@ -44,7 +44,7 @@ function noteCard(n, itemByKey) {
     h("div", { class: "note-foot" },
       h("span", { class: "muted small" }, `${n.highlights.length} highlight${n.highlights.length === 1 ? "" : "s"}${n.text.trim() ? " · notes" : ""}`),
       h("span", { class: "spacer" }),
-      h("button", { class: "btn", onclick: () => openWithNotes(n) }, "Open with notes"),
+      h("button", { class: "btn", onclick: () => openWithNotes(n) }, "Open with Notes"),
       n.highlights.length || n.text.trim() ? h("button", {
         class: "link small", title: "Key ideas from your highlights and notes (local AI)",
         onclick: async (e) => {

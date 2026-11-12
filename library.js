@@ -92,7 +92,7 @@ $("export").onclick = async () => {
   await migrate(); // the file says SCHEMA, so the data must be at SCHEMA
   const [d, settings] = await Promise.all([chrome.storage.local.get(BACKUP_KEYS), chrome.storage.local.get(SETTINGS_KEYS)]);
   const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: SCHEMA, schema: SCHEMA, exported: Date.now(), ...d, settings }, null, 2)], { type: "application/json" });
-  const a = h("a", { href: URL.createObjectURL(blob), download: `tab-organiser-backup-${new Date().toISOString().slice(0, 10)}.json` });
+  const a = h("a", { href: URL.createObjectURL(blob), download: `pinax-backup-${new Date().toISOString().slice(0, 10)}.json` });
   a.click();
   URL.revokeObjectURL(a.href);
   showToast("Backup exported");
@@ -104,7 +104,7 @@ $("import").onchange = async (e) => {
   try {
     // older backups are brought up to SCHEMA first; newer ones are refused before any write
     let raw;
-    try { raw = JSON.parse(await file.text()); } catch { throw new Error("not a Tab Organiser backup"); }
+    try { raw = JSON.parse(await file.text()); } catch { throw new Error("not a Pinax backup"); }
     const next = mergeBackup(await chrome.storage.local.get(BACKUP_KEYS), raw);
     await chrome.storage.local.set(next);
     if ("resurface" in next) $("resurface").checked = next.resurface;

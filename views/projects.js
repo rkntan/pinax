@@ -35,7 +35,7 @@ function sourceRow(p, node, collapsed) {
     else await setSourceStatus(p.id, s.id, next, false);
   };
   const editNote = () => {
-    const n = prompt("Note (why it matters):", s.note || "");
+    const n = prompt("Comment (why it matters):", s.note || "");
     if (n !== null) setSourceNote(p.id, s.id, n.trim());
   };
   const isCollapsed = collapsed.has(s.id);
@@ -60,8 +60,8 @@ function sourceRow(p, node, collapsed) {
       h("button", { class: `sb${s.status === "later" ? " on" : ""}`, title: "Later (also saves to the Inbox)", onclick: () => mark("later") }, "Later"),
       h("button", { class: `sb no${s.status === "skip" ? " on" : ""}`, title: "Not needed", onclick: () => mark("skip") }, "✕"),
       h("button", { class: `sb${working ? " on" : ""}`, title: working ? "Remove from working tabs" : "Add to working tabs", onclick: () => toggleWorkingTab(p.id, s) }, "▣"),
-      h("button", { class: "sb", title: "Note", onclick: editNote }, "✎"),
-      h("button", { class: "sb", title: "Remove from the trail", onclick: () => withUndo("Removed from the trail", ["projects"], () => removeSource(p.id, s.id)) }, "−")));
+      h("button", { class: "sb", title: "Comment", onclick: editNote }, "✎"),
+      h("button", { class: "sb", title: "Remove from project", onclick: () => withUndo("Removed from project", ["projects"], () => removeSource(p.id, s.id)) }, "−")));
 }
 
 function finishView(p) {
@@ -81,7 +81,7 @@ function finishView(p) {
       h("label", { class: "check small" }, h("input", { type: "radio", name: "rest", onchange: () => (rest = "inbox") }), "send to Inbox")) : null,
     useful.length
       ? h("div", {},
-          h("p", { class: "small muted" }, `File the ${useful.length} useful source${useful.length > 1 ? "s" : ""} into collections (leave empty to keep them only in this project):`),
+          h("p", { class: "small muted" }, `Keep the ${useful.length} useful source${useful.length > 1 ? "s" : ""} in collections (leave empty for this project only):`),
           all,
           h("div", { class: "finish-list" }, useful.map((s) => h("div", { class: "tabrow" },
             h("img", { src: faviconFor(s.url, 16), loading: "lazy", alt: "" }),
@@ -122,7 +122,7 @@ function viewProject() {
   Promise.all([getWorkingOn(), thisWindowId()]).then(([w, win]) => {
     const on = w[win] === p.id;
     workingBtn.textContent = on ? "● Tracking this window" : "Track this window";
-    workingBtn.title = on ? "New pages in this window join the trail. Click to stop." : "New pages you open in this window join this project's trail";
+    workingBtn.title = on ? "New pages in this window join this project's sources. Click to stop." : "New pages you open in this window join this project's sources";
     workingBtn.classList.toggle("primary", on);
     workingBtn.onclick = async () => { await setWorkingOn(win, on ? null : p.id); render(); };
   });
@@ -138,7 +138,7 @@ function viewProject() {
         const tabs = await thisWindowTabs();
         if (!tabs.length) return alert("No web tabs in this window besides the Library.");
         const n = await parkTabs(p.id, tabs);
-        alert(`Added ${n} page${n === 1 ? "" : "s"} from this window to the trail.`);
+        alert(`Added ${n} page${n === 1 ? "" : "s"} from this window to the sources.`);
       },
     }, "+ This window's tabs"),
     done ? null : h("button", {
@@ -176,10 +176,10 @@ function viewProject() {
   return h("div", {},
     c.total ? h("div", { class: "pbar", title: `${pct}% sorted` },
       ["useful", "later", "skip"].map((k) => h("i", { class: `pb-${k}`, style: `width:${(c[k] / c.total) * 100}%` }))) : null,
-    c.total ? h("div", { class: "trail-head" }, filters, h("span", { class: "small muted" }, "✓ useful · Later = Inbox · ✕ not needed · ▣ working tab · ✎ note")) : null,
+    c.total ? h("div", { class: "trail-head" }, filters, h("span", { class: "small muted" }, "✓ useful · Later = Inbox · ✕ not needed · ▣ working tab · ✎ comment")) : null,
     c.total
       ? (rows.length ? h("div", { class: "trail" }, rows.map((n) => sourceRow(p, n, collapsed))) : emptyEl("Nothing here", "Try another filter."))
-      : emptyEl("No trail yet", done ? "" : "Press “Track this window” and browse, or use “Park this window” in the popup, or “+ This window's tabs”."),
+      : emptyEl("No sources yet", done ? "" : "Press “Track this window” and browse, or use “Park this window” in the popup, or “+ This window's tabs”."),
     p.tabs.length ? [h("h3", { class: "section-title" }, "Working tabs", h("span", { class: "muted small" }, "open them all with one click")), tabSetEl(p, "project")] : null);
 }
 

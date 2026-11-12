@@ -109,7 +109,7 @@ function render() {
   $("roles").replaceChildren(...(roles.length > 1 ? [["", "All", all.length], ...roles].map(([k, label, n]) =>
     el("button", { class: `role${(roleFilter || "") === k ? " on" : ""}`, style: k ? `--c:${HL_COLORS[k]}` : null, onclick: () => { roleFilter = k || null; render(); } }, `${label} ${n}`)) : []));
   $("hl-list").replaceChildren(...(hls.length ? hls.map(hlEl) : [el("p", { class: "empty" },
-    "Select text on the page: a small bar offers Key point · Idea · Question · Check, Note and Word. For many passages in a row, use the Highlighter.")]));
+    "Select text on the page: a small bar offers Key point · Idea · Question · Check, Comment and Word. For many passages in a row, use the Highlighter.")]));
 
   renderSummary();
 
@@ -151,7 +151,7 @@ function renderSummary() {
       },
     }, "Add to my notes"),
     el("button", { onclick: () => navigator.clipboard.writeText(s.text).then(() => msg("Copied")) }, "Copy"),
-    el("button", { onclick: () => editNote(tab, (x) => delete x.summary) }, "Remove"))] : []));
+    el("button", { onclick: () => editNote(tab, (x) => delete x.summary) }, "Delete"))] : []));
 }
 
 // access: for "page", the promise from askSite(), started in the click

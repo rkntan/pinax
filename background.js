@@ -1,4 +1,4 @@
-// Background worker: right-click "Save for later", Alt+Shift+S, reminders, daily resurface, auto-tidy.
+// Background worker: right-click "Save to Inbox", Alt+Shift+S, reminders, daily resurface, auto-tidy.
 importScripts("core.js", "tidy.js");
 
 const TIDY_ALARM = "auto-tidy";
@@ -45,12 +45,12 @@ async function syncAlarms() {
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.contextMenus.removeAll(); // updates keep old menus; start clean
   const web = ["http://*/*", "https://*/*"]; // page menus: not on the extension's own pages
-  chrome.contextMenus.create({ id: "save-page", title: "Save page for later", contexts: ["page"], documentUrlPatterns: web });
-  chrome.contextMenus.create({ id: "save-link", title: "Save link for later", contexts: ["link"] });
+  chrome.contextMenus.create({ id: "save-page", title: "Save page to Inbox", contexts: ["page"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "save-link", title: "Save link to Inbox", contexts: ["link"] });
   chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"], documentUrlPatterns: web });
-  chrome.contextMenus.create({ id: "highlight", title: "Highlight (page notes)", contexts: ["selection"], documentUrlPatterns: web });
-  chrome.contextMenus.create({ id: "save-phrase", title: "Save “%s” to Phrasebook", contexts: ["selection"], documentUrlPatterns: web });
-  chrome.contextMenus.create({ id: "notes-panel", title: "Open notes for this page", contexts: ["page"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "highlight", title: "Highlight", contexts: ["selection"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "save-phrase", title: "Add “%s” to Phrasebook", contexts: ["selection"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "notes-panel", title: "Open Notes for this page", contexts: ["page"], documentUrlPatterns: web });
   syncAlarms();
 });
 chrome.runtime.onStartup.addListener(syncAlarms);
@@ -75,10 +75,10 @@ function toast(title, message) {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "save-link") {
     await saveForLater({ url: info.linkUrl, title: info.selectionText || info.linkUrl });
-    toast("Saved for later", info.selectionText || info.linkUrl);
+    toast("Saved to Inbox", info.selectionText || info.linkUrl);
   } else if (info.menuItemId === "save-page" && tab) {
     await addStats((await saveForLater(tab)).id, tab);
-    toast("Saved for later", tab.title);
+    toast("Saved to Inbox", tab.title);
   } else if (info.menuItemId === "pin-site" && tab) {
     await pinSite({ url: tab.url, title: tab.title });
     toast("Pinned", hostOf(tab.url));
@@ -125,7 +125,7 @@ async function saveSelection(tab, fallbackText = "") {
   if (phraseKind(got.text) === "quote") return highlightSelection(tab, got.text);
   const p = await savePhrase({ ...got, url: tab.url, title: tab.title });
   enrichPhrase(p.id).catch(() => {}); // AI may not exist in the worker; the Library finishes it
-  toast(p.kind === "quote" ? "Quote saved" : p.seen > 1 ? `Seen again (${p.seen}×)` : "Saved to Phrasebook",
+  toast(p.kind === "quote" ? "Highlighted" : p.seen > 1 ? `Seen again (${p.seen}×)` : "Added to Phrasebook",
     p.kind === "quote" ? p.text.slice(0, 120) : `${p.text}${p.sentence ? " — “" + p.sentence.slice(0, 90) + "”" : ""}`);
 }
 
@@ -143,7 +143,7 @@ chrome.commands.onCommand.addListener(async (command, cmdTab) => {
   if (command === "highlight") return highlightSelection(tab);
   if (command !== "save-page") return;
   await addStats((await saveForLater(tab)).id, tab);
-  toast("Saved for later", tab.title);
+  toast("Saved to Inbox", tab.title);
 });
 
 // ---------- alarms ----------
@@ -206,7 +206,7 @@ async function resurfaceOne() {
   chrome.notifications.create("item:" + it.id, {
     type: "basic",
     iconUrl: "icons/icon128.png",
-    title: "From your Later list",
+    title: "From your collections",
     message: it.title,
     contextMessage: `${it.type} · saved ${stamp(it.created)}`,
     buttons: [{ title: "Open" }, { title: "Remind me tomorrow" }],

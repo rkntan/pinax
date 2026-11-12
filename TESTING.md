@@ -1,13 +1,13 @@
-# Tab Organiser v1.8: Chrome test checklist
+# Pinax v1.8: Chrome test checklist
 
 Tick each box as you go. If something fails, note the step number and what you saw; for errors,
-open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the popup / Library →
+open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / Library →
 **Inspect** → Console. About 30-40 minutes for everything; sections can be done separately.
 
 ## 0. Before you start
 
 - [ ] 0.1 Export a backup: Library → sidebar footer → **Export** (keep the `.json` file).
-- [ ] 0.2 `chrome://extensions` → Tab Organiser → **⟳ reload**. Version shows **1.0.0**, no red **Errors** button.
+- [ ] 0.2 `chrome://extensions` → Pinax → **⟳ reload**. Version shows **1.0.0**, no red **Errors** button.
 - [ ] 0.3 `chrome://extensions/shortcuts`: Alt+Shift+S, Alt+Shift+W, Alt+Shift+O, Alt+Shift+L are all set (if one is empty, Chrome found a clash: set it by hand).
 - [ ] 0.4 Have a test window with ~10 tabs: 2 from the same site, a YouTube video, a GitHub repo, an arXiv paper, a page in Polish, and one duplicate tab.
 
@@ -24,60 +24,60 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 - [ ] 2.2 The popup has no pins row and no footer counts (those live in the Library); ☆ still pins the current page.
 - [ ] 2.3 "This window" shows the tab and group counts and "✕ 1 duplicate"; clicking it closes the duplicate and the button disappears (no duplicates = no button).
 - [ ] 2.4 **✦ Organise with AI**: tabs are grouped with names and colours; message says "N groups by AI" (or "by site").
-- [ ] 2.5 **⋯ → Ungroup tabs** removes the groups. The ⋯ menu also has All tabs → Inbox, Park this window…, Track for a project…, Save session; a click outside or Esc closes it.
+- [ ] 2.5 **⋯ → Ungroup tabs** removes the groups. The ⋯ menu also has All tabs → Inbox, Park this window…, Track for a project…, Snapshot window; a click outside or Esc closes it.
 - [ ] 2.7 Popup looks: one white surface, thin lines between header / page / window, left and right edges line up; no empty space at the bottom when there is no message.
 - [ ] 2.6 Press **Alt+Shift+O** on a normal page: tabs get grouped, a "Tabs organised" notification appears.
 
 ## 3. Saving pages (Inbox, collection, project)
 
-- [ ] 3.1 On the arXiv tab: popup → bell icon → "Tomorrow 09:00" (bell turns violet) → **Save to Inbox**. (The ▾ next to Save picks Inbox / Collection… / Project…; the choice is remembered.) Message "Saved to Inbox", then (a moment later, AI on) "AI suggests …".
+- [ ] 3.1 On the arXiv tab: popup → bell icon → "Tomorrow 09:00" (bell turns violet) → **Save to Inbox**. (The ▾ next to Save picks Inbox / Collection… / Project… under "Where to"; the choice is remembered.) Message "Saved to Inbox", then (a moment later, AI on) "AI suggests …".
 - [ ] 3.2 Re-open the popup on that tab: it says "in Inbox", the button says "Saved in Inbox ✓"; the bell changes the reminder straight away.
-- [ ] 3.3 On the GitHub tab: **Collection** → type `Tools › Dev` → **Save to Tools › Dev**. In the Library it is under Collections › Tools › Dev (not in the Inbox).
-- [ ] 3.4 Right-click any link → **Save link for later** → notification; it appears in the Inbox.
+- [ ] 3.3 On the GitHub tab: **Collection** → type `Tools › Dev` → **Keep in Tools › Dev**. In the Library it is under Collections › Tools › Dev (not in the Inbox).
+- [ ] 3.4 Right-click any link → **Save link to Inbox** → notification "Saved to Inbox"; it appears in the Inbox.
 - [ ] 3.5 **Alt+Shift+S** on another page → notification; it appears in the Inbox.
 - [ ] 3.6 Popup **☆** pins the current page; it appears in the pins row and on the Library rail.
 
 ## 4. Library: Inbox, review, collections
 
-- [ ] 4.1 Inbox rows show title, AI note, dashed suggested collection, type; **Keep** files it into the suggestion.
-- [ ] 4.2 Click a row: details open (status, type, reminder, collection, tags). The AI-sorted page shows up to 2 tags.
+- [ ] 4.1 Inbox rows show title, AI reason, dashed suggested collection, type; **Keep** keeps it in the suggestion.
+- [ ] 4.2 Click a row: details open (status, type, reminder, Keep in, tags; a kept page also says "Keep in", not "Move to"). The AI-sorted page shows up to 2 tags.
 - [ ] 4.3 Drag an Inbox row onto a collection in the sidebar: it moves there.
 - [ ] 4.4 Collection view: **+ Sub**, **Rename** (e.g. `Tools › Dev` → `Tools › Code`), pages follow the rename.
 - [ ] 4.5 **Rows / Cards** toggle changes the layout and is remembered after reload.
-- [ ] 4.6 **Weekly review** → Pages tab: → keeps (into the typed collection), ← discards, ↓ pushes to next week, P pins.
+- [ ] 4.6 **Weekly review** → Pages tab: → keeps (in the typed collection), ← deletes, ↓ pushes to next week, P pins.
 - [ ] 4.7 After each review action an **Undo** message appears; **Undo** (or Ctrl+Z) brings the page back.
 - [ ] 4.8 Course page (e.g. the Hugging Face course): details → **Track units** → 5 → **+** moves the bar.
 - [ ] 4.9 **Mind map**: click a top branch to open it, double-click to open its list; pages show site icons; pages sharing a tag have a dotted line.
 
 ## 5. Phrasebook
 
-- [ ] 5.1 On an English article, select one word → right-click **Save "…" to Phrasebook** → notification with the sentence.
-- [ ] 5.2 Select a 2-4 word phrase → **Alt+Shift+W** → saved as a phrase.
-- [ ] 5.3 Select a whole sentence (6+ words) → saved as a **quote**; in the Library that page's details show the quote.
-- [ ] 5.4 On the Polish page, save a word: language badge says **PL**; translation "→ …" appears (may need Chrome's one-time translator download).
+- [ ] 5.1 On an English article, select one word → right-click **Add "…" to Phrasebook** → notification "Added to Phrasebook" with the sentence.
+- [ ] 5.2 Select a 2-4 word phrase → **Alt+Shift+W** → added as a phrase.
+- [ ] 5.3 Select a whole sentence (6+ words) → it becomes a **highlight** ("Highlighted"); in the Library that page's details show it.
+- [ ] 5.4 On the Polish page, add a word: language badge says **PL**; translation "→ …" appears (may need Chrome's one-time translator download).
 - [ ] 5.5 Library → **Phrasebook**: "This week" group, lime edge on the newest, sentence with the word in bold, AI definition marked "AI", dictionary links open the right word (Cambridge / Collins / PWN).
-- [ ] 5.6 Save the same word again: it shows "2×" instead of a second card.
-- [ ] 5.7 **+ Note** adds your own note; **×** deletes with Undo.
+- [ ] 5.6 Add the same word again: it shows "2×" instead of a second card.
+- [ ] 5.7 **+ Comment** adds your own comment; **×** deletes with Undo.
 - [ ] 5.8 Weekly review → **Words** tab: Space shows the meaning, → Got it, ← Again; done screen counts them.
-- [ ] 5.9 On a Chrome page (e.g. the Web Store) saving a word still works, just without a sentence.
+- [ ] 5.9 On a Chrome page (e.g. the Web Store) adding a word still works, just without a sentence.
 
-## 5b. Page notes and read / unread (v1.2)
+## 5b. Notes and read / unread (v1.2)
 
-- [ ] 5b.1 On a long article select a paragraph → right-click **Highlight (page notes)**: the side panel opens, the passage is marked yellow on the page.
+- [ ] 5b.1 On a long article select a paragraph → right-click **Highlight**: the side panel opens, the passage is marked yellow on the page.
 - [ ] 5b.2 Pick another colour in the panel, select more text → **Highlight selection** (Chrome may ask for access to this site once).
 - [ ] 5b.3 Add a comment to a highlight; type notes in **My notes**; reload the page: everything is still in the panel.
 - [ ] 5b.4 Reload the page → **Show on page**: highlights are marked again; clicking a highlight in the panel scrolls to it.
 - [ ] 5b.5 Switch tabs: the panel follows the active tab.
 - [ ] 5b.6 Library → **Notes**: the page with its highlights and notes; **Export** downloads a .md; Ctrl+K finds a word from a highlight.
-- [ ] 5b.7 Popup on that page shows "N highlights + notes" and a **✎ Notes** button that opens the panel.
+- [ ] 5b.7 Popup on that page shows "N highlights + notes" and a **✎ Notes** button that opens Notes.
 - [ ] 5b.8 Old Phrasebook quotes (if you had any) now appear as highlights in Notes.
 - [ ] 5b.9 Save a page to the Inbox: its row is **bold** (unread). Read it for 2+ minutes in the front tab: the row turns normal (read). Tick/untick **Read** in its details.
 - [ ] 5b.10 Popup **All tabs → Inbox**: every tab is saved, the window shows the Inbox, and History has a "N tabs sent to Inbox" snapshot.
 
 ## 5a. Highlighter pen (v1.6)
 
-- [ ] 5a.1 The extension is called **Tab Organiser** (no "(local AI)") in chrome://extensions and the side panel menu.
-- [ ] 5a.2 Popup header: the side-panel icon (next to Library) opens the notes panel.
+- [ ] 5a.1 The extension is called **Pinax** (no "(local AI)") in chrome://extensions and the side panel menu.
+- [ ] 5a.2 Popup header: the side-panel icon (next to Library) opens Notes.
 - [ ] 5a.3 Panel → **Highlighter**: the first time on a site Chrome asks "allow on this site?" (say Allow); a dark "Highlighter on" badge appears top right on the page and the button turns dark.
 - [ ] 5a.4 Select text with the mouse: it turns into a highlight at once (colour from the panel dots); change the colour dot while the pen is on and select again.
 - [ ] 5a.5 Click a highlight on the page: a dark bar with 4 colours, Comment, Copy, Delete; each works and the panel list updates.
@@ -90,15 +90,15 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 - [ ] 5f.1 On a site you allowed (or right after clicking the extension icon on a page): select text → a small dark bar appears above it.
 - [ ] 5f.2 The 4 dots highlight as Key point (yellow) · Idea (green) · Question (blue) · Check (pink); the bar says "Highlighted" and closes.
-- [ ] 5f.3 **Note**: a text box appears in the bar; type, Enter → highlight with your note.
-- [ ] 5f.4 **Word**: saved to the Phrasebook with its sentence. **Copy**: quote + title + link on the clipboard.
+- [ ] 5f.3 **Comment**: a text box appears in the bar; type, Enter → "Highlighted with comment".
+- [ ] 5f.4 **Word**: added to the Phrasebook with its sentence ("Added to Phrasebook"). **Copy**: quote + title + link on the clipboard.
 - [ ] 5f.5 Esc, a click elsewhere or scrolling closes the bar; it never appears when selecting inside a text box.
 - [ ] 5f.6 Side panel: each highlight shows its role; role chips (All / Key point / …) filter the list. Library › Notes has the same chips.
 - [ ] 5f.7 Panel switch "Work on every site": asks Chrome once; afterwards the bar works on any site. Switching it off goes back to sites you allowed.
 
 ## 5g. Page dock, note card, continue reading (v1.8)
 
-- [ ] 5g.1 On a saved page or a page with notes (site allowed), a thin dark tab sits on the right edge; hover it: Highlighter · Notes · Show/hide · Side panel · ⋯.
+- [ ] 5g.1 On a saved page or a page with notes (site allowed), a thin dark tab sits on the right edge; hover it: Highlighter · Notes · Show/hide · Open Notes · ⋯.
 - [ ] 5g.2 Drag the small grip at its top up/down; reload: it stays where you put it.
 - [ ] 5g.3 **Notes**: a card opens beside the dock with your notes for this page; type → "saved"; the side panel shows the same text.
 - [ ] 5g.4 **Highlighter** in the dock turns the pen on/off (badge appears); the side panel button follows.
@@ -110,19 +110,19 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 ## 5h. Page shortcuts (v1.9)
 
 - [ ] 5h.1 Select text on an allowed page (the bubble shows), press **H**: "Highlighted", yellow Key point in the side panel.
-- [ ] 5h.2 Select text, press **N**: the note box opens; type (letters like h/n/w just type), Enter saves the highlight with the note.
-- [ ] 5h.3 Select a word, press **W**: "Saved to Phrasebook".
-- [ ] 5h.4 With nothing selected, or while typing in a search box on the page, H/N/W do nothing extra; Ctrl+H still opens History.
+- [ ] 5h.2 Select text, press **C**: the comment box opens; type (letters like h/c/w just type), Enter saves the highlight with the comment.
+- [ ] 5h.3 Select a word, press **W**: "Added to Phrasebook".
+- [ ] 5h.4 With nothing selected, or while typing in a search box on the page, H/C/W do nothing extra; Ctrl+H still opens History, and Ctrl+C still copies while the bubble is open.
 - [ ] 5h.5 **Esc** closes the bubble.
 
 ## 5c. Inbox triage (v1.3)
 
 - [ ] 5c.1 With 5+ pages in the Inbox: bundle cards appear (e.g. "→ AI › Agents 4", "Duplicates", "Old & never read", "No suggestion yet").
-- [ ] 5c.2 **Keep all** on a bundle files them; **Undo** brings them back. **Show** filters the list; the chip "… ×" clears it.
+- [ ] 5c.2 **Keep all** on a bundle keeps them; **Undo** brings them back. **Show** filters the list; the chip "… ×" clears it.
 - [ ] 5c.3 Save the same page twice written differently (with `?utm_source=x` or `www.`): it shows under **Duplicates**.
-- [ ] 5c.4 Tick 3 rows: the dark bar shows "3 selected"; Keep here / Keep suggested / → Project / Read / Unread / Discard work.
-- [ ] 5c.5 Keys: J/K move the outline, X selects, E keeps (as suggested), # discards, O opens, M toggles read, * selects all, Esc clears.
-- [ ] 5c.6 **Keep all N as suggested** in the toolbar files every page into its AI suggestion.
+- [ ] 5c.4 Tick 3 rows: the dark bar shows "3 selected"; Keep here / Keep suggested / → Project / Read / Unread / Delete work.
+- [ ] 5c.5 Keys: J/K move the outline, X selects, E keeps (as suggested), # deletes, O opens, M toggles read, * selects all, Esc clears.
+- [ ] 5c.6 **Keep all N as suggested** in the toolbar keeps every page in its AI suggestion.
 
 ## 5d. Reading (v1.4)
 
@@ -136,37 +136,37 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 - [ ] 5e.1 On a page with 3+ highlights, side panel → **✦ Key ideas from my highlights**: bullet points appear under Summary (the first time Chrome may download its summariser).
 - [ ] 5e.2 **✦ Summarise the page** gives a short summary of the whole article.
-- [ ] 5e.3 **Add to my notes** copies it into My notes; **Copy** and **Remove** work.
+- [ ] 5e.3 **Add to my notes** copies it into My notes; **Copy** and **Delete** work.
 - [ ] 5e.4 Library → Notes: the card shows the AI summary; **✦ Key ideas** / **Redo** works from there; **Export** includes it.
 - [ ] 5e.5 Ctrl+K finds a word that only appears in a summary.
 - [ ] 5e.6 Mind map: saved pages with notes show ✎ (hover shows the first highlight); annotated pages you never saved are in a **Notes** branch (double-click opens Notes).
 
-## 6. Projects and research trails
+## 6. Projects and sources
 
 - [ ] 6.1 Popup → **⋯ → Track for a project…** → **Working on** → **+ New project…** → "Test research" + Enter. Icon shows **●** in this window.
 - [ ] 6.2 Search Google, open 2 results in new tabs, click a link inside one of them.
-- [ ] 6.3 Library → Projects → Test research: the trail shows those pages indented under the page they came from; no Google result page in the list.
+- [ ] 6.3 Library → Projects → Test research: the sources show those pages indented under the page they came from; no Google result page in the list.
 - [ ] 6.4 **Track this window** button in the project shows "● Tracking this window" for the window the Library is in only if that window is the tracked one.
 - [ ] 6.5 In another window with 5+ tabs: popup → **⋯ → Park this window…** → existing project, **close the tabs** ticked → **Park**. The tabs close, the Library opens on the project, new sources are listed.
-- [ ] 6.6 Trail buttons: ✓ useful (green dot), Later (also appears in Inbox), ✕ not needed (struck through), ▣ adds to working tabs, ✎ note, − remove (Undo works).
+- [ ] 6.6 Source buttons: ✓ useful (green dot), Later (also appears in Inbox), ✕ not needed (struck through), ▣ adds to working tabs, ✎ comment, − Remove from project (Undo works).
 - [ ] 6.7 ✕ on a page that has pages under it asks to mark them too; the branch is greyed; Undo restores it.
 - [ ] 6.8 Filters (Unread / Useful / …) and the progress bar match what you marked.
 - [ ] 6.9 **▶ Read next** opens the next unread page. Popup shows the green **Reading for Test research** card.
 - [ ] 6.10 In that card press **✓ Useful** with "then open the next one here" ticked: the same tab moves to the next unread page.
 - [ ] 6.11 Press **✕ Not needed** on a page with children: two inline buttons appear ("Only this" / "This + those").
-- [ ] 6.12 **Export**: a `.md` file downloads with the useful sources, notes and any quotes; it is also on the clipboard.
+- [ ] 6.12 **Export**: a `.md` file downloads with the useful sources, comments and any highlights; it is also on the clipboard.
 - [ ] 6.13 **Finish…**: choose "send to Inbox" for unread, type a collection for all → **Finish**. Project shows "✓" in the sidebar, buttons are gone, useful pages are in that collection; **Reopen** brings it back.
-- [ ] 6.14 Popup **Project** save option adds the current page to a project's trail.
+- [ ] 6.14 Popup **Project** save option adds the current page to a project's sources.
 
 ## 7. History
 
-- [ ] 7.1 Popup → **⋯ → Save session**: History shows "Saved session" with the date + AI name.
+- [ ] 7.1 Popup → **⋯ → Snapshot window**: message "Snapshot added to History…"; History shows "Snapshot" with the date + AI name.
 - [ ] 7.2 Close a window with 2+ tabs: within a few seconds History shows "Closed window · N tabs".
-- [ ] 7.3 Filter chips (Closed windows / Saved sessions / Tidied) filter the list.
-- [ ] 7.4 Per tab: **Restore** opens it and removes it from the entry; **→ Inbox**, **→ Project**, **→ Collection** move it (it leaves the entry); **×** removes with Undo.
+- [ ] 7.3 Filter chips (Closed window / Snapshot / Tidied) filter the list.
+- [ ] 7.4 Per tab: **Restore** opens it and removes it from the entry; **→ Inbox**, **→ Project**, **→ Collection** move it (it leaves the entry); **×** deletes with Undo.
 - [ ] 7.5 **Make project** turns an entry into a project and opens it.
 - [ ] 7.6 Tidy: set "idle for 1 day" → **Tidy N idle tabs now** closes idle tabs (never pinned, active or audio tabs); they appear as "Tidied".
-- [ ] 7.7 Untick "save closed windows", close a window: nothing new appears. Tick it again.
+- [ ] 7.7 Untick "remember closed windows", close a window: nothing new appears. Tick it again.
 
 ## 8. Reminders and notifications
 
@@ -188,7 +188,7 @@ open `chrome://extensions` → Tab Organiser → **Errors**, or right-click the 
 
 ## 10. Speed
 
-- [ ] 10.1 Popup opens in well under a second; saving returns at once (AI note arrives later).
+- [ ] 10.1 Popup opens in well under a second; saving returns at once (AI reason arrives later).
 - [ ] 10.2 With 30+ pages and the AI sorting, the Library stays responsive (no freezing while sorting).
 - [ ] 10.3 Long lists show 100 rows and a quiet **Show 100 more**; J/K past the last row shows more; `*` still selects every matching page.
 - [ ] 10.4 Typing in the Library search waits a moment, then filters (no lag per key).

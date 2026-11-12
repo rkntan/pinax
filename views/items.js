@@ -45,7 +45,7 @@ function detailEl(it) {
       ? h("div", { class: "quotes" },
           highlightsEl(note),
           note.text.trim() ? h("div", { class: "note-text" }, note.text) : null,
-          h("button", { class: "link small", onclick: () => openWithNotes(note) }, "Open with notes"))
+          h("button", { class: "link small", onclick: () => openWithNotes(note) }, "Open with Notes"))
       : null,
     h("label", { class: "check", title: "Pages are marked read after 2 minutes of viewing" }, "Read",
       h("input", { type: "checkbox", checked: !!it.read, onchange: (e) => updateItem(it.id, { read: e.target.checked, readAt: e.target.checked ? Date.now() : null }) })),
@@ -54,12 +54,12 @@ function detailEl(it) {
         TYPES.map((t) => h("option", { value: t, selected: it.type === t }, t)))),
     remindSelect(it),
     progressEl(it),
-    h("label", {}, it.stage === "inbox" ? "Keep in" : "Move to", pathIn,
-      h("button", { class: "qbtn keep", onclick: () => keepItem(it.id, pathIn.value) }, it.stage === "inbox" ? "Keep" : "Move")),
+    h("label", {}, "Keep in", pathIn,
+      h("button", { class: "qbtn keep", onclick: () => keepItem(it.id, pathIn.value) }, "Keep")),
     h("label", {}, "Tags", tagsIn),
     h("span", { style: "flex:1" }),
     it.stage === "kept" ? h("button", { class: "link", onclick: () => updateItem(it.id, { stage: "inbox" }) }, "Back to Inbox") : null,
-    h("button", { class: "link", onclick: () => withUndo(`Removed “${it.title}”`, ["items"], () => deleteItem(it.id)) }, "Remove"));
+    h("button", { class: "link", onclick: () => withUndo(`Deleted “${it.title}”`, ["items"], () => deleteItem(it.id)) }, "Delete"));
 }
 
 function rowEl(it, pinned) {
@@ -86,7 +86,7 @@ function rowEl(it, pinned) {
         h("a", { class: "title", href: it.url, target: "_blank", title: it.url }, it.title),
         h("span", { class: "why" }, it.why || hostOf(it.url))),
       h("div", { class: "right" },
-        note ? h("span", { class: "small", title: "Has highlights / notes" }, "✎") : null,
+        note ? h("span", { class: "small", title: "Has Notes" }, "✎") : null,
         isOld(it) ? h("span", { class: "chip", title: "In the Inbox for more than 2 weeks" }, "old") : null,
         isDue(it) ? h("span", { class: "chip lime" }, "due") : null,
         it.remindAt && !isDue(it) ? h("span", { class: "small remind-on", title: "Reminder" }, shortWhen(it.remindAt)) : null,
@@ -104,7 +104,7 @@ function rowEl(it, pinned) {
         suggested ? h("button", { class: "qbtn keep", title: `Keep in ${pathLabel(it.path)}`, onclick: () => keepItem(it.id, it.path) }, "Keep") : null,
         h("button", {
           class: `star${pinned ? " on" : ""}`,
-          title: pinned ? "Unpin" : "Pin to dock",
+          title: pinned ? "Unpin" : "Pin to Library",
           onclick: () => (pinned ? withUndo("Unpinned", ["pins"], () => unpinSite(it.url)) : pinSite(it)),
         }, pinned ? "★" : "☆"))),
     open ? detailEl(it) : null);
@@ -181,7 +181,7 @@ function selBar() {
     }, h("option", { value: "" }, "→ Project"), projects.map((p) => h("option", { value: p.id }, p.name))) : null,
     h("button", { class: "qbtn", onclick: () => withUndo(done(ids.length, "Marked read:"), ["items"], () => markReadMany(ids, true)) }, "Read"),
     h("button", { class: "qbtn", onclick: () => withUndo(done(ids.length, "Marked unread:"), ["items"], () => markReadMany(ids, false)) }, "Unread"),
-    h("button", { class: "qbtn danger", onclick: () => withUndo(done(ids.length, "Discarded"), ["items"], () => deleteMany(ids)) }, "Discard"),
+    h("button", { class: "qbtn danger", onclick: () => withUndo(done(ids.length, "Deleted"), ["items"], () => deleteMany(ids)) }, "Delete"),
     h("button", { class: "link small", onclick: () => { state.sel.clear(); render(); } }, "Clear"));
 }
 
@@ -204,7 +204,7 @@ function bundlesEl() {
   const ids = (l) => l.map((x) => x.id);
   const cards = [];
   if (b.duplicates.length) cards.push(bundleCard("Duplicates", b.duplicates,
-    h("button", { class: "qbtn danger", onclick: () => withUndo(`Discarded ${b.duplicates.length} duplicates`, ["items"], () => deleteMany(ids(b.duplicates))) }, "Discard all"), { kind: "dupes" }));
+    h("button", { class: "qbtn danger", onclick: () => withUndo(`Deleted ${b.duplicates.length} duplicates`, ["items"], () => deleteMany(ids(b.duplicates))) }, "Delete all"), { kind: "dupes" }));
   for (const g of b.byPath.slice(0, 6)) cards.push(bundleCard(`→ ${pathLabel(g.path)}`, g.items, [
     h("button", { class: "qbtn keep", onclick: () => withUndo(`Kept ${g.items.length} in ${pathLabel(g.path)}`, ["items", "collections"], () => keepMany(ids(g.items), g.path)) }, "Keep all"),
     h("button", {
@@ -212,7 +212,7 @@ function bundlesEl() {
       onclick: () => { const p = prompt("Keep these pages in:", pathLabel(g.path)); if (p) withUndo(`Kept ${g.items.length} in ${pathLabel(cleanPath(p))}`, ["items", "collections"], () => keepMany(ids(g.items), p)); },
     }, "Elsewhere…")], { kind: "path", path: g.path }));
   if (b.old.length) cards.push(bundleCard("Old & never read", b.old,
-    h("button", { class: "qbtn danger", onclick: () => withUndo(`Discarded ${b.old.length} old pages`, ["items"], () => deleteMany(ids(b.old))) }, "Discard all"), { kind: "old" }));
+    h("button", { class: "qbtn danger", onclick: () => withUndo(`Deleted ${b.old.length} old pages`, ["items"], () => deleteMany(ids(b.old))) }, "Delete all"), { kind: "old" }));
   if (b.unsorted.length) cards.push(bundleCard("No suggestion yet", b.unsorted,
     h("button", {
       class: "qbtn", title: "Ask the local AI to suggest collections",
@@ -233,7 +233,7 @@ function bundleLabel(f) {
   return f.kind === "path" ? `→ ${pathLabel(f.path)}` : { dupes: "Duplicates", old: "Old & never read", unsorted: "No suggestion yet" }[f.kind];
 }
 
-const KEYS_HINT = "J/K move · X select · E keep · # discard · O open · M read/unread · * select all · Esc clear";
+const KEYS_HINT = "J/K move · X select · E keep · # delete · O open · M read/unread · * select all · Esc clear";
 
 function viewInbox() {
   const base = data.items.filter((it) => it.stage === "inbox" && matches(it));
@@ -250,7 +250,7 @@ function viewInbox() {
       onclick: () => withUndo(`Kept ${suggested.length} pages`, ["items", "collections"], () => keepSuggested(suggested.map((x) => x.id))),
     }, `Keep all ${suggested.length} as suggested`) : null,
     waiting ? h("button", { class: "btn primary", onclick: () => go("review") }, `Review ${waiting} one by one`) : null);
-  if (!base.length) return emptyEl("Inbox is clear", "Save pages from the popup (also “All tabs → Inbox”), right-click → “Save link for later”, or press Alt+Shift+S.");
+  if (!base.length) return emptyEl("Inbox is clear", "Save pages from the popup (also “All tabs → Inbox”), right-click → “Save link to Inbox”, or press Alt+Shift+S.");
   return h("div", {},
     f || base.length < 3 ? null : bundlesEl(),
     selBar(),
@@ -299,7 +299,7 @@ document.addEventListener("keydown", async (e) => {
     await withUndo(done(targets.length, read ? "Marked read:" : "Marked unread:"), ["items"], () => markReadMany(targets, read));
   } else if ((k === "#" || k === "Delete") && targets.length) {
     const n = next();
-    await withUndo(done(targets.length, "Discarded"), ["items"], () => deleteMany(targets));
+    await withUndo(done(targets.length, "Deleted"), ["items"], () => deleteMany(targets));
     state.focusId = n;
   } else if (k === "e" && targets.length) {
     const keepable = data.items.filter((x) => targets.includes(x.id) && x.stage === "inbox" && x.path && x.path !== UNSORTED);

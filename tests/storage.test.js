@@ -107,7 +107,7 @@ test("trail stops adding pages by itself at TRAIL_MAX_SOURCES; known pages still
 test("mergeBackup refuses a file from a newer schema, before anything is merged", () => {
   const cur = { items: [{ id: "mine" }] };
   assert.throws(() => core.mergeBackup(cur, { app: "tab-organiser", schema: core.SCHEMA + 1, items: [{ id: "x" }] }), /newer/);
-  assert.throws(() => core.mergeBackup(cur, { app: "other", items: [] }), /not a Tab Organiser backup/);
+  assert.throws(() => core.mergeBackup(cur, { app: "other", items: [] }), /not a Pinax backup/);
   assert.deepEqual(cur, { items: [{ id: "mine" }] });
 });
 

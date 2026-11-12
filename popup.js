@@ -82,12 +82,12 @@ function updateSaveLabel() {
   $("bell").parentElement.hidden = dest === "project"; // project sources have no reminders
   $("split").classList.toggle("done", dest === "inbox" && !!existing);
   if (dest === "inbox") {
-    b.textContent = existing ? (existing.stage === "kept" ? `Saved in ${pathLabel(existing.path)}` : "Saved in Inbox ✓") : "Save to Inbox";
+    b.textContent = existing ? (existing.stage === "kept" ? `Kept in ${pathLabel(existing.path)}` : "Saved in Inbox ✓") : "Save to Inbox";
     b.disabled = !isWeb(tab) || !!existing;
   }
   else if (dest === "collection") {
     const p = $("col-input").value.trim();
-    b.textContent = p ? `Save to ${pathLabel(cleanPath(p))}` : "Save to collection";
+    b.textContent = p ? `Keep in ${pathLabel(cleanPath(p))}` : "Keep in collection";
   } else {
     const sel = $("ws-select").value;
     const w = projectList.find((x) => x.id === sel);
@@ -139,7 +139,7 @@ $("save").onclick = async () => {
       const it = await saveForLater(tab, remindKey);
       await addStats(it.id, tab);
       await keepItem(it.id, p);
-      msg(`Saved in ${pathLabel(cleanPath(p))}`);
+      msg(`Kept in ${pathLabel(cleanPath(p))}`);
     } else {
       let id = $("ws-select").value;
       if (id === "__new") {
@@ -313,9 +313,9 @@ $("save-session").onclick = async () => {
   busy(true);
   try {
     const tabs = await chrome.tabs.query({ currentWindow: true });
-    msg("Naming session…");
+    msg("Naming snapshot…");
     const s = await addSession(tabs, "saved", await aiTitle(tabs));
-    msg(`Session saved to History for ${SESSION_DAYS} days`);
+    msg(`Snapshot added to History for ${SESSION_DAYS} days`);
     $("msg").title = s.name;
   } finally {
     busy(false);
@@ -371,7 +371,7 @@ $("working").onchange = async () => {
   if (v === "__new") return $("working-new").focus();
   await setWorkingOn(tab.windowId, v || null);
   if (!v) wantTrack = false;
-  msg(v ? "New pages in this window join the trail" : "Stopped tracking");
+  msg(v ? "New pages in this window join the project's sources" : "Stopped tracking");
   showWorking();
 };
 

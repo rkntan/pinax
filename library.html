@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Library · Tab Organiser</title>
+  <title>Library · Pinax</title>
   <link rel="icon" href="icons/icon32.png">
   <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="library.css">
 </head>
 <body>
-  <!-- Pins dock: favourite sites, drag to reorder -->
+  <!-- Pins: favourite sites, drag to reorder -->
   <aside class="pins" aria-label="Pinned sites">
     <div id="pins" class="pin-list"></div>
     <button id="pin-add" class="pin-add" title="Pin a site">+</button>
@@ -30,7 +30,7 @@
 
     <div class="nav-head">
       <span>Projects</span>
-      <button id="ws-add" class="mini" title="New project from this window">+</button>
+      <button id="ws-add" class="mini" title="New project">+</button>
     </div>
     <div id="ws-list" class="nav-group"></div>
 
@@ -42,11 +42,11 @@
 
     <div class="nav-group">
       <button class="nav" data-view="notes" title="Highlights and notes from pages">Notes <span class="n" id="n-notes"></span></button>
-      <button class="nav" data-view="phrases">Phrasebook <span class="n" id="n-phrases" title="Saved this week"></span></button>
+      <button class="nav" data-view="phrases">Phrasebook <span class="n" id="n-phrases" title="Added this week"></span></button>
     </div>
 
     <div class="nav-group">
-      <button class="nav" data-view="history" title="Closed windows, saved sessions and tidied tabs (30 days)">History <span class="n" id="n-history"></span></button>
+      <button class="nav" data-view="history" title="Closed windows, snapshots and tidied tabs (30 days)">History <span class="n" id="n-history"></span></button>
     </div>
 
     <div class="nav-group">

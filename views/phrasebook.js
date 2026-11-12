@@ -1,4 +1,4 @@
-// Phrasebook: words and phrases saved from pages, grouped by week (quotes live in page notes).
+// Phrasebook: words and phrases added from pages, grouped by week (passages are highlights in Notes).
 
 function phraseHit(p) {
   const q = state.q;
@@ -12,12 +12,12 @@ function sentenceEl(p) {
 
 function noteEl(p) {
   const edit = () => {
-    const n = prompt("Your note:", p.note || "");
+    const n = prompt("Your comment:", p.note || "");
     if (n !== null) updatePhrase(p.id, { note: n.trim() });
   };
   return p.note
-    ? h("div", { class: "ph-note", title: "Edit note", onclick: edit }, p.note)
-    : h("button", { class: "link small", onclick: edit }, "+ Note");
+    ? h("div", { class: "ph-note", title: "Edit comment", onclick: edit }, p.note)
+    : h("button", { class: "link small", onclick: edit }, "+ Comment");
 }
 
 function sourceEl(p) {
@@ -31,13 +31,13 @@ function sourceEl(p) {
 function wordCard(p, fresh) {
   const def = p.ai?.definition
     ? h("div", { class: "ph-def" }, h("span", { class: "ai-tag", title: "Written by the local AI; check a dictionary if unsure" }, "AI"), p.ai.definition)
-    : h("div", { class: "ph-def muted" }, p.needsAi ? "Looking up with local AI when it's ready…" : "No AI note: use a dictionary below.");
+    : h("div", { class: "ph-def muted" }, p.needsAi ? "Looking up with local AI when it's ready…" : "No AI definition: use a dictionary below.");
   return h("article", { class: `phrase${fresh ? " fresh" : ""}${p.again ? " again" : ""}` },
     h("div", { class: "ph-head" },
       h("span", { class: "ph-text" }, p.text),
       h("span", { class: "lang", title: langName(p.lang) }, p.lang.toUpperCase()),
       p.ai?.pos ? h("span", { class: "muted small" }, p.ai.pos) : null,
-      p.seen > 1 ? h("span", { class: "chip", title: "Times you saved it" }, `${p.seen}×`) : null,
+      p.seen > 1 ? h("span", { class: "chip", title: "Times you added it" }, `${p.seen}×`) : null,
       p.again ? h("span", { class: "chip lime", title: "Marked “Again” in the quiz" }, "again") : null),
     def,
     p.translation ? h("div", { class: "ph-tr" }, "→ ", p.translation) : null,
@@ -105,7 +105,7 @@ function viewPhrasebook() {
   const list = base.filter((p) => state.lang === "All" || p.lang === state.lang).sort((a, b) => b.created - a.created);
   if (!list.length) {
     return emptyEl(all.length ? "Nothing here" : "No words yet",
-      "Select a word on any page, then right-click › “Save to Phrasebook”, or press Alt+Shift+W.");
+      "Select a word on any page, then right-click › “Add to Phrasebook”, or press Alt+Shift+W.");
   }
   // the 10 newest words saved this week get highlighted
   const fresh = new Set(list.filter((p) => p.created >= weekStart()).slice(0, 10).map((p) => p.id));
