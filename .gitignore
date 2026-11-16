@@ -5,3 +5,6 @@ pinax-backup-*.json
 *.zip
 *.crx
 *.pem
+
+# local notes
+HANDOFF.md
