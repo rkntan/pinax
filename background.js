@@ -324,6 +324,7 @@ function trackView() {
       const keys = Object.keys(viewTime);
       for (const k of keys.slice(0, Math.max(0, keys.length - VIEW_KEYS_MAX))) delete viewTime[k];
     }
+    if (!viewing?.url && !next) return; // nothing was being viewed and nothing is now: no write, no alarm to change
     const nextUnread = !!next && (await unread(next));
     await chrome.storage.session.set({ viewing: next ? { url: next, since: now, unread: nextUnread } : null, viewTime });
     const left = nextUnread ? READ_AFTER_MS - (viewTime[pageKey(next)] || 0) : 0;

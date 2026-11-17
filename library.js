@@ -147,12 +147,18 @@ async function showAi() {
   line.textContent = "Local AI ready";
 }
 
+// Redraws are batched (a save writes several keys) and skipped while this tab is hidden:
+// the page catches up the moment you look at it again.
+let redrawTimer = null;
 chrome.storage.onChanged.addListener((c) => {
   if (c.items || c.projects || c.collections || c.pins || c.phrases || c.notes || c.collectionOrder) {
     stale = true;
-    renderAfterTyping();
+    if (document.hidden) return;
+    clearTimeout(redrawTimer);
+    redrawTimer = setTimeout(renderAfterTyping, 60);
   }
 });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && stale) renderAfterTyping(); });
 
 // A storage change while you type in a field of the page waits until you leave the field,
 // so the redraw doesn't wipe what you typed (the top search box is redrawn-safe).
