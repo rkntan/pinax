@@ -1471,7 +1471,7 @@ async function openLibraryTab(hash = "") {
 // A highlight keeps a little text before and after it (prefix / suffix) so it can be found
 // again on the page even if the page changes a bit.
 
-const HL_COLORS = { yellow: "#ffe066", green: "#b2f2bb", blue: "#a5d8ff", pink: "#fcc2d7" };
+const HL_COLORS = { yellow: "#ffe066", green: "#b2f2bb", blue: "#a5d8ff", pink: "#fcc2d7", orange: "#ffd8a8", purple: "#d0bfff", red: "#ffa8a8", gray: "#dee2e6" };
 
 // The page without its #fragment: one record per article, wherever you scrolled.
 function pageKey(url) {
@@ -1964,6 +1964,10 @@ function installMarkTools() {
       <button class="c" data-c="green" style="background:#b2f2bb" title="Idea"></button>
       <button class="c" data-c="blue" style="background:#a5d8ff" title="Question"></button>
       <button class="c" data-c="pink" style="background:#fcc2d7" title="Check"></button>
+      <button class="c" data-c="orange" style="background:#ffd8a8" title="Example"></button>
+      <button class="c" data-c="purple" style="background:#d0bfff" title="Definition"></button>
+      <button class="c" data-c="red" style="background:#ffa8a8" title="Disagree"></button>
+      <button class="c" data-c="gray" style="background:#dee2e6" title="Aside"></button>
       <span class="sep"></span>
       <button class="t" data-a="comment">Comment</button>
       <button class="t" data-a="copy">Copy</button>
@@ -2026,7 +2030,7 @@ async function remark(tab, scrollTo = null, askAccess = false, used = false, not
 
 // ---------- highlight roles: each colour means something ----------
 
-const HL_ROLES = { yellow: "Key point", green: "Idea", blue: "Question", pink: "Check" };
+const HL_ROLES = { yellow: "Key point", green: "Idea", blue: "Question", pink: "Check", orange: "Example", purple: "Definition", red: "Disagree", gray: "Aside" };
 
 function roleOf(hl) {
   return HL_ROLES[hl?.color] || HL_ROLES.yellow;
@@ -2044,7 +2048,7 @@ function roleCounts(notes) {
 
 function installBubble() {
   window.__toBubble?.teardown?.(); // rebuild: an older copy may belong to a reloaded extension
-  const ROLES = [["yellow", "#ffe066", "Key point"], ["green", "#b2f2bb", "Idea"], ["blue", "#a5d8ff", "Question"], ["pink", "#fcc2d7", "Check"]];
+  const ROLES = [["yellow", "#ffe066", "Key point"], ["green", "#b2f2bb", "Idea"], ["blue", "#a5d8ff", "Question"], ["pink", "#fcc2d7", "Check"], ["orange", "#ffd8a8", "Example"], ["purple", "#d0bfff", "Definition"], ["red", "#ffa8a8", "Disagree"], ["gray", "#dee2e6", "Aside"]];
   const norm = (s) => s.replace(/\s+/g, " ");
   let dead = false;
   const send = (m) => { try { chrome.runtime.sendMessage(m)?.catch?.(() => {}); return true; } catch { dead = true; teardown(); return false; } };
@@ -2335,7 +2339,18 @@ function installDock(cfg) {
   });
   area.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") card.hidden = true; });
 
-  const unmark = () => document.querySelectorAll("mark[data-tohl]").forEach((m) => { const p = m.parentNode; m.replaceWith(...m.childNodes); p.normalize(); });
+  // Hiding is a stylesheet on the page (the marks stay, so showing is instant and a re-mark cannot undo it)
+  const HIDE_ID = "__to-hide-hl";
+  const setHidden = (hide) => {
+    document.getElementById(HIDE_ID)?.remove();
+    if (!hide) return;
+    const st = document.createElement("style");
+    st.id = HIDE_ID;
+    st.textContent = "mark[data-tohl]{background:transparent!important;box-shadow:none!important;color:inherit!important}";
+    (document.head || document.documentElement).append(st);
+  };
+  const eyeBtn = $('[data-a="eye"]');
+  eyeBtn.classList.toggle("on", !document.getElementById(HIDE_ID));
 
   root.addEventListener("click", async (e) => {
     const b = e.target.closest("button");
@@ -2359,7 +2374,8 @@ function installDock(cfg) {
     } else if (a === "eye") {
       const on = !b.classList.contains("on");
       b.classList.toggle("on", on);
-      if (on) send({ type: "dock-show" }); else unmark();
+      setHidden(!on);
+      if (on) send({ type: "dock-show" }); // marks the page again if the dock was opened before they existed
     } else if (a === "panel") {
       send({ type: "dock-panel" });
     } else if (a === "more") {
