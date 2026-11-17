@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const PLURAL = { Course: "Courses", Video: "Videos", Tool: "Tools", Article: "Articles", Docs: "Docs", Paper: "Papers", Other: "Other" };
 
 const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, lang: "All", tag: "", favOnly: false, psort: "new", editing: null, sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null, limit: {} };
-const data = { items: [], cols: [], pins: [], projects: [], phrases: [], notes: {} };
+const data = { items: [], cols: [], pins: [], projects: [], phrases: [], notes: {}, order: {} };
 
 // Per-viewer UI prefs (layout, collapsed tree branches). Storage may be blocked: never required.
 const prefs = (() => {
@@ -95,8 +95,24 @@ let undoTimer = null, undoFn = null;
 async function withUndo(label, keys, fn) {
   const before = await chrome.storage.local.get(keys);
   await fn();
-  showToast(label, () => chrome.storage.local.set(before));
+  showToast(label, () => {
+    chrome.storage.local.set(before);
+    const added = keys.filter((k) => !(k in before)); // keys the change created: Undo removes them
+    if (added.length) chrome.storage.local.remove(added);
+  });
 }
+
+// The toolbar row under the page title. Skips empty slots: replaceChildren(null) would print the word "null".
+// A "⋯" dropdown for rarely used actions: [{ label, onclick, disabled, title, danger }]
+function moreMenu(actions) {
+  const box = h("details", { class: "more" }, h("summary", { title: "More", "aria-label": "More actions" }, "⋯"));
+  const close = (e) => { if (!box.contains(e.target)) { box.open = false; document.removeEventListener("click", close); } };
+  box.addEventListener("toggle", () => box.open && setTimeout(() => document.addEventListener("click", close)));
+  box.append(h("div", { class: "more-menu" }, actions.map((a) =>
+    h("button", { class: `link small${a.danger ? " danger" : ""}`, disabled: a.disabled, title: a.title || null, onclick: () => { box.open = false; a.onclick(); } }, a.label))));
+  return box;
+}
+const setTools =(...kids) => $("tools").replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 
 // Short message at the bottom of the sidebar.
 let flashBase = null, flashTimer = null;

@@ -47,7 +47,7 @@ function viewMap() {
     render();
   };
   setHead("Mind map", "click a branch to open it · drag to move · scroll to zoom");
-  $("tools").replaceChildren(
+  setTools(
     h("button", { class: "link small", onclick: () => toggleAll(true) }, "Expand all"),
     h("button", { class: "link small", onclick: () => toggleAll(false) }, "Collapse all"),
     h("button", { class: "link small", onclick: () => { mapFitted = false; render(); } }, "Fit"),

@@ -246,7 +246,7 @@ function viewInbox() {
   const waiting = forReview(data.items).length;
   const suggested = base.filter((it) => it.path && it.path !== UNSORTED);
   setHead("Inbox", `${base.length} waiting · AI suggests a collection, you decide`);
-  $("tools").replaceChildren(
+  setTools(
     ...(f ? [h("button", { class: "chip on", title: "Show all", onclick: () => { state.bundle = null; render(); } }, `${bundleLabel(f)} ×`)] : typeChips(base)),
     h("span", { class: "spacer" }),
     suggested.length > 1 && !f ? h("button", {
@@ -265,7 +265,7 @@ function viewInbox() {
 function viewAll() {
   const base = data.items.filter((it) => matches(it) && byStatus(it));
   setHead("All pages", `${data.items.length} saved`);
-  $("tools").replaceChildren(...typeChips(base), h("span", { class: "spacer" }), statusSeg());
+  setTools(...typeChips(base), h("span", { class: "spacer" }), statusSeg());
   const due = base.filter((it) => isDue(it));
   const rest = base.filter(byType);
   return h("div", {},

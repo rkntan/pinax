@@ -160,7 +160,7 @@ function viewPhrasebook() {
           l === "All" ? `All ${list.length}` : `${l.toUpperCase()} ${counts[l]}`))
     : [];
 
-  const addIn = h("input", { class: "input", placeholder: "Add a word or phrase…", style: "width:200px" });
+  const addIn = h("input", { class: "input", placeholder: "Add a word…" });
   const add = h("form", {
     class: "add",
     onsubmit: async (e) => {
@@ -172,17 +172,18 @@ function viewPhrasebook() {
       if (p) enrichPhrase(p.id);
     },
   }, addIn, h("button", { class: "btn" }, "Add"));
-  $("tools").replaceChildren(...langChips, h("span", { class: "spacer" }), add);
-
+  // one compact row: language, favourites, top tags, sort, add
   const sort = h("select", { class: "input", title: "Sort words", "aria-label": "Sort words", onchange: (e) => { state.psort = e.target.value; render(); } },
-    [["new", "Newest first"], ["az", "A to Z"], ["seen", "Most seen"]].map(([v, l]) => h("option", { value: v, selected: v === state.psort }, l)));
-  const bar = vocab.length ? h("div", { class: "ph-bar" },
-    favs ? h("button", { class: `chip${state.favOnly ? " on" : ""}`, onclick: () => { state.favOnly = !state.favOnly; render(); } }, `★ ${favs}`) : null,
-    Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a] || a.localeCompare(b)).slice(0, 12).map((t) =>
+    [["new", "Newest"], ["az", "A–Z"], ["seen", "Most seen"]].map(([v, l]) => h("option", { value: v, selected: v === state.psort }, l)));
+  setTools(
+    ...langChips,
+    favs ? h("button", { class: `chip${state.favOnly ? " on" : ""}`, title: "Favourites only", onclick: () => { state.favOnly = !state.favOnly; render(); } }, `★ ${favs}`) : null,
+    Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a] || a.localeCompare(b)).slice(0, 6).map((t) =>
       h("button", { class: `chip${state.tag === t ? " on" : ""}`, onclick: () => { state.tag = state.tag === t ? "" : t; render(); } }, `#${t} ${tagCount[t]}`)),
     h("span", { class: "spacer" }),
-    sort,
-    h("button", { class: "btn", title: "One row per word: opens in a spreadsheet, or import it into Anki", onclick: exportWords }, "Export CSV")) : null;
+    vocab.length ? sort : null,
+    add);
+  const bar = null;
 
   if (!shownList.length) {
     return h("div", {}, bar, emptyEl(all.length ? "Nothing here" : "No words yet",

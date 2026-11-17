@@ -8,7 +8,7 @@ function viewQueue() {
   const known = all.filter((it) => it.minutes);
   const total = known.reduce((a, it) => a + it.minutes, 0);
   setHead("Reading queue", `${all.length} unread${total ? ` · ≈ ${fmtMinutes(total)} of known length` : ""}`);
-  $("tools").replaceChildren(
+  setTools(
     h("span", { class: "small muted" }, "I have"),
     ...BUDGETS.map(([m, label]) => h("button", { class: `chip${state.budget === m ? " on" : ""}`, onclick: () => { state.budget = m; render(); } }, label)),
     h("span", { class: "spacer" }),

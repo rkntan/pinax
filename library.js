@@ -7,13 +7,14 @@ function setHead(title, sub) {
 }
 
 async function load() {
-  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "phrases", "notes"]);
+  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "phrases", "notes", "collectionOrder"]);
   data.items = r.items || [];
   data.cols = r.collections || [];
   data.pins = r.pins || [];
   data.projects = r.projects || [];
   data.phrases = r.phrases || [];
   data.notes = r.notes || {};
+  data.order = r.collectionOrder || {};
 }
 
 // Many storage writes can land at once (AI sorting, drag and drop): redraw once per frame.
@@ -45,7 +46,11 @@ async function renderNow() {
   document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
   $("settings-btn").classList.toggle("on", state.view === "settings");
   document.querySelectorAll("#density button").forEach((b) => b.classList.toggle("on", b.dataset.d === prefs.get("density", "rows")));
-  $("density").style.visibility = ["inbox", "all", "col", "queue"].includes(state.view) ? "visible" : "hidden";
+  // the top bar only shows what the page can use: layout and "paste a link" for page lists, search except in Settings/Review
+  const pageList = ["inbox", "all", "col", "queue"].includes(state.view);
+  $("density").hidden = !pageList;
+  $("add").hidden = !pageList;
+  $("search").hidden = ["settings", "review"].includes(state.view);
 
   listOrder = [];
   // the sidebar only changes with the data or the active view / collection / project
@@ -85,7 +90,7 @@ $("add").onsubmit = async (e) => {
   line.textContent = (await aiAvailability()) === "available" ? "Local AI ready" : before;
 };
 
-const BACKUP_KEYS = ["items", "collections", "pins", "projects", "phrases", "notes"];
+const BACKUP_KEYS = ["items", "collections", "pins", "projects", "phrases", "notes", "collectionOrder"];
 
 async function exportBackup() {
   await migrate(); // the file says SCHEMA, so the data must be at SCHEMA
@@ -140,7 +145,7 @@ async function showAi() {
 }
 
 chrome.storage.onChanged.addListener((c) => {
-  if (c.items || c.projects || c.collections || c.pins || c.phrases || c.notes) {
+  if (c.items || c.projects || c.collections || c.pins || c.phrases || c.notes || c.collectionOrder) {
     stale = true;
     renderAfterTyping();
   }

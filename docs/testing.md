@@ -144,6 +144,17 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 4c.6 (v1.19) Settings › **Subjects** lists the 13 standard subjects (the 14th, Other, means "unsorted"); opening one shows its sub-subjects; subjects holding kept pages show a count and open that collection when clicked.
 - [ ] 4c.7 (v1.19) In any "Keep in" box, typing a few letters (e.g. `Elec`) suggests standard paths such as `Electronics & Hardware › PCB & Circuit Design` before you have used them.
 
+## 4d. Collections (v1.21)
+
+- [ ] 4d.1 Drag one collection onto the middle of another: it nests (its pages come along); Undo moves it back.
+- [ ] 4d.2 Drag a collection onto the top or bottom edge of a sibling: a thin line shows, it lands there and the order stays after reload.
+- [ ] 4d.3 While dragging, "Drop here for top level" appears under the tree; dropping on it un-nests. Dropping a collection onto itself or its child is not allowed; going past 3 levels shows a message.
+- [ ] 4d.4 Hover a row, click **⋯**: Rename edits in place (Enter saves, Esc cancels; greyed out for standard subjects), **Move to…** and **Merge into…** list valid places, **New sub-collection** adds under it, **Delete** asks and has Undo.
+- [ ] 4d.5 **+** next to Collections: type a path or click a standard subject (e.g. Electronics & Hardware › PCB & Circuit Design): it is created and opens. "Other" is not offered.
+- [ ] 4d.6 A page can still be dragged from a list onto any collection row.
+- [ ] 4d.7 Backup then import: your manual order survives.
+- [ ] 4d.8 A collection with no sub-collections shows no stray "null" text in the toolbar.
+
 ## 5c. Inbox triage (v1.3)
 
 - [ ] 5c.1 With 5+ pages in the Inbox: bundle cards appear (e.g. "→ AI › Agents 4", "Duplicates", "Old & never read", "No suggestion yet").

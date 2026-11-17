@@ -104,14 +104,15 @@ function finishView(p) {
       }, "Finish")));
 }
 
-function exportMarkdown(p) {
-  const md = projectMarkdown(p, Object.values(data.notes).flatMap((n) => n.highlights.map((x) => ({ url: n.url, text: x.text }))));
-  downloadMd(p.name, md);
+function exportAllProjects() {
+  if (!data.projects.length) return showToast("No projects to export");
+  const marks = Object.values(data.notes).flatMap((n) => n.highlights.map((x) => ({ url: n.url, text: x.text })));
+  downloadMd(`Projects ${new Date().toISOString().slice(0, 10)}`, data.projects.map((p) => projectMarkdown(p, marks)).join("\n\n---\n\n"));
 }
 
 function viewProject() {
   const p = data.projects.find((x) => x.id === state.col);
-  if (!p) { setHead("Project", ""); $("tools").replaceChildren(); return emptyEl("Project not found", ""); }
+  if (!p) { setHead("Project", ""); setTools(); return emptyEl("Project not found", ""); }
   const c = projectProgress(p);
   const done = p.status === "finished";
   setHead(p.name, done
@@ -127,7 +128,7 @@ function viewProject() {
     workingBtn.onclick = async () => { await setWorkingOn(win, on ? null : p.id); render(); };
   });
 
-  $("tools").replaceChildren(
+  setTools(
     done ? null : h("button", { class: "btn primary", disabled: !c.unread, onclick: () => readNext(p) }, c.unread ? `▶ Read next (${c.unread})` : "All read"),
     done ? null : workingBtn,
     h("button", { class: "btn", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, `Open working tabs (${p.tabs.length})`),
@@ -148,7 +149,6 @@ function viewProject() {
         if (url && /^https?:\/\/.+/.test(url)) await addSource(p.id, { url, title: hostOf(url) });
       },
     }, "+ Page"),
-    h("button", { class: "link small", title: "Download .md and copy to clipboard", onclick: () => exportMarkdown(p) }, "Export"),
     done
       ? h("button", { class: "link small", onclick: () => reopenProject(p.id) }, "Reopen")
       : h("button", { class: "link small", onclick: () => { state.finishing = p.id; render(); } }, "Finish…"),

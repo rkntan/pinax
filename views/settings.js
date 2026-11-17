@@ -46,7 +46,7 @@ function subjectsList() {
 
 function viewSettings() {
   setHead("Settings", "everything stays on this computer");
-  $("tools").replaceChildren();
+  setTools();
   const root = h("div", { class: "settings" });
   fillSettings(root);
   return root;
@@ -99,7 +99,10 @@ async function fillSettings(root) {
 
     settingsSection("Your pages", `${(bytes / 1048576).toFixed(1)} MB on this computer`,
       h("button", { class: "btn", title: "A bookmarks file Chrome, Edge, Firefox and Safari can import", onclick: () => exportPages("bookmarks") }, "Export bookmarks"),
-      h("button", { class: "btn", title: "One row per saved page, for a spreadsheet", onclick: () => exportPages("csv") }, "Export CSV"),
+      h("button", { class: "btn", onclick: () => exportPages("csv") }, "Export CSV"),
+      h("button", { class: "btn", title: "One row per word: opens in a spreadsheet, or import it into Anki", onclick: exportWords }, "Export phrasebook (CSV)"),
+      h("button", { class: "btn", title: "Every page's highlights, as one Markdown file", onclick: exportAllNotes }, "Export notes (.md)"),
+      h("button", { class: "btn", title: "All projects, as one Markdown file", onclick: exportAllProjects }, "Export projects (.md)"),
       h("button", { class: "btn", title: "Everything, to restore into Pinax later", onclick: exportBackup }, "Backup"),
       h("label", { class: "btn", title: "Restore a Pinax backup (merges, no duplicates)" }, "Import backup", importInput)),
 
@@ -108,7 +111,7 @@ async function fillSettings(root) {
 
     settingsSection("Local AI", "",
       aiLine,
-      h("a", { class: "small", href: "eval.html", target: "_blank", title: "Score the local AI on sample pages" }, "Accuracy check")),
+      h("a", { class: "small", href: "eval.html", target: "_blank" }, "Accuracy check")),
 
     settingsSection("About", "",
       h("span", { class: "small" }, `Pinax ${chrome.runtime.getManifest().version} · MIT licence · `,

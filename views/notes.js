@@ -54,7 +54,6 @@ function noteCard(n, itemByKey) {
         },
       }, n.summary ? "✦ Redo key ideas" : "✦ Key ideas") : null,
       it ? null : h("button", { class: "link small", onclick: () => saveForLater(n) }, "→ Inbox"),
-      h("button", { class: "link small", onclick: () => downloadMd(n.title, noteMarkdown(n, "#")) }, "Export"),
       h("button", {
         class: "link small",
         onclick: () => withUndo(`Notes deleted for “${n.title}”`, ["notes"], async () => {
@@ -65,6 +64,12 @@ function noteCard(n, itemByKey) {
       }, "Delete")));
 }
 
+function exportAllNotes() {
+  const all = noteRecords();
+  if (!all.length) return showToast("No notes to export");
+  downloadMd(`Notes ${new Date().toISOString().slice(0, 10)}`, `# Notes\n\n${all.map((n) => noteMarkdown(n, "##")).join("\n")}`);
+}
+
 function viewNotes() {
   const all = noteRecords();
   const roles = roleCounts(all);
@@ -72,16 +77,12 @@ function viewNotes() {
   const list = all.filter((n) => noteHit(n, state.q) && (!state.role || n.highlights.some((x) => (x.color || "yellow") === state.role)));
   const hl = all.reduce((a, n) => a + n.highlights.length, 0);
   setHead("Notes", `${all.length} page${all.length === 1 ? "" : "s"} · ${hl} highlight${hl === 1 ? "" : "s"}`);
-  $("tools").replaceChildren(
+  setTools(
     ...(roles.length > 1
       ? [["", "All"], ...roles].map(([k, label, c]) => h("button", { class: `chip${(state.role || "") === k ? " on" : ""}`, onclick: () => { state.role = k || null; render(); } },
           k ? h("i", { class: "dot", style: `background:${HL_COLORS[k]}` }) : null, c ? `${label} ${c}` : label))
       : [h("span", { class: "small muted" }, "Select text on any page you allowed: a small bar lets you highlight it as Key point, Idea, Question or Check.")]),
-    h("span", { class: "spacer" }),
-    list.length ? h("button", {
-      class: "btn",
-      onclick: () => downloadMd(`Notes ${new Date().toISOString().slice(0, 10)}`, `# Notes\n\n${list.map((n) => noteMarkdown(n, "##")).join("\n")}`),
-    }, `Export ${list.length === all.length ? "all" : list.length} (.md)`) : null);
+    h("span", { class: "spacer" }));
   if (!list.length) {
     return emptyEl(all.length ? "No matches" : "No notes yet", "Highlight a passage on any page.");
   }

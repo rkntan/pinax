@@ -17,10 +17,10 @@
   </header>
 
   <div class="bar">
-    <button id="pen-btn" class="btn pen" title="Highlighter: while on, any text you select on the page is highlighted (Esc stops)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m15.2 4.3 4.5 4.5L9 19.5l-5.3.8.8-5.3L15.2 4.3Zm1.4-1.4 1.6-1.6a1.5 1.5 0 0 1 2.1 0l2.4 2.4a1.5 1.5 0 0 1 0 2.1l-1.6 1.6-4.5-4.5Z" fill="currentColor"/></svg><span id="pen-label">Highlighter</span></button>
-    <button id="show-btn" class="icon-btn" title="Show my highlights on the page (click one there to recolour, comment or delete)"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.4 1.6 11.4a1.3 1.3 0 0 0 0 1.2C2.7 14.6 6.5 19 12 19s9.3-4.4 10.4-6.4a1.3 1.3 0 0 0 0-1.2C21.3 9.4 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-2.2a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Z" fill="currentColor"/></svg></button>
+    <button id="pen-btn" class="btn pen" title="Highlighter (Esc stops)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m15.2 4.3 4.5 4.5L9 19.5l-5.3.8.8-5.3L15.2 4.3Zm1.4-1.4 1.6-1.6a1.5 1.5 0 0 1 2.1 0l2.4 2.4a1.5 1.5 0 0 1 0 2.1l-1.6 1.6-4.5-4.5Z" fill="currentColor"/></svg><span id="pen-label">Highlighter</span></button>
+    <button id="show-btn" class="icon-btn" title="Show highlights"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.4 1.6 11.4a1.3 1.3 0 0 0 0 1.2C2.7 14.6 6.5 19 12 19s9.3-4.4 10.4-6.4a1.3 1.3 0 0 0 0-1.2C21.3 9.4 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-2.2a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Z" fill="currentColor"/></svg></button>
   </div>
-  <div class="colors" id="colors" title="Colour for new highlights"></div>
+  <div class="colors" id="colors" title="Colour"></div>
 
   <section>
     <div class="sec-head"><h2>Highlights</h2><span id="hl-count" class="muted small"></span></div>
@@ -32,8 +32,8 @@
     <div class="sec-head"><h2>Summary <span class="ai-tag">AI</span></h2><span id="sum-meta" class="muted small"></span></div>
     <div id="sum-box"></div>
     <div class="sum-btns">
-      <button id="sum-hl" class="btn" title="Key ideas from your highlights and notes">✦ Key ideas from my highlights</button>
-      <button id="sum-page" class="btn" title="A short summary of the whole page">✦ Summarise the page</button>
+      <button id="sum-hl" class="btn">✦ Key ideas from my highlights</button>
+      <button id="sum-page" class="btn">✦ Summarise the page</button>
     </div>
   </section>
 
@@ -46,7 +46,7 @@
     <div class="sec-head"><h2>This page</h2></div>
     <div class="row">
       <button id="save-inbox" class="btn">Save to Inbox</button>
-      <button id="export" class="btn" title="Download .md and copy to clipboard">Export</button>
+      <button id="export" class="btn">Export</button>
       <button id="library" class="btn">Library ↗</button>
     </div>
     <label class="small check" title="Without this, the bubble and your highlights work on sites you allowed one by one"><input id="auto" type="checkbox"> Work on every site (asks Chrome once)</label>

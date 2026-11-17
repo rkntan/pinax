@@ -44,8 +44,14 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
 - Every save lands in the **Inbox** with an AI-suggested collection (dashed chip). One click **Keep** keeps it there.
 - **Weekly review** (Friday 16:00 notification, or Library › Weekly review): one page at a time,
   → Keep (edit the collection first if you like), ← Delete, ↓ Next week, P Pin.
-- **Collections** are a tree (`AI › Agents › Papers`): sidebar, drag rows onto a branch to keep them there,
-  rename/merge/delete branches, tags per page for cross-topic research sets.
+- **Collections** are a tree (up to 3 levels): sidebar, tags per page for cross-topic research sets.
+  - **Drag pages** onto a branch to keep them there.
+  - **Drag collections**: onto the middle of a row to nest (or merge, if the name exists), onto its top/bottom edge to reorder
+    next to it, onto "Drop here for top level" to un-nest. Too deep (more than 3 levels) or into itself is refused.
+  - **Row ⋯ menu** (hover a row): New sub-collection, Rename (inline), Move to…, Merge into…, Delete. Everything has Undo.
+  - **+ New** opens a small panel: type a path, pick a parent, or click any standard subject to create it.
+  - Standard subjects can be moved and reordered but not renamed (the AI files into their fixed names); your own collections are fully editable.
+  - Order is alphabetical until you drag; your order is kept in backups.
 - **Standard subjects (v1.13)**: the AI only files into a fixed list of 14 subjects with 5-8 sub-subjects each
   (`taxonomy.js`, e.g. *Electronics & Hardware › PCB & Circuit Design*), so collections are the same for everyone and
   never drift into near-duplicates. It picks in two small steps (subject, then sub-subject) from the page's title, site and

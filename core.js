@@ -503,12 +503,113 @@ async function addCollection(path) {
   await chrome.storage.local.set({ collections: withPath(await getCollections(), path) });
 }
 
+// ---- manual order and moves (order = { [parentPath]: [childName, ...] }, "" = top level) ----
+
+const collectionDepth = (path) => String(path || "").split("/").filter(Boolean).length;
+const isLockedName = (path) => isStandardPath(path);
+const parentOf = (path) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
+const lastSegment = (path) => path.slice(path.lastIndexOf("/") + 1);
+
+// Pure: child names with the listed ones first (in that sequence), the rest A-Z.
+function orderedChildren(parentPath, names, order) {
+  const listed = (order && order[parentPath]) || [];
+  const have = new Set(names);
+  const first = [...new Set(listed)].filter((n) => have.has(n));
+  const rest = names.filter((n) => !first.includes(n)).sort((a, b) => a.localeCompare(b));
+  return [...first, ...rest];
+}
+
+// Pure: new order with `name` placed directly before `beforeName` (or last).
+function reorderChild(order, parentPath, siblings, name, beforeName) {
+  const rest = siblings.filter((n) => n !== name);
+  const at = beforeName == null ? -1 : rest.indexOf(beforeName);
+  if (at < 0) rest.push(name);
+  else rest.splice(at, 0, name);
+  return { ...(order || {}), [parentPath]: rest };
+}
+
+// Pure: re-keys order entries of a branch (from -> to) and fixes the parent lists.
+function renameOrder(order, from, to) {
+  const out = {};
+  for (const [k, v] of Object.entries(order || {})) out[k] = [...v];
+  const oldParent = parentOf(from), newParent = parentOf(to);
+  const oldName = lastSegment(from), newName = lastSegment(to);
+  const moved = {};
+  for (const k of Object.keys(out)) {
+    if (k === from || k.startsWith(from + "/")) { moved[to + k.slice(from.length)] = out[k]; delete out[k]; }
+  }
+  for (const [k, v] of Object.entries(moved)) {
+    out[k] = out[k] ? [...out[k], ...v.filter((n) => !out[k].includes(n))] : v;
+  }
+  const list = out[oldParent];
+  if (oldParent === newParent) {
+    if (list && list.includes(oldName)) {
+      const i = list.indexOf(oldName);
+      const rest = list.filter((n, j) => j !== i && n !== newName);
+      rest.splice(Math.min(i, rest.length), 0, newName);
+      out[oldParent] = rest;
+    }
+  } else {
+    if (list) { out[oldParent] = list.filter((n) => n !== oldName); if (!out[oldParent].length) delete out[oldParent]; }
+    if (out[newParent] && !out[newParent].includes(newName)) out[newParent] = [...out[newParent], newName];
+  }
+  return out;
+}
+
+// Pure: moves a branch under another parent ("" = top level); merges if the place exists.
+function moveCollection(cols, items, order, from, parent) {
+  const name = lastSegment(from);
+  const to = parent ? parent + "/" + name : name;
+  if (to === from) return { noop: true };
+  if (parent && inPath(parent, from)) return { error: "Can't move a collection into itself" };
+  let deepest = collectionDepth(from);
+  for (const p of [...cols, ...items.map((i) => i.path || "")]) if (inPath(p, from)) deepest = Math.max(deepest, collectionDepth(p));
+  if (collectionDepth(parent) + 1 + (deepest - collectionDepth(from)) > 3) return { error: "Collections can only go 3 levels deep" };
+  const merge = cols.includes(to) || items.some((i) => i.path === to);
+  const r = renamePaths(cols, items, from, to);
+  const o = renameOrder(order, from, to);
+  if (merge && o[parent] && !(order?.[parent] || []).includes(name)) o[parent] = o[parent].filter((n) => n !== name);
+  return { collections: r.collections, items: r.items, order: o, to };
+}
+
+async function getCollectionOrder() {
+  const { collectionOrder = {} } = await chrome.storage.local.get("collectionOrder");
+  return collectionOrder || {};
+}
+
+async function moveCollectionTo(from, parent) {
+  const [cols, items, order] = [await getCollections(), await getItems(), await getCollectionOrder()];
+  const r = moveCollection(cols, items, order, from, parent);
+  if (r.collections) await chrome.storage.local.set({ collections: r.collections, items: r.items, collectionOrder: r.order });
+  return r;
+}
+
+async function reorderCollection(parentPath, siblings, name, beforeName) {
+  const order = reorderChild(await getCollectionOrder(), parentPath, siblings, name, beforeName);
+  await chrome.storage.local.set({ collectionOrder: order });
+  return order;
+}
+
 async function renameCollection(from, to) {
-  await chrome.storage.local.set(renamePaths(await getCollections(), await getItems(), from, to));
+  if (isLockedName(from)) throw new Error("Standard subjects keep their names. Move or reorder them instead.");
+  const target = cleanPath(to);
+  if (parentOf(target) !== parentOf(from) && lastSegment(target) === lastSegment(from)) {
+    const r = await moveCollectionTo(from, parentOf(target));
+    if (r.error) throw new Error(r.error);
+    return;
+  }
+  const [cols, items, order] = [await getCollections(), await getItems(), await getCollectionOrder()];
+  const r = renamePaths(cols, items, from, target);
+  await chrome.storage.local.set({ ...r, collectionOrder: renameOrder(order, from, target) });
 }
 
 async function deleteCollection(path) {
-  await chrome.storage.local.set(deletePaths(await getCollections(), await getItems(), path));
+  const [cols, items, order] = [await getCollections(), await getItems(), await getCollectionOrder()];
+  const o = {};
+  for (const [k, v] of Object.entries(order)) if (!inPath(k, path)) o[k] = v;
+  const p = parentOf(path);
+  if (o[p]) o[p] = o[p].filter((n) => n !== lastSegment(path));
+  await chrome.storage.local.set({ ...deletePaths(cols, items, path), collectionOrder: o });
 }
 
 // ---------- pins (pinned sites, Library pins row) ----------
@@ -626,7 +727,7 @@ function itemsCsv(items) {
 // v8: History and Tidy removed; `history` is dropped (old backups still import, history ignored).
 
 const SCHEMA = 8;
-const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "library", "phrases", "notes"];
+const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "library", "phrases", "notes", "collectionOrder"];
 // user settings in chrome.storage.local (go into backups; caches and session data do not)
 const SETTINGS_KEYS = ["resurface", "nudgeTime", "dockHidden", "dockY"];
 
@@ -747,6 +848,7 @@ function mergeBackup(cur, raw, now = Date.now()) {
       return acc;
     }, { ...(cur.notes || {}) }),
     collections: sortPaths([...(cur.collections || []), ...(d.collections || [])]),
+    collectionOrder: { ...(d.collectionOrder || {}), ...(cur.collectionOrder || {}) },
   };
 }
 

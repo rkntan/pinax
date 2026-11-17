@@ -6,7 +6,7 @@ let reviewKeys = null; // key -> action for the sub-view on screen
 function viewReview() {
   const pages = forReview(data.items).sort((a, b) => a.created - b.created);
   setHead("Weekly review", `${pages.length} page${pages.length === 1 ? "" : "s"}`);
-  $("tools").replaceChildren();
+  setTools();
   return h("div", {}, statsEl(), reviewPages(pages));
 }
 
