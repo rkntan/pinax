@@ -1761,6 +1761,17 @@ function copyText(text) {
   return ok;
 }
 
+// Runs in the page: where the image with this address is on screen (scrolled into view), or null.
+function imageRect(src) {
+  const img = [...document.images].find((i) => i.currentSrc === src || i.src === src);
+  if (!img) return null;
+  img.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+  const b = img.getBoundingClientRect();
+  const x = Math.max(0, b.left), y = Math.max(0, b.top);
+  const w = Math.min(innerWidth, b.right) - x, h = Math.min(innerHeight, b.bottom) - y;
+  return w > 8 && h > 8 ? { x, y, w, h, dpr: devicePixelRatio || 1 } : null;
+}
+
 // Runs in the page: current second of the main video, or -1.
 function readVideoTime() {
   const v = document.querySelector("video");

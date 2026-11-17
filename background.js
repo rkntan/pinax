@@ -99,16 +99,38 @@ async function clipScreenshot(tab) {
   let r = null;
   try { r = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pickRegion }))[0]?.result; } catch (e) { return toast("Cannot capture this page", e.message); }
   if (!r) return;
-  const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-  const bmp = await createImageBitmap(await (await fetch(shot)).blob());
-  const k = r.dpr || 1;
-  const sw = Math.max(1, Math.round(r.w * k)), sh = Math.max(1, Math.round(r.h * k));
-  const crop = new OffscreenCanvas(sw, sh);
-  crop.getContext("2d").drawImage(bmp, Math.round(r.x * k), Math.round(r.y * k), sw, sh, 0, 0, sw, sh);
-  bmp.close();
-  const url = await shrinkImage(await blobUrl(await crop.convertToBlob({ type: "image/png" })));
+  const url = await cropVisible(tab, r);
   if (!url) return toast("Could not save the screenshot", "");
   await clipToNote(tab, { kind: "image", src: "" }, "", url);
+}
+
+// A rectangle (CSS px, with .dpr) of what the tab shows now, as a shrunk JPEG data URL ("" on failure).
+async function cropVisible(tab, r) {
+  try {
+    const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+    const bmp = await createImageBitmap(await (await fetch(shot)).blob());
+    const k = r.dpr || 1;
+    const sw = Math.max(1, Math.round(r.w * k)), sh = Math.max(1, Math.round(r.h * k));
+    const crop = new OffscreenCanvas(sw, sh);
+    crop.getContext("2d").drawImage(bmp, Math.round(r.x * k), Math.round(r.y * k), sw, sh, 0, 0, sw, sh);
+    bmp.close();
+    return await shrinkImage(await blobUrl(await crop.convertToBlob({ type: "image/png" })));
+  } catch (e) {
+    console.warn("cannot capture", e);
+    return "";
+  }
+}
+
+// When the site blocks copying an image (CORS), photograph it on screen instead.
+async function shootImage(tab, src) {
+  try {
+    const r = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: imageRect, args: [src] }))[0]?.result;
+    if (!r) return "";
+    await new Promise((ok) => setTimeout(ok, 150)); // let the page paint after scrolling
+    return await cropVisible(tab, r);
+  } catch (e) {
+    return "";
+  }
 }
 async function blobUrl(blob) { // workers have no object URLs for fetch; use a data URL
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -164,10 +186,11 @@ function clipToNote(tab, clip, imgSrc = "", readyUrl = "") {
   return (clipQueue = clipQueue.then(async () => {
     let p = pickNoteProject(await getProjects(), (await getWorkingOn())[tab.windowId], await getNoteTarget());
     if (!p) p = await addProject("Research note", [], true);
-    const dataUrl = readyUrl || (imgSrc ? await shrinkImage(imgSrc) : "");
+    let dataUrl = readyUrl || (imgSrc ? await shrinkImage(imgSrc) : "");
+    if (imgSrc && !dataUrl) dataUrl = await shootImage(tab, imgSrc);
     if (imgSrc && !dataUrl && !clip.src) return toast("Could not copy this image", "The site does not allow it.");
     await addClip(p.id, { ...clip, url: tab.url, title: tab.title }, dataUrl);
-    toast(`Added to “${p.name}”`, clip.kind === "image" ? (dataUrl ? "Image saved" : "Image link saved (site blocks copying)") : clip.text.slice(0, 120));
+    toast(`Added to “${p.name}”`, clip.kind === "image" ? (dataUrl ? "Image saved" : "Image link saved (could not copy it)") : clip.text.slice(0, 120));
   }).catch((e) => console.warn("clip", e)));
 }
 
