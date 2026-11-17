@@ -99,6 +99,7 @@ const TAXONOMY = [
 
 const SUBJECT_IDS = TAXONOMY.map((s) => s.id);
 const subjectOf = (id) => TAXONOMY.find((s) => s.id === id) || null;
+const kidsOf = (id) => subjectOf(id)?.children || [];
 
 // Path for a subject (and optional sub-subject): "Label" or "Label/Label". "" for other/invalid.
 function taxonomyPath(subjectId, subId) {
@@ -203,4 +204,31 @@ function legacyToStandard(path) {
     if (key) { const [sid, cid] = key.split("/"); return taxonomyPath(sid, cid); }
   }
   return null;
+}
+
+// ---------- learning from your filing ----------
+
+// Pure: { subject, sub } ids for a standard path, or null.
+function idsOfPath(path) {
+  for (const s of TAXONOMY) {
+    if (s.id === "other") continue;
+    if (path === s.label) return { subject: s.id, sub: "general" };
+    const c = s.children.find((x) => `${s.label}/${x.label}` === path);
+    if (c) return { subject: s.id, sub: c.id };
+  }
+  return null;
+}
+
+// Pure: your latest filings as few-shot lines for the prompt. list = [{ t: title, h: site, p: path }],
+// newest first. Only standard paths count, so examples never pull the AI outside the list.
+// With subjectId: examples inside that subject, labelled by sub-subject; without: labelled by subject.
+function correctionExamples(list = [], subjectId = null, max = 8) {
+  const out = [];
+  for (const c of list) {
+    const ids = idsOfPath(c.p);
+    if (!ids || (subjectId && ids.subject !== subjectId)) continue;
+    out.push(`- "${String(c.t).slice(0, 70)}" (${c.h}) -> ${subjectId ? ids.sub : ids.subject}`);
+    if (out.length >= max) break;
+  }
+  return out;
 }

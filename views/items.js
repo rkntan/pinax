@@ -100,6 +100,10 @@ function rowEl(it, pinned) {
               onclick: () => (inbox ? (state.open = it.id, render()) : go("col", it.path)),
             }, pathLabel(it.path))
           : null,
+        // nothing fit clearly: the two likeliest subjects, one click to keep there
+        inbox && !suggested ? (it.alts || []).map((a) => h("button", {
+          class: "chip suggest", title: `Maybe: keep in ${pathLabel(a)}`, onclick: () => keepItem(it.id, a),
+        }, `Maybe ${pathLabel(a).split(" › ").pop()}`)) : null,
         h("span", { class: "type" }, h("i", { class: "dot", style: "background:var(--type)" }), it.type),
         suggested ? h("button", { class: "qbtn keep", title: `Keep in ${pathLabel(it.path)}`, onclick: () => keepItem(it.id, it.path) }, "Keep") : null,
         h("button", {

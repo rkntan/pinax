@@ -43,6 +43,12 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   its own description/text. If nothing fits clearly the page stays Unsorted in the Inbox for you. Your own collections
   still work: you can keep pages anywhere, the AI just never invents new ones. Old free-form collections show
   **Align N with standard…** at the bottom of the sidebar tree (preview, then Undo).
+- **It learns how you file (v1.14)**: every time you file a Inbox page somewhere other than the AI's guess, your last 30
+  filings (title, site, standard subject) are kept, and the 8 most recent become examples in the next prompt. Only standard
+  subjects count, so the AI never drifts off the list. A page that fits nothing shows up to two "Maybe …" chips (the
+  likeliest subjects); one click files it there.
+- **Accuracy check**: Library sidebar footer › *Accuracy check* scores the local AI on 59 labelled sample pages (right
+  subject %, right sub-subject %, unclear pages left alone) and lists the misses. Tick "use my saved filings" to see how much your habits help.
 - **Pins**: favourite sites as icons on the left of the Library and in the popup; drag to
   reorder; pin via the star (Pin to Library), the popup, or right-click › "Pin this site to Library".
 - Rows / Cards toggle for a compact or visual list.

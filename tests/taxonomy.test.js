@@ -123,3 +123,72 @@ test("alignPlan / applyAlign move pages, keep custom collections, and are idempo
   // second run changes nothing
   assert.deepEqual(plain(get("alignPlan")(r.items, r.collections)), {});
 });
+
+test("the accuracy-check samples are valid, cover every subject and include unclear pages", () => {
+  const t = load();
+  const vmx = (n) => plain(t.get(n));
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "eval-samples.js"), "utf8"), t.ctx);
+  const samples = vmx("EVAL_SAMPLES");
+  assert.ok(samples.length >= 50);
+  const tax = vmx("TAXONOMY");
+  const seen = new Set();
+  for (const s of samples) {
+    const [sub, child] = s.expect.split("/");
+    const subj = tax.find((x) => x.id === sub);
+    assert.ok(subj, `unknown subject in "${s.title}"`);
+    if (child) assert.ok(subj.children.some((c) => c.id === child), `unknown sub in "${s.title}"`);
+    seen.add(sub);
+  }
+  for (const s of tax) assert.ok(seen.has(s.id), `no sample for ${s.id}`);
+});
+
+test("idsOfPath and correctionExamples turn your filings into prompt examples", () => {
+  const ids = (p) => plain(get("idsOfPath")(p));
+  assert.deepEqual(ids("Electronics & Hardware/PCB & Circuit Design"), { subject: "electronics", sub: "pcb" });
+  assert.deepEqual(ids("Electronics & Hardware"), { subject: "electronics", sub: "general" });
+  assert.equal(ids("AI/Agents"), null);
+  const list = [
+    { t: "KiCad routing", h: "kicad.org", p: "Electronics & Hardware/PCB & Circuit Design" },
+    { t: "My own thing", h: "x.com", p: "PCB Clock" }, // not standard: ignored
+    { t: "Pandas guide", h: "pandas.pydata.org", p: "Computing & Software/Data & Databases" },
+  ];
+  const all = plain(get("correctionExamples")(list));
+  assert.equal(all.length, 2);
+  assert.match(all[0], /KiCad routing.*-> electronics/);
+  const inSubject = plain(get("correctionExamples")(list, "electronics"));
+  assert.equal(inSubject.length, 1);
+  assert.match(inSubject[0], /-> pcb/);
+  assert.match(get("subjectPrompt")({ title: "T", url: "https://x.com" }, list).prompt, /filed similar pages before/);
+  assert.doesNotMatch(get("subjectPrompt")({ title: "T", url: "https://x.com" }, []).prompt, /filed similar pages before/);
+});
+
+test("withCorrections records only inbox pages filed somewhere new, standard paths only, newest first, capped", () => {
+  const f = get("withCorrections");
+  const std = "Computing & Software/Programming";
+  const items = [
+    { id: "1", stage: "inbox", path: "Unsorted", title: "A", url: "https://a.com/x" },
+    { id: "2", stage: "inbox", path: std, title: "B", url: "https://b.com/x" }, // AI was right: nothing to learn
+    { id: "3", stage: "kept", path: "Other", title: "C", url: "https://c.com/x" },
+  ];
+  const r = plain(f([{ t: "old", h: "o.com", p: std }], items, ["1", "2", "3"], std));
+  assert.deepEqual(r.map((x) => x.t), ["A", "old"]);
+  assert.equal(r[0].h, "a.com");
+  assert.deepEqual(plain(f([], items, ["1"], "My own collection")), []); // custom paths are not examples
+  const many = plain(f(Array.from({ length: 30 }, (_, i) => ({ t: "o" + i, h: "o.com", p: std })), items, ["1"], std));
+  assert.equal(many.length, 30);
+  assert.equal(many[0].t, "A");
+});
+
+test("an unclear page gets up to two suggested subjects as alts", async () => {
+  const mk = (replies) => ({ LanguageModel: { create: async () => ({ prompt: async () => JSON.stringify(replies.shift()), clone: async function () { return this; }, destroy() {} }) } });
+  const t = load(mk([{ subject: "other", top: ["electronics", "computing", "money"] }, { type: "Other", why: "?", units: 0, tags: [] }]));
+  const r = plain(await t.get("aiClassify")({ title: "?", url: "https://x.com" }));
+  assert.equal(r.path, "");
+  assert.deepEqual(r.alts, ["Electronics & Hardware", "Computing & Software"]);
+  const t2 = load(mk([{ subject: "computing", top: ["computing", "data"] }, { sub: "programming", type: "Article", why: "x", units: 0, tags: [] }]));
+  const r2 = plain(await t2.get("aiClassify")({ title: "?", url: "https://x.com" }));
+  assert.equal(r2.path, "Computing & Software/Programming");
+  assert.deepEqual(r2.alts, []);
+  assert.equal(r2.subject, "computing");
+  assert.equal(r2.sub, "programming");
+});

@@ -121,6 +121,9 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 4b.2 Save a page that fits nothing (a blank or odd page): it stays Unsorted, no invented collection.
 - [ ] 4b.3 Save 10 varied pages (news, recipe, video course, GitHub repo, paper): every suggestion is one of the standard subjects.
 - [ ] 4b.4 If you have old collections like `AI › Agents`, the sidebar shows **Align N with standard…**; the preview lists each move; confirm; pages follow; **Undo** restores. Your own names (e.g. a project name) are left alone.
+- [ ] 4b.5 (v1.14) Keep an Inbox page in a different standard subject than suggested; save a similar page: the suggestion follows your choice more often.
+- [ ] 4b.6 (v1.14) A page that fits nothing shows up to two "Maybe …" chips; clicking one keeps it there.
+- [ ] 4b.7 (v1.14) Library footer › **Accuracy check** › Run check: needs the local AI ready; shows % right subject / exact and the misses first. Note the numbers; re-run after changing prompts.
 
 ## 5c. Inbox triage (v1.3)
 
