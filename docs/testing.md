@@ -6,7 +6,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 
 ## 0. Before you start
 
-- [ ] 0.1 Export a backup: Library → sidebar footer → **Export** (keep the `.json` file).
+- [ ] 0.1 Export a backup: Library → sidebar footer → **Backup** (keep the `.json` file).
 - [ ] 0.2 `chrome://extensions` → Pinax → **⟳ reload**. Version shows **1.0.0**, no red **Errors** button.
 - [ ] 0.3 `chrome://extensions/shortcuts`: Alt+Shift+S, Alt+Shift+W, Alt+Shift+O, Alt+Shift+L are all set (if one is empty, Chrome found a clash: set it by hand).
 - [ ] 0.4 Have a test window with ~10 tabs: 2 from the same site, a YouTube video, a GitHub repo, an arXiv paper, a page in Polish, and one duplicate tab.
@@ -126,6 +126,9 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 4b.7 (v1.14) Library footer › **Accuracy check** › Run check: needs the local AI ready; shows % right subject / exact and the misses first. Note the numbers; re-run after changing prompts.
 
 - [ ] 4b.8 (v1.15) Library footer: **Check for updates weekly** is off. Tick it: a line says "Pinax x.y is the latest." (or "is available" with a link). Untick: the line disappears. With it off, DevTools › Network on the Library shows no request to api.github.com.
+
+- [ ] 4b.9 (v1.16) Footer **Bookmarks** downloads a `.html` file: in `chrome://bookmarks` › ⋮ › Import bookmarks, it appears with your collections as folders, plus Inbox / Pins / Projects.
+- [ ] 4b.10 (v1.16) Footer **CSV** downloads a `.csv`: opens in a spreadsheet with a header row, accents readable, one row per page.
 
 ## 5c. Inbox triage (v1.3)
 

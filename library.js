@@ -98,6 +98,17 @@ $("export").onclick = async () => {
   showToast("Backup exported");
 };
 
+// Plain files you can keep without Pinax: bookmarks for any browser, or a spreadsheet.
+async function exportPages(kind) {
+  const d = await chrome.storage.local.get(["items", "pins", "projects"]);
+  const day = new Date().toISOString().slice(0, 10);
+  if (kind === "csv") saveFile(`pinax-pages-${day}.csv`, itemsCsv(d.items || []), "text/csv;charset=utf-8");
+  else saveFile(`pinax-bookmarks-${day}.html`, bookmarksHtml(d.items || [], d.pins || [], d.projects || []), "text/html;charset=utf-8");
+  showToast(kind === "csv" ? "Spreadsheet exported" : "Bookmarks exported: import the file in any browser");
+}
+$("export-bookmarks").onclick = () => exportPages("bookmarks");
+$("export-csv").onclick = () => exportPages("csv");
+
 $("import").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;

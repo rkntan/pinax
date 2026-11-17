@@ -520,6 +520,67 @@ async function unpinSite(url) {
   await setPins((await getPins()).filter((p) => p.url !== url));
 }
 
+// ---------- export: your pages as normal files, so you are never tied to Pinax ----------
+
+const escapeHtml = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Pure: a bookmarks file every browser can import (Netscape format). Collections become nested
+// folders, the Inbox, Pins and the useful sources of each project get their own folders.
+function bookmarksHtml(items, pins = [], projects = []) {
+  const root = { links: [], kids: new Map() };
+  const folder = (path) => path.reduce((node, name) => {
+    if (!node.kids.has(name)) node.kids.set(name, { links: [], kids: new Map() });
+    return node.kids.get(name);
+  }, root);
+  const link = (node, it) => node.links.push({ url: it.url, title: it.title || it.url, at: it.created, tags: it.tags || [], note: it.why || it.note || "" });
+  for (const it of items) {
+    const path = it.stage === "inbox" ? ["Inbox"] : (it.path || UNSORTED).split("/").filter(Boolean);
+    link(folder(path.length ? path : [UNSORTED]), it);
+  }
+  for (const p of pins) link(folder(["Pins"]), p);
+  for (const pr of projects) {
+    for (const src of pr.sources || []) if (src.status !== "skip") link(folder(["Projects", pr.name || "Project"]), src);
+  }
+  const secs = (ms) => (ms ? ` ADD_DATE="${Math.floor(ms / 1000)}"` : "");
+  const out = [];
+  const draw = (node, depth) => {
+    const pad = "    ".repeat(depth);
+    for (const [name, kid] of [...node.kids].sort((a, b) => a[0].localeCompare(b[0]))) {
+      out.push(`${pad}<DT><H3>${escapeHtml(name)}</H3>`, `${pad}<DL><p>`);
+      draw(kid, depth + 1);
+      out.push(`${pad}</DL><p>`);
+    }
+    for (const l of node.links) {
+      out.push(`${pad}<DT><A HREF="${escapeHtml(l.url)}"${secs(l.at)}${l.tags.length ? ` TAGS="${escapeHtml(l.tags.join(","))}"` : ""}>${escapeHtml(l.title)}</A>`);
+      if (l.note) out.push(`${pad}<DD>${escapeHtml(l.note)}`);
+    }
+  };
+  draw(root, 1);
+  return [
+    "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+    '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+    "<TITLE>Bookmarks</TITLE>",
+    "<H1>Bookmarks</H1>",
+    "<DL><p>",
+    ...out,
+    "</DL><p>",
+    "",
+  ].join("\n");
+}
+
+// Pure: one row per saved page, for a spreadsheet. Cells that start with = + - @ are
+// prefixed with ' so a spreadsheet never runs them as formulas.
+function itemsCsv(items) {
+  const cell = (v) => {
+    let t = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : "");
+  const rows = items.map((it) => [it.title, it.url, it.stage === "inbox" ? "" : it.path === UNSORTED ? "" : (it.path || "").split("/").join(" > "), it.stage === "inbox" ? "inbox" : "kept", it.type, (it.tags || []).join(" "), it.why || "", it.read ? "yes" : "no", day(it.created)]);
+  return "﻿" + [["title", "url", "collection", "status", "type", "tags", "note", "read", "saved"], ...rows].map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
+}
+
 // ---------- storage schema and migration ----------
 // v1: items with `topic`.  v2: Inbox + collection paths; sessions, workspaces and the
 // archive mixed in `library`.  v3: `library` split into `projects` (was workspaces) and

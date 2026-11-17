@@ -162,9 +162,18 @@ Change the keys at `chrome://extensions/shortcuts`. When the AI sorts a page it 
 up to 2 tags, so related pages in different collections get linked in the mind map.
 
 ## Backup
-Library footer -> **Export** / **Import** (JSON `pinax-backup-<date>.json`, merges without duplicates;
+Library footer -> **Backup** / **Import** (JSON `pinax-backup-<date>.json`, merges without duplicates;
 older `tab-organiser-backup-*.json` files still import).
 All data stays in `chrome.storage.local` on this machine.
+
+## Take your pages with you (v1.16)
+You never depend on Pinax: the footer also has **Bookmarks** and **CSV**.
+- **Bookmarks**: `pinax-bookmarks-<date>.html`, the standard bookmarks file. Import it in Chrome, Edge, Firefox or Safari
+  (Bookmark manager › Import). Collections become nested folders; the Inbox, Pins and each project's useful sources get
+  their own folders; tags and reasons are kept where the browser supports them.
+- **CSV**: `pinax-pages-<date>.csv`, one row per saved page (title, url, collection, status, type, tags, note, read, saved)
+  for a spreadsheet. Cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so a spreadsheet never runs them.
+- **Backup** stays the full copy (JSON) for restoring into Pinax.
 
 Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
 

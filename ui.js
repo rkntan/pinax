@@ -98,6 +98,13 @@ async function withUndo(label, keys, fn) {
   showToast(label, () => chrome.storage.local.set(before));
 }
 
+// Saves text as a file download.
+function saveFile(name, text, type) {
+  const a = h("a", { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function showToast(text, undo) {
   document.querySelector(".toast")?.remove();
   clearTimeout(undoTimer);

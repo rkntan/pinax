@@ -27,6 +27,7 @@ chrome only installs extensions outside its web store this way (developer mode).
 - open the library with `alt+shift+l`
 - organise the tabs of a window into groups with `alt+shift+o`
 - highlight text on a page and keep notes
+- take your pages with you any time: library sidebar › **bookmarks** (a file any browser imports) or **csv** (spreadsheet)
 
 all data stays in your browser. the only thing that can reach the internet is the optional update check (library sidebar, off by default): once a week it asks github for the latest release number and shows a link if there is a newer one. it never downloads or installs anything.
 
