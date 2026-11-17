@@ -37,6 +37,12 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   → Keep (edit the collection first if you like), ← Delete, ↓ Next week, P Pin.
 - **Collections** are a tree (`AI › Agents › Papers`): sidebar, drag rows onto a branch to keep them there,
   rename/merge/delete branches, tags per page for cross-topic research sets.
+- **Standard subjects (v1.13)**: the AI only files into a fixed list of 14 subjects with 5-8 sub-subjects each
+  (`taxonomy.js`, e.g. *Electronics & Hardware › PCB & Circuit Design*), so collections are the same for everyone and
+  never drift into near-duplicates. It picks in two small steps (subject, then sub-subject) from the page's title, site and
+  its own description/text. If nothing fits clearly the page stays Unsorted in the Inbox for you. Your own collections
+  still work: you can keep pages anywhere, the AI just never invents new ones. Old free-form collections show
+  **Align N with standard…** at the bottom of the sidebar tree (preview, then Undo).
 - **Pins**: favourite sites as icons on the left of the Library and in the popup; drag to
   reorder; pin via the star (Pin to Library), the popup, or right-click › "Pin this site to Library".
 - Rows / Cards toggle for a compact or visual list.

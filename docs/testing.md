@@ -115,6 +115,13 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 5h.4 With nothing selected, or while typing in a search box on the page, H/C/W do nothing extra; Ctrl+H still opens History, and Ctrl+C still copies while the bubble is open.
 - [ ] 5h.5 **Esc** closes the bubble.
 
+## 4b. Standard subjects (v1.13)
+
+- [ ] 4b.1 Save an electronics page (e.g. a KiCad article) with its tab open: after a moment the Inbox suggests `Electronics & Hardware › PCB & Circuit Design`.
+- [ ] 4b.2 Save a page that fits nothing (a blank or odd page): it stays Unsorted, no invented collection.
+- [ ] 4b.3 Save 10 varied pages (news, recipe, video course, GitHub repo, paper): every suggestion is one of the standard subjects.
+- [ ] 4b.4 If you have old collections like `AI › Agents`, the sidebar shows **Align N with standard…**; the preview lists each move; confirm; pages follow; **Undo** restores. Your own names (e.g. a project name) are left alone.
+
 ## 5c. Inbox triage (v1.3)
 
 - [ ] 5c.1 With 5+ pages in the Inbox: bundle cards appear (e.g. "→ AI › Agents 4", "Duplicates", "Old & never read", "No suggestion yet").

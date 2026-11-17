@@ -129,14 +129,14 @@ $("save").onclick = async () => {
   busy(true);
   try {
     if (dest === "inbox") {
-      const it = await saveForLater(tab, remindKey);
+      const it = await saveForLater(tab, remindKey, { tab });
       await addStats(it.id, tab);
       msg(remindKey ? `Saved to Inbox · reminder ${presetLabel(remindKey)}` : "Saved to Inbox");
       if (!existing) it.sorted.then((p) => p?.path && p.path !== UNSORTED && msg(`Saved · AI suggests ${pathLabel(p.path)}`));
     } else if (dest === "collection") {
       const p = $("col-input").value.trim();
       if (!p) { msg("Type a collection first"); $("col-input").focus(); return; }
-      const it = await saveForLater(tab, remindKey);
+      const it = await saveForLater(tab, remindKey, { tab });
       await addStats(it.id, tab);
       await keepItem(it.id, p);
       msg(`Kept in ${pathLabel(cleanPath(p))}`);

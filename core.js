@@ -190,12 +190,15 @@ function guessType(url, title = "") {
 }
 
 // Saves a page into the Inbox (dedupes by URL) and returns at once. The AI sort runs after,
-// without blocking; if it can't finish here (popup closed, no AI in the worker) the Library
+// without blocking (pass `tab` so the AI can read the open page); if it can't finish here (popup closed, no AI in the worker) the Library
 // page sorts it on next open. `sorted` resolves when the AI is done (or skipped).
-async function saveForLater({ url, title }, remindKey = "", { sort = true } = {}) {
+async function saveForLater({ url, title }, remindKey = "", { sort = true, tab = null } = {}) {
   const items = await getItems();
   let it = items.find((x) => x.url === url);
   if (!it) {
+    // what the page says about itself, so the AI files by content, not just the title (open tabs only)
+    let excerpt = "";
+    if (tab?.id && sort) { try { excerpt = (await inPage(tab, readPageExcerpt, [], false)) || ""; } catch { /* no access to this page */ } }
     it = {
       id: crypto.randomUUID(),
       url,
@@ -213,6 +216,7 @@ async function saveForLater({ url, title }, remindKey = "", { sort = true } = {}
       reviewAfter: null,
       created: Date.now(),
       needsAi: true,
+      ...(excerpt ? { excerpt } : {}),
     };
     items.unshift(it);
     await setItems(items);
@@ -236,33 +240,72 @@ function allTags(items) {
   return Object.keys(n).sort((a, b) => n[b] - n[a]);
 }
 
-async function aiClassify(item, paths, tags = []) {
-  const session = await aiSession();
-  const schema = {
-    type: "object",
-    properties: {
-      type: { type: "string", enum: TYPES },
-      path: { type: "string" },
-      why: { type: "string" },
-      units: { type: "integer" },
-      tags: { type: "array", items: { type: "string" }, maxItems: 2 },
-    },
-    required: ["type", "path", "why", "units", "tags"],
+// Injected into a page: what it says about itself, for the classifier (kept short, never sent anywhere).
+function readPageExcerpt() {
+  const meta = (n) => document.querySelector(`meta[name="${n}"],meta[property="${n}"]`)?.content || "";
+  const root = document.querySelector("article") || document.querySelector("main") || document.body;
+  const body = (root?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 700);
+  const d = (meta("description") || meta("og:description") || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  return (d ? d + " | " : "") + body;
+}
+
+// Pure: the page as the classifier sees it.
+function pageContext(item) {
+  const ex = String(item.excerpt || "").replace(/\s+/g, " ").trim().slice(0, 900);
+  return `Title: ${item.title}\nSite: ${hostOf(item.url)}\nURL: ${item.url}` + (ex ? `\nPage text: ${ex}` : "");
+}
+
+// Pure: the first-step prompt (pick one subject) and its schema.
+function subjectPrompt(item) {
+  return {
+    prompt:
+      `Classify a saved web page into exactly ONE subject from this fixed list.\n\n${pageContext(item)}\n\n` +
+      `Subjects (id: name (what belongs in it)):\n${subjectMenu()}\n\n` +
+      `Choose the subject the page is mainly ABOUT, not the website it is on. If nothing fits clearly, choose "other". Do not guess.`,
+    schema: { type: "object", properties: { subject: { type: "string", enum: SUBJECT_IDS } }, required: ["subject"] },
   };
-  const prompt =
-    `A user saved this web page to come back to later.\n` +
-    `Title: ${item.title}\nURL: ${item.url}\n\n` +
-    `The user's collections (a tree, "/" separates levels):\n${paths.join("\n") || "(none yet)"}\n\n` +
-    `Return:\n- type: one of ${TYPES.join(", ")}\n` +
-    `- path: the best collection for it. Reuse an existing one if it fits; go one level deeper only if the ` +
-    `page is clearly about a narrower subject. Otherwise make a new path of 1-3 short levels, broad first, ` +
-    `e.g. "AI/Agents" or "Electronics/PCB".\n` +
-    `- why: max 12 words, what this is and why it is worth coming back to\n` +
-    `- units: if it is a course with a known number of units/lessons, that number, else 0\n` +
-    `- tags: 0-2 short lowercase tags that link it to related pages in other collections ` +
-    `(reuse these if they fit: ${tags.slice(0, 40).join(", ") || "none yet"}); no tag that only repeats the path`;
+}
+
+// Pure: the second-step prompt (pick the sub-subject, type, reason, tags) and its schema.
+function detailPrompt(subjectId, tags = []) {
+  const s = subjectOf(subjectId);
+  const kids = s?.children || [];
+  const props = {
+    type: { type: "string", enum: TYPES },
+    why: { type: "string" },
+    units: { type: "integer" },
+    tags: { type: "array", items: { type: "string" }, maxItems: 2 },
+  };
+  const required = ["type", "why", "units", "tags"];
+  if (kids.length) {
+    props.sub = { type: "string", enum: [...kids.map((c) => c.id), "general"] };
+    required.unshift("sub");
+  }
+  return {
+    prompt:
+      (kids.length
+        ? `The subject is "${s.label}". Now pick the best sub-subject:\n${kids.map((c) => `${c.id}: ${c.label}`).join("\n")}\ngeneral: fits ${s.label} but none of the above\n\n`
+        : "") +
+      `Also return:\n- type: one of ${TYPES.join(", ")}\n` +
+      `- why: max 12 words, what this is and why it is worth coming back to\n` +
+      `- units: if it is a course with a known number of units/lessons, that number, else 0\n` +
+      `- tags: 0-2 short lowercase tags that link it to related pages in other subjects ` +
+      `(reuse these if they fit: ${tags.slice(0, 40).join(", ") || "none yet"}); no tag that only repeats the subject`,
+    schema: { type: "object", properties: props, required },
+  };
+}
+
+// Files a page under the fixed taxonomy in two small steps (a small model is far more reliable
+// choosing from ~14 options, then from the 4-8 inside one subject, than from one long list).
+// Returns { type, path, why, units, tags }; path is "" when nothing fits clearly.
+async function aiClassify(item, tags = []) {
+  const session = await aiSession();
   try {
-    return JSON.parse(await session.prompt(prompt, { responseConstraint: schema }));
+    const a = subjectPrompt(item);
+    const subject = JSON.parse(await session.prompt(a.prompt, { responseConstraint: a.schema })).subject;
+    const b = detailPrompt(subject, tags);
+    const d = JSON.parse(await session.prompt(b.prompt, { responseConstraint: b.schema }));
+    return { type: d.type, path: taxonomyPath(subject, d.sub), why: d.why, units: d.units, tags: d.tags };
   } finally {
     session.destroy();
   }
@@ -272,8 +315,7 @@ async function classifyItem(id) {
   const items = await getItems();
   const it = items.find((x) => x.id === id);
   if (!it) return;
-  const paths = (await getCollections()).filter((p) => p !== UNSORTED).slice(0, 60);
-  const r = await aiClassify(it, paths, allTags(items));
+  const r = await aiClassify(it, allTags(items));
   // re-read: the user may have filed it while the AI was thinking
   const now = (await getItems()).find((x) => x.id === id);
   if (!now?.needsAi) return;
@@ -283,7 +325,7 @@ async function classifyItem(id) {
     tags: mergeTags(now.tags, Array.isArray(r.tags) ? r.tags.slice(0, 2) : []),
     needsAi: false,
   };
-  if (now.stage === "inbox") patch.path = cleanPath(r.path || now.path); // never move a page the user filed
+  if (now.stage === "inbox" && r.path) patch.path = r.path; // never move a page the user filed; "" = nothing fits, stays unsorted
   if (patch.type === "Course" && r.units > 0 && !now.progress) patch.progress = { done: 0, total: Math.min(r.units, 200) };
   await updateItem(id, patch);
   return patch;
@@ -336,6 +378,32 @@ function deletePaths(cols, items, path) {
     collections: cols.filter((p) => !inPath(p, path)),
     items: items.map((it) => (inPath(it.path, path) ? { ...it, path: parent } : it)),
   };
+}
+
+// Pure: which old collection paths can move onto the standard taxonomy. { old: new }.
+function alignPlan(items, cols) {
+  const map = {};
+  for (const p of new Set([...cols, ...items.map((i) => i.path)])) {
+    if (!p || p === UNSORTED) continue;
+    const to = legacyToStandard(p);
+    if (to && to !== p) map[p] = to;
+  }
+  return map;
+}
+
+// Pure: applies alignPlan. Pages move; mapped collections are replaced by the standard ones
+// the pages now sit in; your own names stay as they are.
+function applyAlign(items, cols, map) {
+  const moved = items.map((it) => (map[it.path] ? { ...it, path: map[it.path] } : it));
+  let collections = cols.filter((c) => !map[c]);
+  for (const it of moved) if (it.stage === "kept" && it.path !== UNSORTED) collections = withPath(collections, it.path);
+  return { items: moved, collections: sortPaths(collections) };
+}
+
+async function alignCollections() {
+  const [items, cols] = [await getItems(), await getCollections()];
+  const r = applyAlign(items, cols, alignPlan(items, cols));
+  await chrome.storage.local.set(r);
 }
 
 async function getCollections() {

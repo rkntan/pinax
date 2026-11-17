@@ -82,6 +82,19 @@ function renderTree() {
   };
   draw(root, 0);
   if (!box.children.length) box.append(h("div", { class: "empty-tree" }, "No collections yet. Keep pages from the Inbox or press +."));
+  // old free-form collections that fit the standard list: offer to move them over (with Undo)
+  const plan = alignPlan(data.items, data.cols);
+  const n = Object.keys(plan).length;
+  if (n) {
+    box.append(h("button", {
+      class: "link small", style: "margin:8px", title: "Move old collections onto the standard subject list",
+      onclick: async () => {
+        const lines = Object.entries(plan).slice(0, 12).map(([a, b]) => `${pathLabel(a)}  →  ${pathLabel(b)}`).join("\n");
+        if (!confirm(`Move ${n} collection${n > 1 ? "s" : ""} onto the standard subjects?\n\n${lines}${n > 12 ? "\n…" : ""}\n\nDeeper levels merge into the subject. You can Undo.`)) return;
+        await withUndo(`Aligned ${n} collection${n > 1 ? "s" : ""}`, ["collections", "items"], alignCollections);
+      },
+    }, `Align ${n} with standard…`));
+  }
   $("paths").replaceChildren(...[...new Set([...data.cols, ...data.items.map((i) => i.path)])]
     .filter((p) => p && p !== UNSORTED).sort().map((p) => h("option", { value: pathLabel(p) })));
 }

@@ -1,5 +1,5 @@
 // Background worker: right-click "Save to Inbox", Alt+Shift+S, reminders, daily resurface, auto-tidy.
-importScripts("core.js", "tidy.js");
+importScripts("taxonomy.js", "core.js", "tidy.js");
 
 const TIDY_ALARM = "auto-tidy";
 const RESURFACE_ALARM = "resurface";
@@ -77,7 +77,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await saveForLater({ url: info.linkUrl, title: info.selectionText || info.linkUrl });
     toast("Saved to Inbox", info.selectionText || info.linkUrl);
   } else if (info.menuItemId === "save-page" && tab) {
-    await addStats((await saveForLater(tab)).id, tab);
+    await addStats((await saveForLater(tab, "", { tab })).id, tab);
     toast("Saved to Inbox", tab.title);
   } else if (info.menuItemId === "pin-site" && tab) {
     await pinSite({ url: tab.url, title: tab.title });
@@ -142,7 +142,7 @@ chrome.commands.onCommand.addListener(async (command, cmdTab) => {
   if (command === "save-phrase") return saveSelection(tab);
   if (command === "highlight") return highlightSelection(tab);
   if (command !== "save-page") return;
-  await addStats((await saveForLater(tab)).id, tab);
+  await addStats((await saveForLater(tab, "", { tab })).id, tab);
   toast("Saved to Inbox", tab.title);
 });
 
