@@ -26,7 +26,8 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 
 ## Settings (v1.18)
 The gear at the bottom of the left rail opens one page for everything you can set: daily nudge on/off and its time,
-remember closed windows, tidy idle tabs, the weekly update check, exports and import, local AI status, version.
+remember closed windows, tidy idle tabs, the weekly update check, exports and import, the list of standard subjects (with your page counts), local AI status, version.
+Every "Keep in" box also suggests the standard subjects as you type, so you can file into one before it exists in your sidebar (collections are created when the first page is kept there).
 
 ## Update check (v1.15; on by default since v1.17)
 - Settings › Updates › **Check for updates weekly** (untick to turn it off). A green dot on the gear means a newer release exists. Pinax asks GitHub once a week for the

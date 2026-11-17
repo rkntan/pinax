@@ -51,19 +51,15 @@ function wordCard(p, fresh) {
       h("button", { class: "link small", title: "Delete", onclick: () => withUndo(`Deleted “${p.text}”`, ["phrases"], () => deletePhrase(p.id)) }, "×")));
 }
 
-function byWeek(list, render) {
+// Sections per language (English, Italian, ...); `list` is already sorted by language.
+function byLang(list, render, counts) {
   const out = [];
-  const thisWeek = weekStart();
   let last = null;
   for (const p of list) {
-    const w = weekStart(p.created);
-    if (w !== last) {
-      const label = w === thisWeek ? "This week"
-        : w === thisWeek - 7 * 864e5 ? "Last week"
-        : "Week of " + new Date(w).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-      out.push(h("h3", { class: "section-title" }, label));
+    if (p.lang !== last) {
+      out.push(h("h3", { class: "section-title" }, `${langName(p.lang)} `, h("span", { class: "muted small" }, `· ${counts[p.lang]}`)));
       out.push(h("div", { class: "ph-grid" }));
-      last = w;
+      last = p.lang;
     }
     out[out.length - 1].append(render(p));
   }
@@ -102,7 +98,9 @@ function viewPhrasebook() {
     quiz ? h("button", { class: "btn primary", onclick: () => { state.rtab = "words"; go("review"); } }, `Quiz ${quiz} words`) : null,
     add);
 
-  const list = base.filter((p) => state.lang === "All" || p.lang === state.lang).sort((a, b) => b.created - a.created);
+  // one section per language (biggest first), newest first inside each
+  const list = base.filter((p) => state.lang === "All" || p.lang === state.lang)
+    .sort((a, b) => (langs[b.lang] - langs[a.lang]) || a.lang.localeCompare(b.lang) || b.created - a.created);
   if (!list.length) {
     return emptyEl(all.length ? "Nothing here" : "No words yet",
       "Select a word on any page, then right-click › “Add to Phrasebook”, or press Alt+Shift+W.");
@@ -110,5 +108,5 @@ function viewPhrasebook() {
   // the 10 newest words saved this week get highlighted
   const fresh = new Set(list.filter((p) => p.created >= weekStart()).slice(0, 10).map((p) => p.id));
   const { shown, more } = pageOf("words", list);
-  return h("div", {}, byWeek(shown, (p) => wordCard(p, fresh.has(p.id))), more);
+  return h("div", {}, byLang(shown, (p) => wordCard(p, fresh.has(p.id)), langs), more);
 }

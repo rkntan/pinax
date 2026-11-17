@@ -95,7 +95,8 @@ function renderTree() {
       },
     }, `Align ${n} with standard…`));
   }
-  $("paths").replaceChildren(...[...new Set([...data.cols, ...data.items.map((i) => i.path)])]
+  // the picker offers every standard subject too, so typing "Elec" suggests it before you have used it
+  $("paths").replaceChildren(...[...new Set([...data.cols, ...data.items.map((i) => i.path), ...taxonomyPaths()])]
     .filter((p) => p && p !== UNSORTED).sort().map((p) => h("option", { value: pathLabel(p) })));
 }
 

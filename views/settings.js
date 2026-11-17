@@ -30,6 +30,20 @@ function toggleRow(label, checked, onchange, title = "") {
   return h("label", { class: "check", title }, h("input", { type: "checkbox", checked, onchange: (e) => onchange(e.target.checked) }), label);
 }
 
+// The standard subjects, read-only, with how many of your kept pages sit in each (click to open).
+function subjectsList() {
+  const row = (label, path, extra = "") => {
+    const n = countIn(path);
+    return h("div", { class: "subj-row" },
+      n ? h("a", { href: "#", onclick: (e) => { e.preventDefault(); go("col", path); } }, label) : h("span", {}, label),
+      h("span", { class: "n" }, n ? String(n) : ""), extra);
+  };
+  return h("div", { class: "subjects" }, TAXONOMY.filter((s) => s.id !== "other").map((s) =>
+    h("details", {},
+      h("summary", {}, row(s.label, s.label)),
+      h("div", { class: "subj-kids" }, s.children.map((c) => row(c.label, `${s.label}/${c.label}`))))));
+}
+
 function viewSettings() {
   setHead("Settings", "everything stays on this computer");
   $("tools").replaceChildren();
@@ -92,6 +106,9 @@ async function fillSettings(root) {
       h("button", { class: "btn", title: "One row per saved page, for a spreadsheet", onclick: () => exportPages("csv") }, "Export CSV"),
       h("button", { class: "btn", title: "Everything, to restore into Pinax later", onclick: exportBackup }, "Backup"),
       h("label", { class: "btn", title: "Restore a Pinax backup (merges, no duplicates)" }, "Import backup", importInput)),
+
+    settingsSection("Subjects", "The standard list the AI files into, the same for everyone. It never invents new ones; you can still make your own collections. Open one to see its sub-subjects.",
+      subjectsList()),
 
     settingsSection("Local AI", "",
       aiLine,
