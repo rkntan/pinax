@@ -29,6 +29,7 @@ async function syncAlarms() {
     }
   }
   badge();
+  pruneImages().catch((e) => console.warn("prune images", e));
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -38,6 +39,11 @@ chrome.runtime.onInstalled.addListener(async () => {
   chrome.contextMenus.create({ id: "save-link", title: "Save link to Inbox", contexts: ["link"] });
   chrome.contextMenus.create({ id: "pin-site", title: "Pin this site to Library", contexts: ["page"], documentUrlPatterns: web });
   chrome.contextMenus.create({ id: "highlight", title: "Highlight", contexts: ["selection"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "clip-text", title: "Add to my note", contexts: ["selection"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "clip-image", title: "Add image to my note", contexts: ["image"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "clip-shot", title: "Add a screenshot to my note…", contexts: ["page"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "cite-page", title: "Copy citation for this page", contexts: ["page"], documentUrlPatterns: web });
+  chrome.contextMenus.create({ id: "clip-time", title: "Add this moment to my note", contexts: ["page", "video"], documentUrlPatterns: ["https://www.youtube.com/watch*", "https://youtu.be/*"] });
   chrome.contextMenus.create({ id: "save-phrase", title: "Add “%s” to Phrasebook", contexts: ["selection"], documentUrlPatterns: web });
   chrome.contextMenus.create({ id: "notes-panel", title: "Open Notes for this page", contexts: ["page"], documentUrlPatterns: web });
   syncAlarms();
@@ -79,8 +85,91 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await highlightSelection(tab, info.selectionText);
   } else if (info.menuItemId === "notes-panel" && tab) {
     chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
-  }
+  } else if (info.menuItemId === "clip-text" && tab && info.selectionText) {
+    await clipToNote(tab, { kind: "text", text: info.selectionText.trim() });
+  } else if (info.menuItemId === "clip-image" && tab && info.srcUrl) {
+    await clipToNote(tab, { kind: "image", src: info.srcUrl.startsWith("data:") ? "" : info.srcUrl }, info.srcUrl);
+  } else if (info.menuItemId === "clip-shot" && tab) await clipScreenshot(tab);
+  else if (info.menuItemId === "cite-page" && tab) await citePage(tab);
+  else if (info.menuItemId === "clip-time" && tab) await clipVideoTime(tab);
 });
+
+// A rectangle you drag on the visible page, saved to the note as an image.
+async function clipScreenshot(tab) {
+  let r = null;
+  try { r = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pickRegion }))[0]?.result; } catch (e) { return toast("Cannot capture this page", e.message); }
+  if (!r) return;
+  const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+  const bmp = await createImageBitmap(await (await fetch(shot)).blob());
+  const k = r.dpr || 1;
+  const sw = Math.max(1, Math.round(r.w * k)), sh = Math.max(1, Math.round(r.h * k));
+  const crop = new OffscreenCanvas(sw, sh);
+  crop.getContext("2d").drawImage(bmp, Math.round(r.x * k), Math.round(r.y * k), sw, sh, 0, 0, sw, sh);
+  bmp.close();
+  const url = await shrinkImage(await blobUrl(await crop.convertToBlob({ type: "image/png" })));
+  if (!url) return toast("Could not save the screenshot", "");
+  await clipToNote(tab, { kind: "image", src: "" }, "", url);
+}
+async function blobUrl(blob) { // workers have no object URLs for fetch; use a data URL
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return "data:image/png;base64," + btoa(bin);
+}
+
+async function citePage(tab) {
+  try {
+    const c = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readCitation }))[0].result;
+    const text = citeApa(c);
+    const ok = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: copyText, args: [text] }))[0].result;
+    toast(ok ? "Citation copied" : "Could not copy", text.slice(0, 160));
+  } catch (e) { toast("Cannot read this page", e.message); }
+}
+
+async function clipVideoTime(tab) {
+  let t = -1;
+  try { t = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readVideoTime }))[0].result; } catch (e) { /* below */ }
+  if (t < 0) return toast("No video found", "Open a video first.");
+  await clipToNote({ ...tab, url: timeUrl(tab.url, t) }, { kind: "text", text: `▶ ${clockLabel(t)}` });
+}
+
+// ---------- research note: clips go to the window's tracked project (else the one used last) ----------
+
+// Shrinks an image to a JPEG data URL (longest side CLIP_IMG_MAX). "" when it can't be read
+// (blocked by the site, SVG…): the clip then keeps the original address.
+async function shrinkImage(src) {
+  try {
+    const res = await fetch(src);
+    if (!res.ok) return "";
+    const bmp = await createImageBitmap(await res.blob());
+    const k = Math.min(1, CLIP_IMG_MAX / Math.max(bmp.width, bmp.height));
+    const canvas = new OffscreenCanvas(Math.max(1, Math.round(bmp.width * k)), Math.max(1, Math.round(bmp.height * k)));
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#fff"; // JPEG has no transparency
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: "image/jpeg", quality: 0.8 })).arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return "data:image/jpeg;base64," + btoa(bin);
+  } catch (e) {
+    console.warn("cannot copy image", e);
+    return "";
+  }
+}
+
+let clipQueue = Promise.resolve();
+function clipToNote(tab, clip, imgSrc = "", readyUrl = "") {
+  return (clipQueue = clipQueue.then(async () => {
+    let p = pickNoteProject(await getProjects(), (await getWorkingOn())[tab.windowId]);
+    if (!p) p = await addProject("Research note", [], true);
+    const dataUrl = readyUrl || (imgSrc ? await shrinkImage(imgSrc) : "");
+    if (imgSrc && !dataUrl && !clip.src) return toast("Could not copy this image", "The site does not allow it.");
+    await addClip(p.id, { ...clip, url: tab.url, title: tab.title }, dataUrl);
+    toast(`Added to “${p.name}”`, clip.kind === "image" ? (dataUrl ? "Image saved" : "Image link saved (site blocks copying)") : clip.text.slice(0, 120));
+  }).catch((e) => console.warn("clip", e)));
+}
 
 // Runs inside the page (only when you save, via activeTab): the selection, the sentence it
 // sits in, and the page language.
@@ -124,6 +213,7 @@ chrome.commands.onCommand.addListener(async (command, cmdTab) => {
   if (command === "highlight" && cmdTab) chrome.sidePanel.open({ tabId: cmdTab.id }).catch((e) => console.warn("side panel", e));
   const [tab] = cmdTab ? [cmdTab] : await chrome.tabs.query({ active: true, currentWindow: true });
   if (command === "open-library") return openLibraryTab();
+  if (command === "clip-shot" && tab) return clipScreenshot(tab);
   if (command === "organise-window" && tab) {
     const r = await organiseWindow(tab.windowId);
     return toast("Tabs organised", r.how === "none" ? "Not enough tabs" : `${r.groups.length} groups by ${r.how}`);
@@ -371,6 +461,7 @@ chrome.runtime.onMessage.addListener((m, sender) => {
   const tab = sender.tab;
   if (!tab || !/^(pen|bubble)-/.test(m?.type || "") || m.type === "pen-off") return;
   penQueue = penQueue.then(async () => {
+    if (m.type === "bubble-clip") return clipToNote(tab, { kind: "text", text: m.data.text });
     if (m.type === "bubble-word") {
       if (phraseKind(m.data.text) !== "quote") {
         const p = await savePhrase({ ...m.data, url: tab.url, title: tab.title });

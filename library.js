@@ -98,7 +98,8 @@ const BACKUP_KEYS = ["items", "collections", "pins", "projects", "phrases", "not
 async function exportBackup() {
   await migrate(); // the file says SCHEMA, so the data must be at SCHEMA
   const [d, settings] = await Promise.all([chrome.storage.local.get(BACKUP_KEYS), chrome.storage.local.get(SETTINGS_KEYS)]);
-  const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: SCHEMA, schema: SCHEMA, exported: Date.now(), ...d, settings }, null, 2)], { type: "application/json" });
+  const images = await allImages();
+  const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: SCHEMA, schema: SCHEMA, exported: Date.now(), ...d, settings, images }, null, 2)], { type: "application/json" });
   const a = h("a", { href: URL.createObjectURL(blob), download: `pinax-backup-${new Date().toISOString().slice(0, 10)}.json` });
   a.click();
   URL.revokeObjectURL(a.href);
@@ -120,7 +121,9 @@ async function importBackup(file) {
     let raw;
     try { raw = JSON.parse(await file.text()); } catch { throw new Error("not a Pinax backup"); }
     const next = mergeBackup(await chrome.storage.local.get(BACKUP_KEYS), raw);
-    await chrome.storage.local.set(next);
+    const have = await allImages();
+    const imgs = Object.fromEntries(Object.entries(raw.images || {}).filter(([id]) => !(id in have)).map(([id, v]) => [IMG_PREFIX + id, v]));
+    await chrome.storage.local.set({ ...next, ...imgs });
     chrome.runtime.sendMessage({ type: "sync-alarms" }).catch(() => {}); // reminder alarms for imported pages
     showToast(`Imported. You now have ${next.items.length} pages, ${next.projects.length} projects and ${next.pins.length} pins.`);
   } catch (err) {

@@ -1230,7 +1230,7 @@ function withSource(p, { url, title }, parent = null, now = Date.now()) {
 }
 
 // Pure: Markdown list of the useful sources, with notes and highlights.
-function projectMarkdown(p, quotes = [], now = Date.now()) {
+function projectMarkdown(p, quotes = [], now = Date.now(), imageFiles = {}) {
   const c = projectProgress(p);
   const useful = sourceTree(p.sources).map((n) => n.s).filter((s) => s.status === "useful");
   const date = new Date(p.finishedAt || now).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -1239,9 +1239,21 @@ function projectMarkdown(p, quotes = [], now = Date.now()) {
     "",
     `${p.status === "finished" ? "Finished" : "Exported"} ${date} · ${c.useful} useful of ${c.total} pages`,
     "",
-    "## Sources",
-    "",
   ];
+  if ((p.clips || []).length) {
+    lines.push("## Notes", "");
+    for (const k of p.clips) {
+      const where = k.url ? `[${(k.title || hostOf(k.url)).replace(/[[\]]/g, "")}](${k.url})` : "";
+      if (k.kind === "image") {
+        const file = imageFiles[k.imgId] || k.src; // stored copy, else the original address
+        if (file) lines.push(`![${(k.caption || "").replace(/[[\]]/g, "")}](${file})`);
+        if (k.caption) lines.push("", k.caption);
+      } else lines.push(...String(k.text).split("\n").map((l) => `> ${l}`), ...(k.caption ? ["", k.caption] : []));
+      if (where) lines.push("", `Source: ${where}`);
+      lines.push("");
+    }
+  }
+  lines.push("## Sources", "");
   for (const s of useful) {
     lines.push(`- [${s.title.replace(/[[\]]/g, "")}](${s.url})${s.note ? " — " + s.note : ""}`);
     for (const q of quotes.filter((x) => pageKey(x.url) === pageKey(s.url))) lines.push(`  > ${q.text}`);
@@ -1355,6 +1367,121 @@ async function finishProject(projectId, filing = {}, rest = "skip") {
 
 async function reopenProject(projectId) {
   await editProject(projectId, (x) => { x.status = "active"; delete x.finishedAt; });
+}
+
+// ---------- research note: clips (text and images) gathered into a project ----------
+// A clip is { id, kind: "text"|"image", text, imgId, src, url, title, caption, at }. Image
+// bytes live in their own storage key (`img:<id>`, a JPEG data URL) so project lists stay light.
+
+const IMG_PREFIX = "img:";
+const CLIP_IMG_MAX = 1200; // longest side of a stored image, px
+
+// Pure: the project a new clip goes to: the window's tracked project, else the one used last.
+function pickNoteProject(projects, workingId) {
+  const live = projects.filter((p) => p.status !== "finished");
+  return live.find((p) => p.id === workingId) || [...live].sort((a, b) => b.updated - a.updated)[0] || null;
+}
+
+async function addClip(projectId, clip, dataUrl = "") {
+  const c = { id: crypto.randomUUID(), caption: "", at: Date.now(), ...clip };
+  if (dataUrl) {
+    c.imgId = c.id;
+    await chrome.storage.local.set({ [IMG_PREFIX + c.id]: dataUrl });
+  }
+  await editProject(projectId, (p) => { (p.clips ||= []).push(c); });
+  return c;
+}
+
+async function setClipCaption(projectId, clipId, caption) {
+  await editProject(projectId, (p) => { const c = (p.clips || []).find((x) => x.id === clipId); if (c) c.caption = caption; });
+}
+
+// Only leaves the project; the image is cleaned up later by pruneImages (so Undo still works).
+async function removeClip(projectId, clipId) {
+  await editProject(projectId, (p) => { p.clips = (p.clips || []).filter((x) => x.id !== clipId); });
+}
+
+// Deletes stored images no project clip points to.
+async function pruneImages() {
+  const all = await chrome.storage.local.get(null);
+  const used = new Set((all.projects || []).flatMap((p) => (p.clips || []).map((c) => c.imgId)).filter(Boolean));
+  const dead = Object.keys(all).filter((k) => k.startsWith(IMG_PREFIX) && !used.has(k.slice(IMG_PREFIX.length)));
+  if (dead.length) await chrome.storage.local.remove(dead);
+}
+
+// Every stored image as { id: dataUrl } (backups).
+async function allImages() {
+  const all = await chrome.storage.local.get(null);
+  return Object.fromEntries(Object.entries(all).filter(([k]) => k.startsWith(IMG_PREFIX)).map(([k, v]) => [k.slice(IMG_PREFIX.length), v]));
+}
+
+function dataUrlBytes(url) {
+  const bin = atob(String(url).slice(String(url).indexOf(",") + 1));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+let crcTable = null;
+function crc32(bytes) {
+  if (!crcTable) crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  let c = 0xffffffff;
+  for (const b of bytes) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// Pure: a .zip (no compression, nothing to install) from [{ name, data: Uint8Array }].
+function zipStore(files, now = new Date()) {
+  const enc = new TextEncoder();
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const date = ((Math.max(now.getFullYear(), 1980) - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const parts = [], central = [];
+  let offset = 0;
+  const fill = (view, fields) => fields.forEach(([o, v, n]) => (n === 4 ? view.setUint32(o, v, true) : view.setUint16(o, v, true)));
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+    const local = new DataView(new ArrayBuffer(30));
+    fill(local, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, time, 2], [12, date, 2], [14, crc, 4], [18, size, 4], [22, size, 4], [26, name.length, 2], [28, 0, 2]]);
+    const head = new DataView(new ArrayBuffer(46));
+    fill(head, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, time, 2], [14, date, 2], [16, crc, 4], [20, size, 4], [24, size, 4], [28, name.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, offset, 4]]);
+    parts.push(new Uint8Array(local.buffer), name, f.data);
+    central.push(new Uint8Array(head.buffer), name);
+    offset += 30 + name.length + size;
+  }
+  const cdSize = central.reduce((n, a) => n + a.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true);
+  end.setUint32(16, offset, true);
+  const out = new Uint8Array(offset + cdSize + 22);
+  let at = 0;
+  for (const a of [...parts, ...central, new Uint8Array(end.buffer)]) { out.set(a, at); at += a.length; }
+  return out;
+}
+
+// Pure: every project as `<name>/note.md` + `<name>/images/NN.jpg`, zipped.
+// images: { imgId: dataUrl }; marks: page highlights ({ url, text }).
+function projectsZip(projects, marks = [], images = {}, now = new Date()) {
+  const enc = new TextEncoder();
+  const safe = (s) => s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-").trim().slice(0, 60) || "Project";
+  const used = new Set(), files = [];
+  for (const p of projects) {
+    let dir = safe(p.name || "Project"), n = 2;
+    while (used.has(dir.toLowerCase())) dir = `${safe(p.name || "Project")} ${n++}`;
+    used.add(dir.toLowerCase());
+    const imageFiles = {};
+    let k = 0;
+    for (const c of p.clips || []) {
+      if (c.imgId && images[c.imgId]) {
+        imageFiles[c.imgId] = `images/${String(++k).padStart(2, "0")}.jpg`;
+        files.push({ name: `${dir}/${imageFiles[c.imgId]}`, data: dataUrlBytes(images[c.imgId]) });
+      }
+    }
+    files.push({ name: `${dir}/note.md`, data: enc.encode(projectMarkdown(p, marks, now.getTime(), imageFiles)) });
+  }
+  return zipStore(files, now);
 }
 
 // Finds the active project source for a URL (for the popup's reading card).
@@ -1547,7 +1674,110 @@ function noteHit(n, q) {
   return !q || [n.title, n.url, n.text, n.summary?.text || "", ...n.highlights.flatMap((x) => [x.text, x.comment])].join(" ").toLowerCase().includes(q);
 }
 
+// Pure: "12:34" or "1:02:03" from seconds, and the page address jumping to that second.
+function clockLabel(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? `${h}:${String(m).padStart(2, "0")}` : String(m)) + `:${String(s).padStart(2, "0")}`;
+}
+function timeUrl(url, sec) {
+  const u = new URL(url);
+  u.searchParams.set("t", `${Math.floor(sec)}s`);
+  return u.href;
+}
+
+// Pure: an APA-style reference from what readCitation found. c = { title, author, site, date, url }.
+function citeApa(c, now = new Date()) {
+  const d = c.date ? new Date(c.date) : null;
+  const when = d && !isNaN(d) ? `${d.getFullYear()}, ${d.toLocaleString("en", { month: "long" })} ${d.getDate()}` : "n.d.";
+  const who = c.author || c.site || hostOf(c.url);
+  const site = c.site && c.site !== who ? ` ${c.site}.` : "";
+  const got = now.toLocaleString("en", { month: "long", day: "numeric", year: "numeric" });
+  return `${who}. (${when}). ${c.title}.${site} Retrieved ${got}, from ${c.url}`;
+}
+
+// Pure: one page's notes as an Obsidian file: properties block, highlights as role callouts.
+function noteObsidian(n, collection = "", now = new Date()) {
+  const q = (s) => JSON.stringify(String(s));
+  const lines = ["---", `source: ${q(n.url)}`, `title: ${q(n.title)}`, `saved: ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`];
+  if (collection) lines.push(`collection: ${q(collection)}`);
+  lines.push("tags: [pinax]", "---", "", `# ${String(n.title).replace(/[[\]]/g, "")}`, "", `[Open page](${n.url})`, "");
+  for (const hl of n.highlights) {
+    const role = HL_ROLES[hl.color || "yellow"] || "Key point";
+    lines.push(`> [!quote] ${role}`, ...hl.text.split("\n").map((l) => `> ${l}`));
+    if (hl.comment) lines.push(">", `> ${hl.comment}`);
+    lines.push("");
+  }
+  if (n.text.trim()) lines.push(n.text.trim(), "");
+  if (n.summary?.text) lines.push("## Summary", "", n.summary.text.trim(), "");
+  return lines.join("\n");
+}
+
+// Pure: all page notes as `Notes/<title>.md` files in one zip.
+function notesZip(notes, collectionOf = () => "", now = new Date()) {
+  const enc = new TextEncoder();
+  const used = new Set();
+  const files = notes.map((n) => {
+    const base = String(n.title || hostOf(n.url)).replace(/[\/:*?"<>|#^[\]\x00-\x1f]+/g, "-").trim().slice(0, 80) || "Note";
+    let name = base, i = 2;
+    while (used.has(name.toLowerCase())) name = `${base} ${i++}`;
+    used.add(name.toLowerCase());
+    return { name: `Notes/${name}.md`, data: enc.encode(noteObsidian(n, collectionOf(n), now)) };
+  });
+  return zipStore(files, now);
+}
+
 // ---------- functions injected into pages (must be self-contained) ----------
+
+// Runs in the page: what a reference needs.
+function readCitation() {
+  const meta = (...names) => { for (const n of names) { const v = document.querySelector(`meta[name="${n}"],meta[property="${n}"]`)?.content; if (v) return v.trim(); } return ""; };
+  return {
+    title: meta("og:title", "twitter:title") || document.title,
+    author: meta("author", "article:author", "citation_author"),
+    site: meta("og:site_name"),
+    date: meta("article:published_time", "citation_publication_date", "date", "datePublished"),
+    url: location.href,
+  };
+}
+
+// Runs in the page: copies text (the page has focus after a menu click).
+function copyText(text) {
+  const t = document.createElement("textarea");
+  t.value = text;
+  t.style.cssText = "position:fixed;opacity:0";
+  document.body.append(t);
+  t.select();
+  const ok = document.execCommand("copy");
+  t.remove();
+  return ok;
+}
+
+// Runs in the page: current second of the main video, or -1.
+function readVideoTime() {
+  const v = document.querySelector("video");
+  return v && isFinite(v.currentTime) ? v.currentTime : -1;
+}
+
+// Runs in the page: you drag a rectangle; resolves to it (CSS px, plus the pixel ratio) or null on Escape.
+function pickRegion() {
+  return new Promise((resolve) => {
+    const veil = document.createElement("div");
+    veil.style.cssText = "position:fixed;inset:0;z-index:2147483647;cursor:crosshair;background:rgba(0,0,0,.25)";
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;border:2px solid #7c3aed;background:rgba(124,58,237,.15);display:none";
+    veil.append(box);
+    document.documentElement.append(veil);
+    let x0 = 0, y0 = 0, drag = false;
+    const rect = (e) => ({ x: Math.min(x0, e.clientX), y: Math.min(y0, e.clientY), w: Math.abs(e.clientX - x0), h: Math.abs(e.clientY - y0) });
+    const end = (r) => { veil.remove(); document.removeEventListener("keydown", key, true); setTimeout(() => resolve(r), 60); }; // let the veil leave the screenshot
+    const key = (e) => { if (e.key === "Escape") { e.stopPropagation(); end(null); } };
+    document.addEventListener("keydown", key, true);
+    veil.onmousedown = (e) => { e.preventDefault(); drag = true; x0 = e.clientX; y0 = e.clientY; box.style.display = "block"; };
+    veil.onmousemove = (e) => { if (!drag) return; const r = rect(e); Object.assign(box.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" }); };
+    veil.onmouseup = (e) => { const r = rect(e); end(r.w > 8 && r.h > 8 ? { ...r, dpr: devicePixelRatio || 1 } : null); };
+  });
+}
 
 // The selection plus ~48 characters before and after it, for finding it again later.
 function readHighlight() {
@@ -2077,6 +2307,7 @@ function installBubble() {
       <span class="s"></span>
       <button class="t" data-a="note" title="Comment (C)">Comment</button>
       <button class="t" data-a="word" title="Add to the Phrasebook (W)">Word</button>
+      <button class="t" data-a="clip" title="Add to my research note (N)">+ Note</button>
       <button class="t" data-a="copy" title="Copy with source" aria-label="Copy"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M8 3h9a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h9V9H5Z"/></svg></button>
     </div>`;
   document.documentElement.append(host);
@@ -2146,7 +2377,7 @@ function installBubble() {
     }, 10);
   };
   const onDown = (e) => { if (!e.composedPath?.().includes(host)) hide(); };
-  const KEYS = { h: '[data-c="yellow"]', c: '[data-a="note"]', w: '[data-a="word"]' };
+  const KEYS = { h: '[data-c="yellow"]', c: '[data-a="note"]', w: '[data-a="word"]', n: '[data-a="clip"]' };
   const onKey = (e) => {
     if (e.key === "Escape" && !bar.hidden) return hide();
     const sel = KEYS[e.key?.toLowerCase()];
@@ -2168,6 +2399,8 @@ function installBubble() {
     } else if (b.dataset.a === "word") {
       const long = g.text.split(/\s+/).filter(Boolean).length > 5; // QUOTE_WORDS: a passage becomes a highlight
       if (send({ type: "bubble-word", data: { text: g.text, prefix: g.prefix, suffix: g.suffix, sentence: g.sentence, pageLang: document.documentElement.lang || "" } })) done(long ? "Highlighted" : "Added to Phrasebook");
+    } else if (b.dataset.a === "clip") {
+      if (send({ type: "bubble-clip", data: { text: g.text } })) done("Added to note");
     } else if (b.dataset.a === "copy") {
       navigator.clipboard.writeText(`“${g.text}” — ${document.title} (${location.href})`).then(() => done("Copied"));
     } else if (b.dataset.a === "note") {

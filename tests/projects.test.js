@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const ctx = vm.createContext({ structuredClone, console, crypto: globalThis.crypto, URL });
+const ctx = vm.createContext({ structuredClone, console, crypto: globalThis.crypto, URL, TextEncoder, atob, Uint8Array, DataView, ArrayBuffer });
 vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "core.js"), "utf8"), ctx);
 const core = new Proxy({}, { get: (_, name) => vm.runInContext(name, ctx) });
 const plain = (x) => JSON.parse(JSON.stringify(x));
@@ -106,4 +106,52 @@ test("sourceForUrl ignores finished projects", () => {
   ];
   assert.equal(core.sourceForUrl(projects, "https://x.test/x").project.id, "a");
   assert.equal(core.sourceForUrl(projects, "https://x.test/none"), null);
+});
+
+test("zipStore writes a valid store-only zip (crc and directory)", () => {
+  const zip = core.zipStore([{ name: "a/b.txt", data: Uint8Array.from(Buffer.from("hello")) }], new Date(2026, 0, 2, 3, 4, 6));
+  const v = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  assert.equal(v.getUint32(0, true), 0x04034b50);
+  assert.equal(v.getUint32(14, true), 0x3610a686, "crc32 of hello");
+  assert.equal(v.getUint32(zip.length - 22, true), 0x06054b50);
+  assert.equal(v.getUint16(zip.length - 12, true), 1);
+});
+
+test("projectsZip puts images in a folder and links them from note.md", () => {
+  const p = { name: "Agents / memory", sources: [], clips: [
+    { id: "1", kind: "text", text: "Memory is key.", url: "https://x.test/a", title: "A", caption: "" },
+    { id: "2", kind: "image", imgId: "2", url: "https://x.test/b", title: "B", caption: "diagram" },
+    { id: "3", kind: "image", src: "https://x.test/c.png", url: "https://x.test/c", title: "C", caption: "" },
+  ] };
+  const md = core.projectMarkdown(p, [], 0, { 2: "images/01.jpg" });
+  assert.match(md, /## Notes\n\n> Memory is key\.\n\nSource: \[A\]\(https:\/\/x\.test\/a\)/);
+  assert.match(md, /!\[diagram\]\(images\/01\.jpg\)/);
+  assert.match(md, /!\[\]\(https:\/\/x\.test\/c\.png\)/);
+  const zip = Buffer.from(core.projectsZip([p], [], { 2: "data:image/jpeg;base64,AAEC" }));
+  assert.ok(zip.includes("Agents - memory/images/01.jpg") && zip.includes("Agents - memory/note.md"));
+});
+
+test("pickNoteProject prefers the tracked project, else the latest active one", () => {
+  const ps = [{ id: "a", updated: 1 }, { id: "b", updated: 5 }, { id: "c", updated: 9, status: "finished" }];
+  assert.equal(core.pickNoteProject(ps, "a").id, "a");
+  assert.equal(core.pickNoteProject(ps, "c").id, "b");
+  assert.equal(core.pickNoteProject([], null), null);
+});
+
+test("clockLabel, timeUrl and citeApa", () => {
+  assert.equal(core.clockLabel(754), "12:34");
+  assert.equal(core.clockLabel(3723), "1:02:03");
+  assert.equal(core.timeUrl("https://www.youtube.com/watch?v=abc", 754.9), "https://www.youtube.com/watch?v=abc&t=754s");
+  const c = { title: "Agents", author: "Ada Lovelace", site: "Example", date: "2024-03-05", url: "https://x.test/a" };
+  assert.equal(core.citeApa(c, new Date(2026, 10, 17)), "Ada Lovelace. (2024, March 5). Agents. Example. Retrieved November 17, 2026, from https://x.test/a");
+  assert.match(core.citeApa({ title: "T", url: "https://x.test/a" }), /^x\.test\. \(n\.d\.\)\. T\./);
+});
+
+test("noteObsidian writes properties and role callouts; notesZip makes one file per page", () => {
+  const n = { url: "https://x.test/a", title: "A: page", text: "mine", highlights: [{ text: "line1\nline2", color: "green", comment: "why" }] };
+  const md = core.noteObsidian(n, "AI › Agents", new Date(2026, 10, 17));
+  assert.match(md, /^---\nsource: "https:\/\/x\.test\/a"\ntitle: "A: page"\nsaved: 2026-11-17\ncollection: "AI › Agents"\ntags: \[pinax\]\n---\n/);
+  assert.match(md, /> \[!quote\] Idea\n> line1\n> line2\n>\n> why\n/);
+  const zip = Buffer.from(core.notesZip([n, { ...n }]));
+  assert.ok(zip.includes("Notes/A- page.md") && zip.includes("Notes/A- page 2.md"));
 });

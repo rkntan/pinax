@@ -106,10 +106,30 @@ function finishView(p) {
       }, "Finish")));
 }
 
-function exportAllProjects() {
+// One folder per project: note.md plus its images, in a .zip.
+async function exportAllProjects() {
   if (!data.projects.length) return showToast("No projects to export");
   const marks = Object.values(data.notes).flatMap((n) => n.highlights.map((x) => ({ url: n.url, text: x.text })));
-  downloadMd(`Projects ${new Date().toISOString().slice(0, 10)}`, data.projects.map((p) => projectMarkdown(p, marks)).join("\n\n---\n\n"));
+  saveFile(`pinax-projects-${new Date().toISOString().slice(0, 10)}.zip`, projectsZip(data.projects, marks, await allImages()), "application/zip");
+  showToast("Projects exported");
+}
+
+// The clips of a project's research note: quotes and images, newest last.
+function clipsEl(p) {
+  const done = p.status === "finished";
+  return h("div", { class: "clips" }, p.clips.map((c) => {
+    const img = c.kind === "image" ? h("img", { class: "clip-img", alt: c.caption || "", loading: "lazy", src: c.src || "" }) : null;
+    if (img && c.imgId) chrome.storage.local.get(IMG_PREFIX + c.imgId).then((r) => { if (r[IMG_PREFIX + c.imgId]) img.src = r[IMG_PREFIX + c.imgId]; });
+    return h("article", { class: "clip" },
+      img || h("blockquote", {}, c.text),
+      c.caption ? h("div", { class: "clip-cap" }, c.caption) : null,
+      h("div", { class: "clip-foot" },
+        h("a", { class: "small muted", href: c.url, target: "_blank", title: c.url }, c.title || hostOf(c.url)),
+        done ? null : moreMenu([
+          { label: c.caption ? "Edit caption" : "Add caption", onclick: () => { const t = prompt("Caption:", c.caption || ""); if (t !== null) setClipCaption(p.id, c.id, t.trim()); } },
+          { label: "Remove from note", danger: true, onclick: () => withUndo("Removed from note", ["projects"], () => removeClip(p.id, c.id)) },
+        ])));
+  }));
 }
 
 function viewProject() {
@@ -169,13 +189,16 @@ function viewProject() {
     rows = tree.filter(({ s }) => s.status === state.sfilter).map((n) => ({ ...n, depth: 0 }));
   }
 
+  const clips = (p.clips || []).length;
   return h("div", {},
+    clips ? [h("h3", { class: "section-title" }, `Note · ${clips} clip${clips === 1 ? "" : "s"}`), clipsEl(p)] : null,
+    clips && c.total ? h("h3", { class: "section-title" }, "Sources") : null,
     c.total ? h("div", { class: "pbar", title: `${pct}% sorted` },
       ["useful", "later", "skip"].map((k) => h("i", { class: `pb-${k}`, style: `width:${(c[k] / c.total) * 100}%` }))) : null,
     c.total ? h("div", { class: "trail-head" }, filters, h("span", { class: "small muted" }, "✓ useful · Later = Inbox · ✕ not needed · ▣ working tab · ✎ comment")) : null,
     c.total
       ? (rows.length ? h("div", { class: "trail" }, rows.map((n) => sourceRow(p, n, collapsed))) : emptyEl("Nothing here", ""))
-      : emptyEl("No sources yet", done ? "" : "Press “Track this window”."),
+      : (clips ? null : emptyEl("No sources yet", done ? "" : "Press “Track this window”. Right-click text or an image › Add to my note.")),
     p.tabs.length ? [h("h3", { class: "section-title" }, "Working tabs"), workingTabsEl(p)] : null);
 }
 

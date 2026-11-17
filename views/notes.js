@@ -15,13 +15,6 @@ async function openWithNotes(n) {
   await chrome.tabs.create({ url: n.url, windowId: me.windowId });
 }
 
-function downloadMd(name, md) {
-  navigator.clipboard?.writeText(md).catch(() => {});
-  const a = h("a", { href: URL.createObjectURL(new Blob([md], { type: "text/markdown" })), download: `${name.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80)}.md` });
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 function highlightsEl(n, role = null) {
   const list = role ? n.highlights.filter((x) => (x.color || "yellow") === role) : n.highlights;
   return h("div", { class: "nhl" }, list.map((x) => h("blockquote", { style: `--c:${HL_COLORS[x.color] || HL_COLORS.yellow}` },
@@ -62,7 +55,9 @@ function noteCard(n, itemByKey) {
 function exportAllNotes() {
   const all = noteRecords();
   if (!all.length) return showToast("No notes to export");
-  downloadMd(`Notes ${new Date().toISOString().slice(0, 10)}`, `# Notes\n\n${all.map((n) => noteMarkdown(n, "##")).join("\n")}`);
+  const where = new Map(data.items.map((x) => [pageKey(x.url), x.stage === "kept" ? pathLabel(x.path) : ""]));
+  saveFile(`pinax-notes-${new Date().toISOString().slice(0, 10)}.zip`, notesZip(all, (n) => where.get(n.url) || ""), "application/zip");
+  showToast("Notes exported: one file per page, ready for Obsidian");
 }
 
 function viewNotes() {
