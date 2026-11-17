@@ -28,6 +28,10 @@ chrome only installs extensions outside its web store this way (developer mode).
 - organise the tabs of a window into groups with `alt+shift+o`
 - highlight text on a page and keep notes
 
-all data stays in your browser. more details in [docs/features.md](docs/features.md).
+all data stays in your browser. the only thing that can reach the internet is the optional update check (library sidebar, off by default): once a week it asks github for the latest release number and shows a link if there is a newer one. it never downloads or installs anything.
+
+to hear about new versions without it, use github's **watch › custom › releases** on this repo.
+
+more details in [docs/features.md](docs/features.md).
 
 license: [MIT](LICENSE)

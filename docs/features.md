@@ -24,6 +24,11 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
    After changing files, click the reload arrow on the extension card.
 2. Pin it from the puzzle-piece menu.
 
+## Update check (v1.15, opt-in)
+- Library sidebar footer › **Check for updates weekly** (off by default). When on, Pinax asks GitHub once a week for the
+  latest release number and shows "Pinax x.y is available" with a link. Nothing else is sent; no downloads or installs.
+- To update: download the new `pinax-extension.zip`, unzip over the old folder, press reload on the extension card.
+
 ## Enable the AI (one time)
 - Chrome 138+, desktop, ~22 GB free disk.
 - Click **Organise tabs** once; Chrome downloads the model. Status: `chrome://on-device-internals`.

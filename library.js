@@ -119,6 +119,26 @@ $("import").onchange = async (e) => {
 
 $("resurface").onchange = (e) => chrome.storage.local.set({ resurface: e.target.checked });
 
+// Opt-in update check: shows "Pinax x.y is available" under the switch.
+async function showUpdate({ force = false } = {}) {
+  const line = $("update-line");
+  try {
+    const found = await checkForUpdate({ force });
+    line.hidden = !found && !force;
+    if (found) line.replaceChildren(h("a", { href: found.url, target: "_blank" }, `Pinax ${found.version} is available`));
+    else if (force) line.textContent = `Pinax ${chrome.runtime.getManifest().version} is the latest.`;
+  } catch {
+    line.hidden = !force;
+    if (force) line.textContent = "Couldn't reach GitHub.";
+  }
+}
+$("update-check").onchange = async (e) => {
+  const { updateCheck = {} } = await chrome.storage.local.get("updateCheck");
+  await chrome.storage.local.set({ updateCheck: { ...updateCheck, on: e.target.checked } });
+  if (e.target.checked) showUpdate({ force: true });
+  else $("update-line").hidden = true;
+};
+
 async function showAi() {
   const a = await aiAvailability();
   const line = $("ai-line");
@@ -195,11 +215,14 @@ window.addEventListener("hashchange", () => {
   readHash();
   const { resurface = true, autoSession = true } = await chrome.storage.local.get(["resurface", "autoSession"]);
   $("resurface").checked = resurface;
+  const { updateCheck } = await chrome.storage.local.get("updateCheck");
+  $("update-check").checked = !!updateCheck?.on;
   autoSessionOn = autoSession;
   tidyPrefs = await tidySettings();
   await render();
   showAi();
   storageWarning();
+  if (updateCheck?.on) showUpdate();
 })();
 
 // No quota (unlimitedStorage); above 25 MB (a heavy year is ≈ 7.6 MB) suggest a backup under Export.

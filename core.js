@@ -61,6 +61,48 @@ async function aiSession(options) {
   try { return await base.clone(); } catch { return LanguageModel.create(AI_LANGS); }
 }
 
+// ---------- update check (opt-in, off by default) ----------
+// The only request Pinax can make to the internet: once a week, if you switch it on, it asks GitHub
+// for the latest release. It only tells you; it never downloads or installs anything.
+
+const RELEASES_API = "https://api.github.com/repos/rkntan/pinax/releases/latest";
+const UPDATE_EVERY_MS = 7 * DAY_MS;
+
+// Pure: true when version `a` ("1.15.0" or "v1.15.0") is newer than `b`.
+function isNewerVersion(a, b) {
+  const nums = (v) => String(v).replace(/^v/i, "").split(".").map((x) => parseInt(x, 10) || 0);
+  const [x, y] = [nums(a), nums(b)];
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  }
+  return false;
+}
+
+// Pure: { version, url } from GitHub's "latest release" answer, or null if it looks wrong.
+function parseRelease(json) {
+  const tag = typeof json?.tag_name === "string" ? json.tag_name : "";
+  if (!/^v?\d+(\.\d+){0,2}$/.test(tag)) return null;
+  const url = typeof json.html_url === "string" && json.html_url.startsWith("https://github.com/rkntan/pinax/") ? json.html_url : null;
+  return url ? { version: tag.replace(/^v/i, ""), url } : null;
+}
+
+// Asks GitHub when it is due (or when `force`); keeps the answer in storage.
+// Returns { version, url } if a newer release exists, else null. Throws on network errors.
+async function checkForUpdate({ force = false } = {}) {
+  const { updateCheck = {} } = await chrome.storage.local.get("updateCheck");
+  if (!updateCheck.on && !force) return null;
+  const due = !updateCheck.lastCheck || Date.now() - updateCheck.lastCheck >= UPDATE_EVERY_MS;
+  if (due || force) {
+    const res = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
+    if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+    const found = parseRelease(await res.json());
+    Object.assign(updateCheck, { lastCheck: Date.now(), latest: found });
+    await chrome.storage.local.set({ updateCheck });
+  }
+  const latest = updateCheck.latest;
+  return latest && isNewerVersion(latest.version, chrome.runtime.getManifest().version) ? latest : null;
+}
+
 // ---------- reminders ----------
 
 const REMIND_PRESETS = [

@@ -125,6 +125,8 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 4b.6 (v1.14) A page that fits nothing shows up to two "Maybe …" chips; clicking one keeps it there.
 - [ ] 4b.7 (v1.14) Library footer › **Accuracy check** › Run check: needs the local AI ready; shows % right subject / exact and the misses first. Note the numbers; re-run after changing prompts.
 
+- [ ] 4b.8 (v1.15) Library footer: **Check for updates weekly** is off. Tick it: a line says "Pinax x.y is the latest." (or "is available" with a link). Untick: the line disappears. With it off, DevTools › Network on the Library shows no request to api.github.com.
+
 ## 5c. Inbox triage (v1.3)
 
 - [ ] 5c.1 With 5+ pages in the Inbox: bundle cards appear (e.g. "→ AI › Agents 4", "Duplicates", "Old & never read", "No suggestion yet").
