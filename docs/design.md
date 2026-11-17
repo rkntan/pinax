@@ -65,7 +65,7 @@ Course `#8959ff` · Video `#ff5a5f` · Tool `--ok` · Article `#ca8300` · Docs 
 ## Responsive
 
 - Library: grid `60px | 232px | 1fr`. At 860px or less the sidebar becomes a drawer behind the menu button and the rail is 52px. At 560px or less inputs go full width and padding shrinks. At 500px height or less the top bar stops being sticky.
-- Popup: 360px wide, max 600px tall, scrolls. Centred when opened as a tab.
+- Popup: fixed 360px wide; Chrome sizes the height to the content (its own limit is 600px and it scrolls). Never set `max-width: 100vw` or `max-height` on the popup body: the popup's viewport starts tiny and the page shrinks to fit it.
 - Side panel: fluid, minimum 240px.
 - Use `dvh` for full-height layouts, not `vh`.
 - Test at: 320, 480, 860, 1280 px wide and 400, 700 px tall, in light and dark.

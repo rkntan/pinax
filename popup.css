@@ -1,6 +1,6 @@
 /* Popup: one white surface, thin dividers, 16 px edges everywhere. */
-body { width: 360px; max-width: 100vw; max-height: 600px; overflow-y: auto; background: var(--surface); }
-@media (min-width: 700px) { body { margin: 0 auto; max-height: none; } }
+body { width: 360px; background: var(--surface); }
+@media (min-width: 700px) { body { margin: 0 auto; } } /* opened as a tab: centred */
 header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
 header h1 { font-size: 15px; flex: 1; }
 .status { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
