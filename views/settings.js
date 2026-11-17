@@ -85,13 +85,9 @@ async function fillSettings(root) {
   const importInput = h("input", { type: "file", accept: "application/json", hidden: true, onchange: async (e) => { await importBackup(e.target.files[0]); e.target.value = ""; } });
 
   root.replaceChildren(
-    settingsSection("Reminders", "One kept page comes back each day; the weekly review is Friday 16:00.",
+    settingsSection("Reminders", "",
       toggleRow("Daily nudge", resurface, (on) => { time.disabled = !on; chrome.storage.local.set({ resurface: on }); }),
       h("label", { class: "row-inline" }, "at ", time)),
-
-    settingsSection("Tabs and history", "Idle tabs are closed into History, where you can restore them for 30 days.",
-      toggleRow("Remember closed windows", autoSessionOn, (on) => { autoSessionOn = on; chrome.storage.local.set({ autoSession: on }); }),
-      ...tidyTools()),
 
     settingsSection("Updates", "Once a week Pinax asks GitHub for the latest release number. Nothing else is sent, and nothing is installed for you.",
       toggleRow("Check for updates weekly", s.updateCheck?.on !== false, async (on) => {
@@ -101,13 +97,13 @@ async function fillSettings(root) {
       }),
       checkNow, updateLine),
 
-    settingsSection("Your pages", `You are never tied to Pinax. Saved on this computer: ${(bytes / 1048576).toFixed(1)} MB.`,
+    settingsSection("Your pages", `${(bytes / 1048576).toFixed(1)} MB on this computer`,
       h("button", { class: "btn", title: "A bookmarks file Chrome, Edge, Firefox and Safari can import", onclick: () => exportPages("bookmarks") }, "Export bookmarks"),
       h("button", { class: "btn", title: "One row per saved page, for a spreadsheet", onclick: () => exportPages("csv") }, "Export CSV"),
       h("button", { class: "btn", title: "Everything, to restore into Pinax later", onclick: exportBackup }, "Backup"),
       h("label", { class: "btn", title: "Restore a Pinax backup (merges, no duplicates)" }, "Import backup", importInput)),
 
-    settingsSection("Subjects", "The standard list the AI files into, the same for everyone. It never invents new ones; you can still make your own collections. Open one to see its sub-subjects.",
+    settingsSection("Subjects", "",
       subjectsList()),
 
     settingsSection("Local AI", "",

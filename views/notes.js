@@ -83,7 +83,7 @@ function viewNotes() {
       onclick: () => downloadMd(`Notes ${new Date().toISOString().slice(0, 10)}`, `# Notes\n\n${list.map((n) => noteMarkdown(n, "##")).join("\n")}`),
     }, `Export ${list.length === all.length ? "all" : list.length} (.md)`) : null);
   if (!list.length) {
-    return emptyEl(all.length ? "No matches" : "No notes yet", "Open any article, select a passage and highlight it. Your notes and highlights stay linked to the page.");
+    return emptyEl(all.length ? "No matches" : "No notes yet", "Highlight a passage on any page.");
   }
   const itemByKey = new Map();
   for (const x of data.items) if (!itemByKey.has(pageKey(x.url))) itemByKey.set(pageKey(x.url), x);

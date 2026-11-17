@@ -23,7 +23,7 @@ function quickEntries() {
   for (const n of Object.values(data.notes)) out.push({ kind: "Notes", label: n.title, sub: n.highlights[0]?.text || n.text.slice(0, 80), extra: `${n.text} ${n.summary?.text || ""} ${n.highlights.map((x) => `${x.text} ${x.comment}`).join(" ")}`, fav: n.url, go: () => { setSearch(n.title); go("notes"); } });
   for (const p of data.pins) out.push({ kind: "Pin", label: p.title, sub: hostOf(p.url), fav: p.url, go: () => window.open(p.url, "_blank") });
   for (const w of data.phrases) out.push({ kind: w.kind === "quote" ? "Highlight" : "Word", label: w.text, sub: w.translation || w.ai?.definition || w.title, go: () => { setSearch(w.text); go("phrases"); } });
-  const views = [["Inbox", "inbox"], ["Weekly review", "review"], ["All pages", "all"], ["Notes", "notes"], ["Phrasebook", "phrases"], ["History", "history"], ["Mind map", "map"]];
+  const views = [["Inbox", "inbox"], ["Weekly review", "review"], ["All pages", "all"], ["Notes", "notes"], ["Phrasebook", "phrases"], ["Mind map", "map"]];
   for (const [label, v] of views) out.push({ kind: "View", label, go: () => go(v) });
   return out;
 }

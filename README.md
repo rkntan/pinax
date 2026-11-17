@@ -1,6 +1,6 @@
 # pinax
 
-a chrome extension to save pages for later, sort them into collections, and keep your tabs tidy.
+a chrome extension to save pages for later, sort them into collections, and group your tabs.
 
 sorting uses chrome's built-in ai (gemini nano). it runs on your computer, no account or api key needed. without it, simple rules are used.
 

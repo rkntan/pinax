@@ -1,7 +1,6 @@
-// Background worker: right-click "Save to Inbox", Alt+Shift+S, reminders, daily resurface, auto-tidy.
-importScripts("taxonomy.js", "core.js", "tidy.js");
+// Background worker: right-click "Save to Inbox", Alt+Shift+S, reminders, daily resurface, research trail, read tracking.
+importScripts("taxonomy.js", "core.js");
 
-const TIDY_ALARM = "auto-tidy";
 const RESURFACE_ALARM = "resurface";
 const REVIEW_ALARM = "weekly-review";
 
@@ -14,13 +13,10 @@ const badge = async () => refreshBadge(await cachedItems());
 async function syncAlarms() {
   chrome.alarms.clear("read-tick"); // the old 1-minute tick; read tracking now uses READ_CHECK
   await migrate();
-  await pruneHistory();
+  chrome.alarms.clear("auto-tidy"); // the old idle-tab alarm
   if (!(await chrome.alarms.get(REVIEW_ALARM))) {
     chrome.alarms.create(REVIEW_ALARM, { when: nextReviewTime(), periodInMinutes: 7 * 24 * 60 });
   }
-  const { autoTidy } = await tidySettings();
-  if (!autoTidy) await chrome.alarms.clear(TIDY_ALARM);
-  else if (!(await chrome.alarms.get(TIDY_ALARM))) chrome.alarms.create(TIDY_ALARM, { delayInMinutes: 1, periodInMinutes: 60 });
 
   const { resurface = true, nudgeTime = DEFAULT_NUDGE } = await chrome.storage.local.get(["resurface", "nudgeTime"]);
   if (!resurface) await chrome.alarms.clear(RESURFACE_ALARM);
@@ -52,7 +48,7 @@ chrome.runtime.onMessage.addListener((m) => { if (m?.type === "sync-alarms") syn
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.nudgeTime) chrome.alarms.clear(RESURFACE_ALARM).then(syncAlarms); // new time: schedule again
-  else if (changes.autoTidy || changes.resurface) syncAlarms();
+  else if (changes.resurface) syncAlarms();
   if (changes.items && area === "local") {
     const items = changes.items.newValue || [];
     itemsCache = Promise.resolve(items);
@@ -143,22 +139,16 @@ chrome.commands.onCommand.addListener(async (command, cmdTab) => {
 // ---------- alarms ----------
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === TIDY_ALARM) {
-    const { autoTidy, tidyDays } = await tidySettings();
-    if (autoTidy) await tidyTabs(tidyDays);
-  } else if (alarm.name === RESURFACE_ALARM) {
-    await pruneHistory();
+  if (alarm.name === RESURFACE_ALARM) {
     await resurfaceOne();
   } else if (alarm.name === REVIEW_ALARM) {
     const n = forReview(await getItems()).length;
-    const w = quizQueue(await getPhrases()).length;
-    if (n || w) {
-      const parts = [n && `${n} page${n > 1 ? "s" : ""} in your Inbox`, w && `${w} word${w > 1 ? "s" : ""} to practise`].filter(Boolean);
+    if (n) {
       chrome.notifications.create("review", {
         type: "basic",
         iconUrl: "icons/icon128.png",
         title: "Weekly review",
-        message: parts.join(" · ") + ".",
+        message: `${n} page${n > 1 ? "s" : ""} in your Inbox.`,
         buttons: [{ title: "Review now" }],
         requireInteraction: true,
       });
@@ -236,63 +226,6 @@ chrome.notifications.onButtonClicked.addListener(async (nid, button) => {
     await updateItem(id, { remindAt: when });
   } else await setReminder(id, "tomorrow");
   chrome.notifications.clear(nid);
-});
-
-// ---------- auto-session when a window closes ----------
-// Chrome gives no tab list once a window is gone, so keep a snapshot of each normal window
-// (in session storage) and turn it into a temporary session when the window closes.
-
-const snapTimers = {};
-// One winSnaps read-modify-write at a time (at startup every window snaps at once).
-let snapQueue = Promise.resolve();
-const serialSnap = (fn) => (snapQueue = snapQueue.then(fn).catch((e) => console.warn("window snapshot", e)));
-
-function scheduleSnap(windowId) {
-  if (windowId == null || windowId < 0) return;
-  clearTimeout(snapTimers[windowId]);
-  snapTimers[windowId] = setTimeout(() => snapWindow(windowId), 1500);
-}
-
-async function snapWindow(windowId) {
-  let win;
-  try { win = await chrome.windows.get(windowId, { populate: true }); } catch { return; }
-  if (win.type !== "normal" || win.incognito) return;
-  const snap = await snapshotTabs(win.tabs.filter((t) => /^https?:/.test(t.url)));
-  await serialSnap(async () => {
-    const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
-    winSnaps[windowId] = snap;
-    await chrome.storage.session.set({ winSnaps });
-  });
-}
-
-chrome.tabs.onCreated.addListener((t) => scheduleSnap(t.windowId));
-chrome.tabs.onUpdated.addListener((id, change, t) => { if (change.status === "complete" || change.title || change.groupId !== undefined) scheduleSnap(t.windowId); });
-chrome.tabs.onMoved.addListener((id, info) => scheduleSnap(info.windowId));
-chrome.tabs.onAttached.addListener((id, info) => scheduleSnap(info.newWindowId));
-chrome.tabs.onDetached.addListener((id, info) => scheduleSnap(info.oldWindowId));
-chrome.tabs.onRemoved.addListener((id, info) => { if (!info.isWindowClosing) scheduleSnap(info.windowId); });
-chrome.tabGroups.onUpdated.addListener((g) => scheduleSnap(g.windowId));
-
-chrome.windows.onRemoved.addListener(async (windowId) => {
-  clearTimeout(snapTimers[windowId]);
-  const snap = await serialSnap(async () => {
-    const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
-    const s = winSnaps[windowId];
-    delete winSnaps[windowId];
-    await chrome.storage.session.set({ winSnaps });
-    return s;
-  });
-  const { autoSession = true } = await chrome.storage.local.get("autoSession");
-  if (autoSession && snap && snap.length >= 2) {
-    await addSession(snap, "auto", `closed window · ${snap.length} tabs`, true);
-  }
-});
-
-// Snapshot windows that were already open when the worker started (and have no snapshot yet:
-// the worker also restarts after sleeping).
-chrome.windows.getAll({ windowTypes: ["normal"] }).then(async (wins) => {
-  const { winSnaps = {} } = await chrome.storage.session.get("winSnaps");
-  wins.filter((w) => !winSnaps[w.id]).forEach((w) => scheduleSnap(w.id));
 });
 
 // ---------- research trail: pages opened in a "working on" window join that project ----------

@@ -15,8 +15,8 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 
 - [ ] 1.1 Open the Library (Alt+Shift+L). Your old pages are in Inbox / collections, pins are on the left rail.
 - [ ] 1.2 Old workspaces appear under **Projects** with their working tabs; **Open** opens them in a new window.
-- [ ] 1.3 **History** shows old sessions and tidied tabs; old tidied entries say about "expires in 30d".
-- [ ] 1.4 Inspect the Library → Console: `chrome.storage.local.get("schema").then(console.log)` prints `{schema: 4}`.
+- [ ] 1.3 There is no History entry in the Library (removed in v1.20); `chrome.storage.local.get("history")` returns `{}` after the upgrade.
+- [ ] 1.4 Inspect the Library → Console: `chrome.storage.local.get("schema").then(console.log)` prints `{schema: 8}`.
 
 ## 2. Popup basics
 
@@ -24,7 +24,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 2.2 The popup has no pins row and no footer counts (those live in the Library); ☆ still pins the current page.
 - [ ] 2.3 "This window" shows the tab and group counts and "✕ 1 duplicate"; clicking it closes the duplicate and the button disappears (no duplicates = no button).
 - [ ] 2.4 **✦ Organise with AI**: tabs are grouped with names and colours; message says "N groups by AI" (or "by site").
-- [ ] 2.5 **⋯ → Ungroup tabs** removes the groups. The ⋯ menu also has All tabs → Inbox, Park this window…, Track for a project…, Snapshot window; a click outside or Esc closes it.
+- [ ] 2.5 **⋯ → Ungroup tabs** removes the groups. The ⋯ menu also has All tabs → Inbox, Park this window…, Track for a project…; a click outside or Esc closes it.
 - [ ] 2.7 Popup looks: one white surface, thin lines between header / page / window, left and right edges line up; no empty space at the bottom when there is no message.
 - [ ] 2.6 Press **Alt+Shift+O** on a normal page: tabs get grouped, a "Tabs organised" notification appears.
 
@@ -55,10 +55,14 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 5.2 Select a 2-4 word phrase → **Alt+Shift+W** → added as a phrase.
 - [ ] 5.3 Select a whole sentence (6+ words) → it becomes a **highlight** ("Highlighted"); in the Library that page's details show it.
 - [ ] 5.4 On the Polish page, add a word: language badge says **PL**; translation "→ …" appears (may need Chrome's one-time translator download).
-- [ ] 5.5 Library → **Phrasebook**: "This week" group, lime edge on the newest, sentence with the word in bold, AI definition marked "AI", dictionary links open the right word (Cambridge / Collins / PWN).
+- [ ] 5.5 Library → **Phrasebook**: one section per language (e.g. English, Italian) with a count, lime edge on the newest, sentence with the word in bold, AI definition marked "AI", dictionary links open the right word (Cambridge / Collins / PWN).
 - [ ] 5.6 Add the same word again: it shows "2×" instead of a second card.
 - [ ] 5.7 **+ Comment** adds your own comment; **×** deletes with Undo.
-- [ ] 5.8 Weekly review → **Words** tab: Space shows the meaning, → Got it, ← Again; done screen counts them.
+- [ ] 5.8 Add an Italian word: it appears under **Italian** with an English meaning and an Italian example; click the heading to fold it.
+- [ ] 5.8a **☆** favourites a card; **★ n** in the filter bar shows only favourites. **🔊** reads the word aloud in its language.
+- [ ] 5.8b **Edit**: change tags, meaning, example; Save. Change the language: the meaning is written again. Esc / Cancel leaves it unchanged.
+- [ ] 5.8c Tags show as #chips; clicking one filters. Sort menu: Newest / A to Z / Most seen.
+- [ ] 5.8d **Export CSV** downloads one row per word (word, meaning, language, example…); Anki's Import File reads it.
 - [ ] 5.9 On a Chrome page (e.g. the Web Store) adding a word still works, just without a sentence.
 
 ## 5b. Notes and read / unread (v1.2)
@@ -72,7 +76,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 5b.7 Popup on that page shows "N highlights + notes" and a **✎ Notes** button that opens Notes.
 - [ ] 5b.8 Old Phrasebook quotes (if you had any) now appear as highlights in Notes.
 - [ ] 5b.9 Save a page to the Inbox: its row is **bold** (unread). Read it for 2+ minutes in the front tab: the row turns normal (read). Tick/untick **Read** in its details.
-- [ ] 5b.10 Popup **All tabs → Inbox**: every tab is saved, the window shows the Inbox, and History has a "N tabs sent to Inbox" snapshot.
+- [ ] 5b.10 Popup **All tabs → Inbox**: every tab is saved, and the window shows the Inbox.
 
 ## 5a. Highlighter pen (v1.6)
 
@@ -112,7 +116,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 5h.1 Select text on an allowed page (the bubble shows), press **H**: "Highlighted", yellow Key point in the side panel.
 - [ ] 5h.2 Select text, press **C**: the comment box opens; type (letters like h/c/w just type), Enter saves the highlight with the comment.
 - [ ] 5h.3 Select a word, press **W**: "Added to Phrasebook".
-- [ ] 5h.4 With nothing selected, or while typing in a search box on the page, H/C/W do nothing extra; Ctrl+H still opens History, and Ctrl+C still copies while the bubble is open.
+- [ ] 5h.4 With nothing selected, or while typing in a search box on the page, H/C/W do nothing extra; Ctrl+C still copies while the bubble is open.
 - [ ] 5h.5 **Esc** closes the bubble.
 
 ## 4b. Standard subjects (v1.13)
@@ -132,9 +136,8 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 
 ## 4c. Settings page (v1.18)
 
-- [ ] 4c.1 The left rail has a gear at the bottom; clicking it opens **Settings** (gear highlighted). Sections: Reminders, Tabs and history, Updates, Your pages, Local AI, About. The sidebar footer only shows the AI status line.
+- [ ] 4c.1 The left rail has a gear at the bottom; clicking it opens **Settings** (gear highlighted). Sections: Reminders, Updates, Your pages, Subjects, Local AI, About. The sidebar footer only shows the AI status line.
 - [ ] 4c.2 Reminders: untick **Daily nudge**: the time box greys out. Tick it, set a time two minutes ahead: a page notification arrives then (and daily after).
-- [ ] 4c.3 Tabs and history: remember-closed-windows, idle days, automatic tidy and the tidy button work as before; History only has a link to these settings.
 - [ ] 4c.4 Your pages: Export bookmarks, Export CSV, Backup, Import backup all work from here; the storage size is shown.
 - [ ] 4c.5 About shows the installed version and the GitHub link.
 
@@ -184,15 +187,12 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 6.13 **Finish…**: choose "send to Inbox" for unread, type a collection for all → **Finish**. Project shows "✓" in the sidebar, buttons are gone, useful pages are in that collection; **Reopen** brings it back.
 - [ ] 6.14 Popup **Project** save option adds the current page to a project's sources.
 
-## 7. History
+## 7. History and Tidy removed (v1.20)
 
-- [ ] 7.1 Popup → **⋯ → Snapshot window**: message "Snapshot added to History…"; History shows "Snapshot" with the date + AI name.
-- [ ] 7.2 Close a window with 2+ tabs: within a few seconds History shows "Closed window · N tabs".
-- [ ] 7.3 Filter chips (Closed window / Snapshot / Tidied) filter the list.
-- [ ] 7.4 Per tab: **Restore** opens it and removes it from the entry; **→ Inbox**, **→ Project**, **→ Collection** move it (it leaves the entry); **×** deletes with Undo.
-- [ ] 7.5 **Make project** turns an entry into a project and opens it.
-- [ ] 7.6 Settings › Tabs and history › Tidy: set "idle for 1 day" → **Tidy N idle tabs now** closes idle tabs (never pinned, active or audio tabs); they appear as "Tidied".
-- [ ] 7.7 Settings › untick "Remember closed windows", close a window: nothing new appears. Tick it again.
+- [ ] 7.1 The Library sidebar has no History entry and Settings has no "Tabs and history" section; the popup ⋯ menu has no Snapshot window.
+- [ ] 7.2 Close a window with 2+ tabs: nothing is recorded anywhere; Chrome's own Ctrl+Shift+T still reopens it.
+- [ ] 7.3 After upgrading from 1.19: `chrome.storage.local.get(["history","autoTidy","tidyDays","autoSession"])` returns `{}`; the "auto-tidy" alarm is gone (`chrome.alarms.getAll()` in the service-worker console).
+- [ ] 7.4 Importing a backup made before v1.20 works; its history is ignored.
 
 ## 8. Reminders and notifications
 
@@ -200,7 +200,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
       `getItems().then(i => updateItem(i[0].id, { remindAt: Date.now() - 1000 }))`
       The item shows a lime **due** chip; the popup footer shows "1 due" and the icon badge "1".
 - [ ] 8.2 Set a page's reminder to "Tonight 20:00" (or wait for 3.1's reminder): the notification has **Open** and **Snooze 1 day**; Open opens the page.
-- [ ] 8.3 (Friday 16:00, or skip) the weekly review notification lists pages and words; **Review now** opens the review.
+- [ ] 8.3 (Friday 16:00, or skip) the weekly review notification lists pages; **Review now** opens the review.
 
 ## 9. Search, shortcuts, undo, backup
 
@@ -209,7 +209,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 9.3 Undo message disappears after ~8 s; Ctrl+Z after that does nothing.
 - [ ] 9.4 **Backup** again, then **Import backup** the file from 0.1 (both in Settings › Your pages): message says how many pages/projects/pins you have; nothing is duplicated.
 - [ ] 9.5 Dark mode (Windows → Settings → Colours → Dark): popup and Library are readable.
-- [ ] 9.6 The export file has `"schema": 7` and a `settings` block; importing it into a fresh profile brings back your settings (daily nudge, auto-tidy, hidden docks) and reminders fire without restarting Chrome.
+- [ ] 9.6 The export file has `"schema": 8` and a `settings` block; importing it into a fresh profile brings back your settings (daily nudge and time, hidden docks) and reminders fire without restarting Chrome.
 - [ ] 9.7 Colours (v1.11): violet buttons look slightly deeper; highlights on a dark website (e.g. GitHub dark) show dark, readable text; the collapsed page dock shows a thin edge on dark sites.
 
 ## 10. Speed

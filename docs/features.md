@@ -15,7 +15,6 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 | **AI reason** | the AI's one-line "why" for a saved page |
 | **Summary** | the AI summary of a page or of your highlights, in Notes |
 | **Phrasebook** | the words and phrases you add from pages |
-| **History** | temporary tab sets: closed windows, snapshots, tidied tabs (30 days) |
 | **Delete** / **Remove** | Delete destroys data; Remove takes something out of a container (a source from a project, a tag) |
 | **Reminder** / **Daily nudge** | the bell on one page / one kept page resurfaced once a day (time set in Settings, default 10:00) |
 
@@ -26,7 +25,7 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 
 ## Settings (v1.18)
 The gear at the bottom of the left rail opens one page for everything you can set: daily nudge on/off and its time,
-remember closed windows, tidy idle tabs, the weekly update check, exports and import, the list of standard subjects (with your page counts), local AI status, version.
+the weekly update check, exports and import, the list of standard subjects (with your page counts), local AI status, version.
 Every "Keep in" box also suggests the standard subjects as you type, so you can file into one before it exists in your sidebar (collections are created when the first page is kept there).
 
 ## Update check (v1.15; on by default since v1.17)
@@ -75,9 +74,7 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
 - **Finish**: keep useful sources in collections, handle what is left, export Markdown
   (title, link, comment, highlights). Finished projects are read-only and can be reopened.
 
-## Projects, History, mind map
-- **History** keeps closed windows, snapshots and tidied tabs for 30 days. **Make project**
-  keeps an entry forever.
+## Projects and mind map
 - **Projects** (formerly Workspaces): named tab sets in the sidebar and the popup; one click opens them all in a new
   window with their groups. Update from the current window, add/remove single tabs, drag a page
   row onto a project to add it.
@@ -130,8 +127,15 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
 - Up to 5 words = word/phrase; longer becomes a highlight in that page's Notes.
 - Local AI adds a short definition + example (labelled AI); non-English words get an offline
   translation; dictionary links: Cambridge, Collins, Google (EN), PWN, Wiktionary (PL).
-- Library › Phrasebook groups by week; the 10 newest words this week are highlighted.
-- Weekly review › **Words**: show the word, reveal the meaning, Got it (→) / Again (←).
+- Library › Phrasebook has one section per language (English, Italian…), biggest first; click a
+  heading to fold it. The meaning is English; the example is in the word's own language.
+- Each card: ☆ favourite, 🔊 reads the word or example aloud in its language (browser voices),
+  grammar (article/gender, plural or verb forms, from the local AI), #tags, comment.
+- **Edit** on a card: fix the word, language (the meaning is then written again), meaning, example,
+  gender, forms, translation and tags. **Rewrite with AI** asks the local AI again.
+- Filter bar: ★ favourites, #tags, language chips; sort Newest / A to Z / Most seen.
+- **Export CSV**: one row per word; opens in a spreadsheet or imports into Anki.
+- The 10 newest words this week have a lime edge.
 
 ## Save to Inbox
 - Popup **Save to Inbox** (optional reminder via the bell; ▾ keeps it in a collection or adds it to a project),
@@ -142,15 +146,6 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
   **Open** / **Snooze 1 day**; the icon badge counts what is due.
 - **Daily nudge**: once a day one forgotten kept page comes back ("From your collections"). Switch it off or pick the time in Settings (gear, bottom of the left rail).
 - **Library page** (popup -> Library ↗): filters, search, due strip, **Mind map** by topic.
-
-## History (30 days)
-- One timeline, grouped by day: **closed windows** (2+ tabs, switch off in Settings: "Remember closed windows"),
-  **snapshots** ("Snapshot window" in the popup, named "3 Nov 14:20 · <AI name>") and **tidied** tabs.
-- **Tidy** (settings in Settings) closes tabs idle for N days; pinned, active, audio and non-web
-  tabs are skipped. "Automatically" checks hourly.
-- Per entry: Restore all, Make project, Rename, Delete. Per tab: Restore, → Inbox, → Project,
-  → Collection, Pin, × Delete. A tab moved somewhere leaves History.
-- Everything expires after 30 days. Tidied tabs from before v0.9 got 30 days from the upgrade.
 
 ## Shortcuts and quick search
 | Keys | Does |
@@ -183,9 +178,14 @@ You never depend on Pinax: Settings › Your pages also has **Export bookmarks**
 Fonts: Inter and Space Grotesk (SIL Open Font License), bundled in `fonts/`.
 
 ## Development
-- Plain JavaScript, no build step. Library page scripts: `core.js`, `tidy.js`, `ui.js`, `views/*.js`, `library.js`.
-- Data lives in `chrome.storage.local` (schema 7: `items`, `collections`, `pins`, `projects`, `history`, `phrases`, `notes`).
+- Plain JavaScript, no build step. Library page scripts: `taxonomy.js`, `core.js`, `ui.js`, `views/*.js`, `library.js`.
+- Data lives in `chrome.storage.local` (schema 8: `items`, `collections`, `pins`, `projects`, `phrases`, `notes`).
   Upgrades run in `migrate()` (export a backup first to keep a copy). Favicons are not stored; they are shown with `faviconFor(url)`.
-  Internal names (`ws`, `trail`, `why`, history kind `"saved"`, backup marker `app: "tab-organiser"`) predate the
+  Internal names (`ws`, `trail`, `why`, backup marker `app: "tab-organiser"`) predate the
   wording above and stay as they are.
 - Tests (pure logic in `core.js`): `node --test "tests/*.test.js"`
+
+## Removed in v1.20
+History (closed-window memory, "Snapshot window", the 30-day timeline) and Tidy (closing idle tabs) are gone: Pinax keeps
+what you save on purpose, not a record of your browsing. "All tabs → Inbox" and "Park this window" cover the same need on purpose.
+On upgrade the old history is deleted from storage; a backup made before upgrading still imports (its history is ignored).

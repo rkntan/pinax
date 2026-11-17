@@ -87,7 +87,7 @@ test("UI shows page icons only through faviconFor (no stored or live favIconUrl)
 });
 
 test("row images load lazily", () => {
-  for (const f of ["items.js", "notes.js", "phrasebook.js", "history.js", "projects.js"]) {
+  for (const f of ["items.js", "notes.js", "phrasebook.js", "projects.js"]) {
     const src = fs.readFileSync(path.join(root, "views", f), "utf8");
     for (const m of src.matchAll(/h\("img", \{[^}]*\}/g)) assert.match(m[0], /loading: "lazy"/, `${f}: ${m[0]}`);
   }

@@ -1,4 +1,4 @@
-// Storage size and backup tests: no stored favicon URLs, schema 7, trail cap, backup merge.
+// Storage size and backup tests: no stored favicon URLs, schema 8, trail cap, backup merge.
 // Run: node --test "tests/*.test.js"
 
 const test = require("node:test");
@@ -48,19 +48,19 @@ const v6 = () => ({
   backupV2: { items: [] },
 });
 
-test("schema is 7", () => {
-  assert.equal(core.SCHEMA, 7);
+test("schema is 8", () => {
+  assert.equal(core.SCHEMA, 8);
 });
 
-test("migrateData v6 -> v7 strips stored favicon URLs everywhere and drops backupV2", () => {
+test("migrateData v6 -> v8 strips stored favicon URLs everywhere and drops backupV2", () => {
   const input = v6();
   const out = plain(core.migrateData(input));
-  assert.equal(out.schema, 7);
+  assert.equal(out.schema, 8);
   assert.equal(JSON.stringify(out).includes("favIconUrl"), false);
   assert.equal("backupV2" in out, false);
   // everything else stays
   assert.deepEqual(out.items[0], { id: "a", url: "https://a.test/", title: "A", read: false });
-  assert.deepEqual(out.history[0].tabs[0], { url: "https://h.test/", title: "H", group: "", color: "" });
+  assert.equal("history" in out, false);
   assert.equal(out.projects[0].sources[0].status, "unread");
   assert.equal(out.notes["https://n.test/"].text, "x");
   assert.equal(input.items[0].favIconUrl, FAV, "input must not change");
@@ -70,8 +70,9 @@ test("migrateData v6 -> v7 strips stored favicon URLs everywhere and drops backu
 test("migrate() upgrades storage and removes the old backupV2 key (and never writes a new one)", async () => {
   const store = fakeStore(v6());
   await load(store).migrate();
-  assert.equal(store.data.schema, 7);
+  assert.equal(store.data.schema, 8);
   assert.equal("backupV2" in store.data, false);
+  assert.equal("history" in store.data, false);
   assert.equal(JSON.stringify(store.data).includes("favIconUrl"), false);
   const old = fakeStore({ schema: 2, items: [{ id: "a", stage: "inbox", path: "Unsorted", tags: [] }] });
   await load(old).migrate();
@@ -112,9 +113,10 @@ test("mergeBackup refuses a file from a newer schema, before anything is merged"
 });
 
 test("mergeBackup imports an old version 4 file through migrateData, without duplicates", () => {
-  const cur = { items: [{ id: "a", url: "https://a.test/", title: "mine" }], pins: [], projects: [], history: [], phrases: [], notes: {}, collections: ["AI"] };
+  const cur = { items: [{ id: "a", url: "https://a.test/", title: "mine" }], pins: [], projects: [], phrases: [], notes: {}, collections: ["AI"] };
   const file = {
     app: "tab-organiser", version: 4, schema: 4, exported: 1,
+    history: [{ id: "h", kind: "auto", saved: 1, tabs: [{ url: "https://h.test/" }] }],
     items: [{ id: "a", url: "https://a.test/", title: "theirs" }, { id: "b", url: "https://b.test/", status: "done", path: "ML", favIconUrl: FAV }],
     collections: ["ML"],
     pins: [{ id: "p", url: "https://p.test/", favIconUrl: FAV }],
@@ -125,16 +127,16 @@ test("mergeBackup imports an old version 4 file through migrateData, without dup
   assert.equal(JSON.stringify(next).includes("favIconUrl"), false, "v6 -> v7 step ran");
   assert.deepEqual(next.collections, ["AI", "ML"]);
   assert.equal(next.pins.length, 1);
+  assert.equal("history" in next, false, "old history is ignored");
 });
 
 test("mergeBackup restores settings when the file has them, and only known settings", () => {
-  const file = { app: "tab-organiser", schema: 7, settings: { autoTidy: true, tidyDays: 7, resurface: false, dockHidden: ["https://x.test"], evil: 1 } };
+  const file = { app: "tab-organiser", schema: 7, settings: { autoTidy: true, tidyDays: 7, autoSession: true, resurface: false, dockHidden: ["https://x.test"], evil: 1 } };
   const next = plain(core.mergeBackup({}, file));
-  assert.equal(next.autoTidy, true);
-  assert.equal(next.tidyDays, 7);
+  for (const k of ["autoTidy", "tidyDays", "autoSession"]) assert.equal(k in next, false, k + " is no longer a setting");
   assert.equal(next.resurface, false);
   assert.deepEqual(next.dockHidden, ["https://x.test"]);
   assert.equal("evil" in next, false);
   assert.equal("autoSession" in plain(core.mergeBackup({}, { app: "tab-organiser", schema: 7 })), false, "no settings in file: none touched");
-  for (const k of ["resurface", "autoSession", "autoTidy", "tidyDays", "dockHidden", "dockY"]) assert.ok(core.SETTINGS_KEYS.includes(k), k);
+  for (const k of ["resurface", "dockHidden", "dockY"]) assert.ok(core.SETTINGS_KEYS.includes(k), k);
 });

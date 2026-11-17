@@ -141,7 +141,7 @@ const byStatus = (it) => state.status === "all" || (state.status === "read" ? !!
 const byType = (it) => state.type === "All" || it.type === state.type;
 
 function emptyEl(title, text) {
-  return h("div", { class: "empty" }, h("h3", {}, title), h("p", {}, text));
+  return h("div", { class: "empty" }, h("h3", {}, title), text ? h("p", {}, text) : null);
 }
 
 // ---------- selecting many, bundles, keys ----------
@@ -254,11 +254,11 @@ function viewInbox() {
       onclick: () => withUndo(`Kept ${suggested.length} pages`, ["items", "collections"], () => keepSuggested(suggested.map((x) => x.id))),
     }, `Keep all ${suggested.length} as suggested`) : null,
     waiting ? h("button", { class: "btn primary", onclick: () => go("review") }, `Review ${waiting} one by one`) : null);
-  if (!base.length) return emptyEl("Inbox is clear", "Save pages from the popup (also “All tabs → Inbox”), right-click → “Save link to Inbox”, or press Alt+Shift+S.");
+  if (!base.length) return emptyEl("Inbox is clear", "Save a page with Alt+Shift+S.");
   return h("div", {},
     f || base.length < 3 ? null : bundlesEl(),
     selBar(),
-    list.length ? listEl(list, "inbox") : emptyEl("Nothing here", "Try another filter."),
+    list.length ? listEl(list, "inbox") : emptyEl("Nothing here", ""),
     h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
 
@@ -271,7 +271,7 @@ function viewAll() {
   return h("div", {},
     selBar(),
     due.length ? [h("h3", { class: "section-title" }, h("span", { class: "chip lime" }, "Due now"), String(due.length)), listEl(due, "due"), h("br")] : null,
-    rest.length ? listEl(rest, "all") : emptyEl("Nothing here", "Try another filter or search."),
+    rest.length ? listEl(rest, "all") : emptyEl("Nothing here", ""),
     h("p", { class: "keys-hint small muted" }, KEYS_HINT));
 }
 

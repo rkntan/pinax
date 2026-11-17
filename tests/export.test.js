@@ -48,3 +48,15 @@ test("itemsCsv has a header, quotes awkward cells and blocks spreadsheet formula
   assert.match(rows[4], /^Loose page,.*,,kept,/);
   assert.match(rows[5], /^"'=HYPERLINK/);
 });
+
+test("phrasesCsv: one row per word (no quotes), meaning first, formulas blocked", () => {
+  const rows = get("phrasesCsv")([
+    { text: "libro", kind: "word", lang: "it", ai: { definition: "a book", pos: "noun", gender: "il, masculine", forms: "plural: libri", example: "Leggo un libro." }, translation: "book", tags: ["school", "daily"], url: "https://e.com" },
+    { text: "=cmd", kind: "word", lang: "en" },
+    { text: "a long passage", kind: "quote", lang: "en" },
+  ]).replace(/^﻿/, "").trim().split("\r\n");
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0], "word,meaning,language,type,gender,forms,example,sentence,note,tags,source");
+  assert.equal(rows[1], 'libro,a book → book,Italian,noun,"il, masculine",plural: libri,Leggo un libro.,,,school daily,https://e.com');
+  assert.match(rows[2], /^'=cmd,/);
+});

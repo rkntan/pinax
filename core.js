@@ -582,12 +582,34 @@ function bookmarksHtml(items, pins = [], projects = []) {
 
 // Pure: one row per saved page, for a spreadsheet. Cells that start with = + - @ are
 // prefixed with ' so a spreadsheet never runs them as formulas.
+function csvCell(v) {
+  let t = String(v ?? "");
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+// Pure: the Phrasebook as CSV. Opens in a spreadsheet, and Anki's "Import File" reads it
+// as is (first column = front, second = back).
+function phrasesCsv(phrases) {
+  const rows = phrases.filter((p) => p.kind !== "quote").map((p) => [
+    p.text,
+    [p.ai?.definition, p.translation && `→ ${p.translation}`].filter(Boolean).join(" "),
+    langName(p.lang),
+    p.ai?.pos || "",
+    p.ai?.gender || "",
+    p.ai?.forms || "",
+    p.ai?.example || "",
+    p.sentence || "",
+    p.note || "",
+    (p.tags || []).join(" "),
+    p.url || "",
+  ]);
+  return "﻿" + [["word", "meaning", "language", "type", "gender", "forms", "example", "sentence", "note", "tags", "source"], ...rows]
+    .map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
 function itemsCsv(items) {
-  const cell = (v) => {
-    let t = String(v ?? "");
-    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
-    return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-  };
+  const cell = csvCell;
   const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : "");
   const rows = items.map((it) => [it.title, it.url, it.stage === "inbox" ? "" : it.path === UNSORTED ? "" : (it.path || "").split("/").join(" > "), it.stage === "inbox" ? "inbox" : "kept", it.type, (it.tags || []).join(" "), it.why || "", it.read ? "yes" : "no", day(it.created)]);
   return "﻿" + [["title", "url", "collection", "status", "type", "tags", "note", "read", "saved"], ...rows].map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
@@ -601,21 +623,19 @@ function itemsCsv(items) {
 // v5: page `status` (todo / doing / done) replaced by `read` (done = read).
 // v6: Phrasebook quotes move into page notes (`notes`) as highlights.
 // v7: no stored favicon URLs (shown with faviconFor(url)); the old `backupV2` copy is dropped.
+// v8: History and Tidy removed; `history` is dropped (old backups still import, history ignored).
 
-const SCHEMA = 7;
-const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library", "phrases", "notes"];
+const SCHEMA = 8;
+const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "library", "phrases", "notes"];
 // user settings in chrome.storage.local (go into backups; caches and session data do not)
-const SETTINGS_KEYS = ["resurface", "nudgeTime", "autoSession", "autoTidy", "tidyDays", "dockHidden", "dockY"];
-
-function sessionKind(s) {
-  return s.kind || (s.tidied ? "tidied" : "saved");
-}
+const SETTINGS_KEYS = ["resurface", "nudgeTime", "dockHidden", "dockY"];
 
 const byIdUnique = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
 
 // Pure: upgrades stored data to the current schema; never changes its input.
 function migrateData(input, now = Date.now()) {
   const d = structuredClone(input);
+  const oldKind = (s) => s.kind || (s.tidied ? "tidied" : "saved"); // v3/v4 steps only
   let schema = d.schema || 1;
   if (schema < 2) {
     const cols = new Set(d.collections || []);
@@ -631,21 +651,21 @@ function migrateData(input, now = Date.now()) {
   }
   if (schema < 3) {
     const lib = d.library || [];
-    const ws = lib.filter((s) => sessionKind(s) === "workspace");
-    const rest = lib.filter((s) => sessionKind(s) !== "workspace");
+    const ws = lib.filter((s) => oldKind(s) === "workspace");
+    const rest = lib.filter((s) => oldKind(s) !== "workspace");
     d.projects = byIdUnique([
       ...(d.projects || []),
       ...ws.map((s) => ({ id: s.id, name: s.name, created: s.saved, updated: s.updated || s.saved, tabs: s.tabs || [] })),
     ]);
     d.history = byIdUnique([
       ...(d.history || []),
-      ...rest.map((s) => ({ id: s.id, name: s.name, saved: s.saved, kind: sessionKind(s), tabs: s.tabs || [] })),
+      ...rest.map((s) => ({ id: s.id, name: s.name, saved: s.saved, kind: oldKind(s), tabs: s.tabs || [] })),
     ]);
     delete d.library;
     schema = 3;
   }
   if (schema < 4) {
-    for (const s of d.history || []) if (sessionKind(s) === "tidied" && !s.keepFrom) s.keepFrom = now;
+    for (const s of d.history || []) if (oldKind(s) === "tidied" && !s.keepFrom) s.keepFrom = now;
     schema = 4;
   }
   if (schema < 5) {
@@ -681,6 +701,10 @@ function migrateData(input, now = Date.now()) {
     delete d.backupV2;
     schema = 7;
   }
+  if (schema < 8) {
+    delete d.history;
+    schema = 8;
+  }
   d.schema = schema;
   return d;
 }
@@ -691,7 +715,7 @@ async function migrate() {
   if (schema >= SCHEMA) return; // cheap check first: most calls find nothing to do
   const d = await chrome.storage.local.get(DATA_KEYS);
   await chrome.storage.local.set(migrateData(d));
-  await chrome.storage.local.remove(["library", "backupV2"]);
+  await chrome.storage.local.remove(["library", "backupV2", "history", "autoSession", "autoTidy", "tidyDays"]);
 }
 
 // Pure: a backup file (any older schema) merged into the current data without duplicates,
@@ -711,7 +735,6 @@ function mergeBackup(cur, raw, now = Date.now()) {
     items: merge(cur.items, d.items),
     pins: merge(cur.pins, d.pins, "url"),
     projects: merge(cur.projects, d.projects),
-    history: merge(cur.history, d.history),
     phrases: merge(cur.phrases, d.phrases),
     // notes merge per page: keep yours, add highlights you don't have
     notes: Object.entries(d.notes || {}).reduce((acc, [k, n]) => {
@@ -727,18 +750,6 @@ function mergeBackup(cur, raw, now = Date.now()) {
   };
 }
 
-// ---------- history: temporary window snapshots and tidied tabs ----------
-// kind: "saved" (Snapshot window), "auto" (a window you closed) or "tidied" (closed by Tidy).
-
-async function getHistory() {
-  const { history = [] } = await chrome.storage.local.get("history");
-  return history;
-}
-
-async function setHistory(history) {
-  await chrome.storage.local.set({ history });
-}
-
 async function snapshotTabs(tabs) {
   const groups = await chrome.tabGroups.query({});
   const groupOf = Object.fromEntries(groups.map((g) => [g.id, g]));
@@ -748,52 +759,6 @@ async function snapshotTabs(tabs) {
     group: groupOf[t.groupId]?.title || "",
     color: groupOf[t.groupId]?.color || "",
   }));
-}
-
-// Names always start with the date. `tabs` are chrome tabs, or snapshots when `snap` is true.
-async function addSession(tabs, kind, label, snap = false) {
-  const now = Date.now();
-  const entry = {
-    id: crypto.randomUUID(),
-    name: label ? `${stamp(now)} · ${label}` : stamp(now),
-    saved: now,
-    kind,
-    tabs: snap ? tabs : await snapshotTabs(tabs),
-  };
-  const history = await getHistory();
-  history.unshift(entry);
-  await setHistory(history);
-  return entry;
-}
-
-// Everything in History is temporary: 30 days, unless you move it somewhere (a project,
-// the Inbox, a collection).
-const SESSION_DAYS = 30;
-const HISTORY_KINDS = { auto: "Closed window", saved: "Snapshot", tidied: "Tidied" };
-function isTemporary(s) {
-  return sessionKind(s) in HISTORY_KINDS;
-}
-function expiresInDays(s, now = Date.now()) {
-  const from = Math.max(s.saved || 0, s.keepFrom || 0);
-  return Math.max(0, Math.ceil((from + SESSION_DAYS * DAY_MS - now) / DAY_MS));
-}
-function freshHistory(list, now = Date.now()) {
-  return list.filter((s) => !isTemporary(s) || expiresInDays(s, now) > 0);
-}
-
-async function pruneHistory(now = Date.now()) {
-  const list = await getHistory();
-  const keep = freshHistory(list, now);
-  if (keep.length !== list.length) await setHistory(keep);
-  return list.length - keep.length;
-}
-
-async function editHistory(id, fn) {
-  const list = await getHistory();
-  const s = list.find((x) => x.id === id);
-  if (!s) return;
-  fn(s);
-  await setHistory(list.filter((x) => x.tabs.length));
 }
 
 // ---------- projects (today: named tab sets, formerly "workspaces") ----------
@@ -827,15 +792,6 @@ async function editProject(id, fn) {
 
 async function deleteProject(id) {
   await setProjects((await getProjects()).filter((x) => x.id !== id));
-}
-
-// A temporary session becomes a permanent project.
-async function promoteSession(id, name) {
-  const s = (await getHistory()).find((x) => x.id === id);
-  if (!s) return null;
-  const p = await addProject(name, s.tabs, true);
-  await setHistory((await getHistory()).filter((x) => x.id !== id));
-  return p;
 }
 
 // Opens tabs in a new window and rebuilds their groups and colours.
@@ -920,15 +876,25 @@ function weekStart(ts = Date.now()) {
   return d.getTime();
 }
 
-// The weekly quiz: up to 10 words saved in the last 7 days or marked "again",
-// not already quizzed in the last 3 days. Newest first, "again" words first of all.
-function quizQueue(phrases, now = Date.now(), max = 10) {
-  return phrases
-    .filter((p) => p.kind !== "quote")
-    .filter((p) => p.created >= now - 7 * DAY_MS || p.again)
-    .filter((p) => !(p.quizzedAt > now - 3 * DAY_MS))
-    .sort((a, b) => (b.again ? 1 : 0) - (a.again ? 1 : 0) || b.created - a.created)
-    .slice(0, max);
+// Pure: the words to show, in order. `lang` "All" or a code; `tag` "" or a tag; `favOnly`;
+// `sort` is "new" (default), "az" or "seen". Grouped by language, biggest language first.
+function phraseList(phrases, { lang = "All", tag = "", favOnly = false, sort = "new", q = "" } = {}) {
+  const vocab = phrases.filter((p) => p.kind !== "quote");
+  const text = (p) => [p.text, p.sentence, p.note, p.translation, p.ai?.definition, p.ai?.example, (p.tags || []).join(" "), p.title, p.url].join(" ").toLowerCase();
+  const hit = vocab.filter((p) => (!q || text(p).includes(q)) && (!tag || (p.tags || []).includes(tag)) && (!favOnly || p.fav));
+  const counts = {};
+  hit.forEach((p) => (counts[p.lang] = (counts[p.lang] || 0) + 1));
+  const by = sort === "az" ? (a, b) => a.text.localeCompare(b.text)
+    : sort === "seen" ? (a, b) => (b.seen || 1) - (a.seen || 1) || b.created - a.created
+    : (a, b) => b.created - a.created;
+  const list = hit.filter((p) => lang === "All" || p.lang === lang)
+    .sort((a, b) => counts[b.lang] - counts[a.lang] || a.lang.localeCompare(b.lang) || by(a, b));
+  return { list, counts };
+}
+
+// Pure: "a, B,  c" -> ["a", "b", "c"] (lowercase, no repeats, at most 8 tags).
+function parseTags(s) {
+  return [...new Set(String(s).toLowerCase().split(/[,\s]+/).map((t) => t.replace(/^#/, "").trim()).filter(Boolean))].slice(0, 8);
 }
 
 async function getPhrases() {
@@ -976,12 +942,12 @@ async function savePhrase({ text, sentence = "", url = "", title = "", pageLang 
     url,
     title,
     note: "",          // your own note
-    ai: null,          // { definition, example, pos } from the local AI
+    ai: null,          // { definition, example, pos, gender, forms } from the local AI (you can edit it)
     translation: "",   // into English, when not English
+    tags: [],
+    fav: false,
     seen: 1,
     created: Date.now(),
-    again: false,
-    quizzedAt: null,
     needsAi: true,
   };
   list.unshift(p);
@@ -1020,7 +986,7 @@ async function enrichPhrase(id, tools) {
   if (!p) return;
   const patch = { detected: true };
   // language + translation run once; only the AI definition is retried while the model loads
-  if (!p.detected && typeof LanguageDetector !== "undefined") {
+  if (!p.detected && !p.langLocked && typeof LanguageDetector !== "undefined") {
     try {
       const det = await tools.detector();
       const [top] = await det.detect(p.sentence || p.text);
@@ -1040,8 +1006,8 @@ async function enrichPhrase(id, tools) {
       const s = await aiSession();
       const schema = {
         type: "object",
-        properties: { definition: { type: "string" }, example: { type: "string" }, pos: { type: "string" } },
-        required: ["definition", "example", "pos"],
+        properties: { definition: { type: "string" }, example: { type: "string" }, pos: { type: "string" }, gender: { type: "string" }, forms: { type: "string" } },
+        required: ["definition", "example", "pos", "gender", "forms"],
       };
       let out;
       try {
@@ -1049,17 +1015,26 @@ async function enrichPhrase(id, tools) {
           `Explain the ${langName(lang)} ${p.kind} "${p.text}" like a learner's dictionary, in English.\n` +
           (p.sentence ? `It appeared in this sentence: "${p.sentence}"\nGive the meaning used there.\n` : "") +
           `Return: definition (max 20 words), example (one new short sentence in ${langName(lang)} using it), ` +
-          `pos (noun, verb, adjective, adverb, phrase, idiom or other).`,
+          `pos (noun, verb, adjective, adverb, phrase, idiom or other), ` +
+          `gender (only if ${langName(lang)} nouns have grammatical gender: the article and gender, like "il, masculine"; otherwise an empty string), ` +
+          `forms (the key forms, like the plural of a noun or the past forms of a verb, max 12 words; empty string if not useful).`,
           { responseConstraint: schema }));
       } finally {
         s.destroy();
       }
-      patch.ai = { definition: String(out.definition).slice(0, 200), example: String(out.example).slice(0, 200), pos: String(out.pos).slice(0, 20) };
+      const clip = (v, n) => String(v || "").trim().slice(0, n);
+      patch.ai = { definition: clip(out.definition, 200), example: clip(out.example, 200), pos: clip(out.pos, 20), gender: clip(out.gender, 40), forms: clip(out.forms, 120) };
       aiDone = true;
     } catch (e) { console.warn("AI define", e); }
   }
   patch.needsAi = !aiDone;
   await updatePhrase(id, patch);
+}
+
+// You corrected the language: keep it (no more guessing) and write the meaning again.
+async function setPhraseLang(id, lang) {
+  await updatePhrase(id, { lang, langLocked: true, detected: false, translation: "", ai: null, needsAi: true });
+  return enrichPhrase(id);
 }
 
 async function enrichPendingPhrases(onProgress) {

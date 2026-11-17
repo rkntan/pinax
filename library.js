@@ -7,12 +7,11 @@ function setHead(title, sub) {
 }
 
 async function load() {
-  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "history", "phrases", "notes"]);
+  const r = await chrome.storage.local.get(["items", "collections", "pins", "projects", "phrases", "notes"]);
   data.items = r.items || [];
   data.cols = r.collections || [];
   data.pins = r.pins || [];
   data.projects = r.projects || [];
-  data.history = r.history || [];
   data.phrases = r.phrases || [];
   data.notes = r.notes || {};
 }
@@ -42,7 +41,6 @@ async function renderNow() {
   $("n-all").textContent = data.items.length || "";
   $("n-queue").textContent = readingQueue(data.items).length || "";
   $("n-notes").textContent = Object.keys(data.notes).length || "";
-  $("n-history").textContent = data.history.filter(isTemporary).length || "";
   $("n-phrases").textContent = data.phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length || "";
   document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
   $("settings-btn").classList.toggle("on", state.view === "settings");
@@ -58,7 +56,7 @@ async function renderNow() {
     renderProjects();
   }
   reviewKeys = null;
-  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, settings: viewSettings, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
+  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, settings: viewSettings, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
   $("content").replaceChildren((views[state.view] || viewInbox)());
   if (keepFocus) $(keepFocus)?.focus();
@@ -87,7 +85,7 @@ $("add").onsubmit = async (e) => {
   line.textContent = (await aiAvailability()) === "available" ? "Local AI ready" : before;
 };
 
-const BACKUP_KEYS = ["items", "collections", "pins", "projects", "history", "phrases", "notes"];
+const BACKUP_KEYS = ["items", "collections", "pins", "projects", "phrases", "notes"];
 
 async function exportBackup() {
   await migrate(); // the file says SCHEMA, so the data must be at SCHEMA
@@ -115,7 +113,6 @@ async function importBackup(file) {
     try { raw = JSON.parse(await file.text()); } catch { throw new Error("not a Pinax backup"); }
     const next = mergeBackup(await chrome.storage.local.get(BACKUP_KEYS), raw);
     await chrome.storage.local.set(next);
-    if ("autoSession" in next) autoSessionOn = next.autoSession;
     chrome.runtime.sendMessage({ type: "sync-alarms" }).catch(() => {}); // reminder alarms for imported pages
     showToast(`Imported. You now have ${next.items.length} pages, ${next.projects.length} projects and ${next.pins.length} pins.`);
   } catch (err) {
@@ -143,8 +140,7 @@ async function showAi() {
 }
 
 chrome.storage.onChanged.addListener((c) => {
-  if (c.tidyDays || c.autoTidy) tidySettings().then((t) => (tidyPrefs = t));
-  if (c.items || c.projects || c.history || c.collections || c.pins || c.phrases || c.notes || c.tidyDays) {
+  if (c.items || c.projects || c.collections || c.pins || c.phrases || c.notes) {
     stale = true;
     renderAfterTyping();
   }
@@ -183,8 +179,8 @@ function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const i = hash.indexOf(":");
   if (["col", "project", "ws"].includes(hash.slice(0, i))) [state.view, state.col] = [hash.slice(0, i).replace("ws", "project"), hash.slice(i + 1)];
-  else if (["inbox", "review", "queue", "all", "map", "history", "phrases", "notes", "settings"].includes(hash)) state.view = hash;
-  else if (hash === "sessions" || hash === "archive") state.view = "history"; // old links
+  else if (["inbox", "review", "queue", "all", "map", "phrases", "notes", "settings"].includes(hash)) state.view = hash;
+  else state.view = "inbox"; // unknown or old links
 }
 // the popup reuses an open Library tab and just changes its #view
 window.addEventListener("hashchange", () => {
@@ -197,9 +193,6 @@ window.addEventListener("hashchange", () => {
 (async function init() {
   await migrate();
   readHash();
-  const { autoSession = true } = await chrome.storage.local.get("autoSession");
-  autoSessionOn = autoSession;
-  tidyPrefs = await tidySettings();
   await render();
   showAi();
   checkUpdateQuietly();

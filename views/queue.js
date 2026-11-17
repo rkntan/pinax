@@ -16,7 +16,7 @@ function viewQueue() {
       h("input", { type: "checkbox", checked: state.videos, onchange: (e) => { state.videos = e.target.checked; render(); } }),
       "include videos"));
 
-  if (!all.length) return emptyEl("Nothing unread", "Everything you saved is read. Pages count as read after 2 minutes of viewing.");
+  if (!all.length) return emptyEl("Nothing unread", "Pages count as read after 2 minutes of viewing.");
   if (!list.length) return emptyEl(`Nothing fits in ${fmtMinutes(state.budget)}`, "Try a longer slot. Pages get their length when you save them from an open tab.");
 
   const started = list.filter((it) => resumePct(it)).sort((a, b) => b.pos.at - a.pos.at);

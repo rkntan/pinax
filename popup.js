@@ -243,19 +243,6 @@ async function showSummary() {
   $("dedupe").hidden = !dupes;
 }
 
-async function aiTitle(tabs) {
-  try {
-    if ((await aiAvailability()) !== "available") return null;
-    const s = await aiSession();
-    const t = await s.prompt(
-      "Give a short name (max 5 words, no quotes) for a browsing session with these tabs:\n" +
-        tabs.slice(0, 30).map((t) => "- " + t.title).join("\n")
-    );
-    s.destroy();
-    return t.trim().replace(/^["']|["']$/g, "");
-  } catch { return null; }
-}
-
 $("organise").onclick = async () => {
   busy(true);
   try {
@@ -271,13 +258,12 @@ $("organise").onclick = async () => {
   }
 };
 
-// Everything into the Inbox, then close: a snapshot also goes to History (with groups) just in case.
+// Everything into the Inbox, then close.
 $("all-inbox").onclick = async () => {
   busy(true);
   try {
     const tabs = (await chrome.tabs.query({ currentWindow: true })).filter((t) => isWeb(t) && !t.pinned);
     if (!tabs.length) return msg("No web tabs to send");
-    await addSession(tabs, "saved", `${tabs.length} tabs sent to Inbox`);
     // the AI sorts them one by one when the Library opens (not 30 at once here)
     for (const t of tabs) {
       const it = await saveForLater(t, "", { sort: false });
@@ -307,20 +293,6 @@ $("ungroup").onclick = async () => {
   await chrome.tabs.ungroup(tabs.map((t) => t.id)).catch(() => {});
   msg("Ungrouped");
   showSummary();
-};
-
-$("save-session").onclick = async () => {
-  busy(true);
-  try {
-    const tabs = await chrome.tabs.query({ currentWindow: true });
-    msg("Naming snapshot…");
-    const s = await addSession(tabs, "saved", await aiTitle(tabs));
-    msg(`Snapshot added to History for ${SESSION_DAYS} days`);
-    $("msg").title = s.name;
-  } finally {
-    busy(false);
-    showSummary();
-  }
 };
 
 // Chips that open a project's working tabs.

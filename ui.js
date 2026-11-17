@@ -3,8 +3,8 @@
 const $ = (id) => document.getElementById(id);
 const PLURAL = { Course: "Courses", Video: "Videos", Tool: "Tools", Article: "Articles", Docs: "Docs", Paper: "Papers", Other: "Other" };
 
-const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, openSessions: new Set(), lang: "All", rtab: "pages", sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null, limit: {} };
-const data = { items: [], cols: [], pins: [], projects: [], history: [], phrases: [], notes: {} };
+const state = { view: "inbox", col: "", type: "All", status: "all", q: "", open: null, lang: "All", tag: "", favOnly: false, psort: "new", editing: null, sfilter: "all", finishing: null, sel: new Set(), focusId: null, bundle: null, budget: null, videos: false, role: null, limit: {} };
+const data = { items: [], cols: [], pins: [], projects: [], phrases: [], notes: {} };
 
 // Per-viewer UI prefs (layout, collapsed tree branches). Storage may be blocked: never required.
 const prefs = (() => {
@@ -96,6 +96,16 @@ async function withUndo(label, keys, fn) {
   const before = await chrome.storage.local.get(keys);
   await fn();
   showToast(label, () => chrome.storage.local.set(before));
+}
+
+// Short message at the bottom of the sidebar.
+let flashBase = null, flashTimer = null;
+function flash(text) {
+  const line = $("ai-line");
+  if (flashBase === null) flashBase = line.textContent;
+  line.textContent = text;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { if (line.textContent === text) line.textContent = flashBase; flashBase = null; }, 2500);
 }
 
 // Saves text as a file download.

@@ -111,7 +111,7 @@ function exportMarkdown(p) {
 
 function viewProject() {
   const p = data.projects.find((x) => x.id === state.col);
-  if (!p) { setHead("Project", ""); $("tools").replaceChildren(); return emptyEl("Project not found", "It may have been deleted."); }
+  if (!p) { setHead("Project", ""); $("tools").replaceChildren(); return emptyEl("Project not found", ""); }
   const c = projectProgress(p);
   const done = p.status === "finished";
   setHead(p.name, done
@@ -178,9 +178,57 @@ function viewProject() {
       ["useful", "later", "skip"].map((k) => h("i", { class: `pb-${k}`, style: `width:${(c[k] / c.total) * 100}%` }))) : null,
     c.total ? h("div", { class: "trail-head" }, filters, h("span", { class: "small muted" }, "✓ useful · Later = Inbox · ✕ not needed · ▣ working tab · ✎ comment")) : null,
     c.total
-      ? (rows.length ? h("div", { class: "trail" }, rows.map((n) => sourceRow(p, n, collapsed))) : emptyEl("Nothing here", "Try another filter."))
-      : emptyEl("No sources yet", done ? "" : "Press “Track this window” and browse, or use “Park this window” in the popup, or “+ This window's tabs”."),
-    p.tabs.length ? [h("h3", { class: "section-title" }, "Working tabs", h("span", { class: "muted small" }, "open them all with one click")), tabSetEl(p, "project")] : null);
+      ? (rows.length ? h("div", { class: "trail" }, rows.map((n) => sourceRow(p, n, collapsed))) : emptyEl("Nothing here", ""))
+      : emptyEl("No sources yet", done ? "" : "Press “Track this window”."),
+    p.tabs.length ? [h("h3", { class: "section-title" }, "Working tabs"), workingTabsEl(p)] : null);
+}
+
+// A project's working tabs: open them all, or send single tabs to the Inbox, a project, a collection or the pins.
+function workingTabsEl(p) {
+  const counts = {};
+  for (const t of p.tabs) if (t.group) counts[t.group] = (counts[t.group] || 0) + 1;
+  const targets = data.projects.filter((x) => x.id !== p.id && x.status !== "finished");
+  const cols = data.cols.filter((c) => c !== UNSORTED);
+
+  const row = (t, i) => h("div", { class: "tabrow" },
+    h("img", { src: faviconFor(t.url, 16), loading: "lazy", alt: "" }),
+    h("a", { href: t.url, target: "_blank", title: t.url }, t.title || t.url),
+    t.group ? h("span", { class: "grp" }, t.group) : null,
+    h("button", { class: "link small", onclick: async () => { await saveForLater(t); flash("Saved to Inbox"); } }, "→ Inbox"),
+    targets.length
+      ? h("select", {
+          title: "Add to a project's sources",
+          onchange: async (e) => {
+            const id = e.target.value;
+            e.target.value = "";
+            if (!id) return;
+            await addSource(id, t);
+            flash(`Added to ${targets.find((x) => x.id === id)?.name}`);
+          },
+        }, h("option", { value: "" }, "→ Project"), targets.map((w) => h("option", { value: w.id }, w.name)))
+      : null,
+    h("select", {
+      title: "Keep it in a collection",
+      onchange: async (e) => {
+        let path = e.target.value;
+        e.target.value = "";
+        if (path === "__new") path = prompt("Collection (e.g. AI › Agents):") || "";
+        if (!path) return;
+        const it = await saveForLater(t);
+        await keepItem(it.id, path);
+        flash(`Kept in ${pathLabel(cleanPath(path))}`);
+      },
+    }, h("option", { value: "" }, "→ Collection"), cols.map((c) => h("option", { value: c }, pathLabel(c))), h("option", { value: "__new" }, "+ New…")),
+    h("button", { class: "link small", onclick: () => { pinSite(t); flash("Pinned"); } }, "Pin"),
+    h("button", { class: "link small", title: "Remove this tab", onclick: () => withUndo("Tab removed", ["projects"], () => editProject(p.id, (x) => x.tabs.splice(i, 1))) }, "×"));
+
+  return h("div", { class: "tabset" },
+    h("div", { class: "tabset-head" },
+      h("h3", {}, p.name),
+      h("span", { class: "muted small" }, `${p.tabs.length} tab${p.tabs.length === 1 ? "" : "s"}`),
+      h("button", { class: "btn primary", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, "Open all")),
+    Object.keys(counts).length ? h("div", { class: "chips" }, Object.entries(counts).map(([g, n]) => h("span", { class: "chip" }, `${g} ${n}`))) : null,
+    h("div", { class: "tablist" }, p.tabs.map(row)));
 }
 
 function renderProjects() {

@@ -1,20 +1,13 @@
-// Weekly review: Pages (one at a time — keep / delete / next week / pin) and
-// Words (this week's 10 words — show meaning, then Got it / Again).
+// Weekly review: saved pages one at a time — keep / delete / next week / pin.
 
 let reviewPath = null;
 let reviewKeys = null; // key -> action for the sub-view on screen
-const quiz = { reveal: false, got: 0, again: 0 };
 
 function viewReview() {
   const pages = forReview(data.items).sort((a, b) => a.created - b.created);
-  const words = quizQueue(data.phrases);
-  if (state.rtab === "pages" && !pages.length && words.length) state.rtab = "words";
-  setHead("Weekly review", `${pages.length} page${pages.length === 1 ? "" : "s"} · ${words.length} word${words.length === 1 ? "" : "s"}`);
+  setHead("Weekly review", `${pages.length} page${pages.length === 1 ? "" : "s"}`);
   $("tools").replaceChildren();
-  const tabs = h("div", { class: "review-tabs" }, h("div", { class: "seg" },
-    [["pages", `Pages ${pages.length}`], ["words", `Words ${words.length}`]].map(([v, l]) =>
-      h("button", { class: state.rtab === v ? "on" : null, onclick: () => { state.rtab = v; render(); } }, l))));
-  return h("div", {}, statsEl(), tabs, state.rtab === "words" ? reviewWords(words) : reviewPages(pages, words.length));
+  return h("div", {}, statsEl(), reviewPages(pages));
 }
 
 // What you read and saved this week and this month.
@@ -33,14 +26,12 @@ function statsEl() {
       h("button", { class: "link small", onclick: () => go("queue") }, "Reading queue →")));
 }
 
-function reviewPages(queue, wordsLeft) {
+function reviewPages(queue) {
   if (!queue.length) {
     const later = data.items.filter((x) => x.stage === "inbox").length;
-    return h("div", {},
-      emptyEl("Pages done", later
-        ? `${later} page${later > 1 ? "s" : ""} pushed to next week. Next review: Friday 16:00.`
-        : "Your Inbox is empty. Next review: Friday 16:00."),
-      wordsLeft ? h("div", { style: "text-align:center" }, h("button", { class: "btn primary", onclick: () => { state.rtab = "words"; render(); } }, `Now ${wordsLeft} words →`)) : null);
+    return emptyEl("Pages done", later
+      ? `${later} page${later > 1 ? "s" : ""} pushed to next week. Next review: Friday 16:00.`
+      : "Your Inbox is empty. Next review: Friday 16:00.");
   }
   const it = queue[0];
   const pinned = data.pins.some((p) => p.url === it.url);
@@ -76,44 +67,6 @@ function reviewPages(queue, wordsLeft) {
         h("button", { class: "btn", onclick: () => act("later") }, "Next week", h("kbd", {}, "↓")),
         h("button", { class: "btn", onclick: () => act("pin") }, pinned ? "Unpin" : "Pin", h("kbd", {}, "P")),
         h("button", { class: "btn primary", onclick: () => act("keep") }, "Keep", h("kbd", {}, "→ / Enter")))));
-}
-
-function reviewWords(queue) {
-  if (!queue.length) {
-    const done = quiz.got + quiz.again;
-    return emptyEl("Words done", done
-      ? `${quiz.got} known, ${quiz.again} to see again next week.`
-      : "No new words this week. Add some with right-click › “Add to Phrasebook” or Alt+Shift+W.");
-  }
-  const p = queue[0];
-  const answer = async (known) => {
-    quiz.reveal = false;
-    known ? quiz.got++ : quiz.again++;
-    await updatePhrase(p.id, { again: !known, quizzedAt: Date.now(), known: (p.known || 0) + (known ? 1 : 0) });
-  };
-  const show = () => { quiz.reveal = true; render(); };
-  reviewKeys = quiz.reveal
-    ? { ArrowRight: () => answer(true), ArrowLeft: () => answer(false) }
-    : { " ": show, Enter: show, ArrowRight: show };
-
-  return h("div", { class: "review quiz" },
-    h("div", { class: "count" }, `1 of ${queue.length}${p.again ? " · from last time" : ""} · saved ${stamp(p.created)}`),
-    h("div", { class: "rcard" },
-      h("div", { class: "meta" }, h("span", { class: "lang" }, p.lang.toUpperCase()), langName(p.lang), p.ai?.pos ? `· ${p.ai.pos}` : null),
-      h("div", { class: "word" }, p.text),
-      quiz.reveal
-        ? h("div", { class: "reveal" },
-            p.ai?.definition ? h("div", { class: "ph-def" }, h("span", { class: "ai-tag" }, "AI"), p.ai.definition) : null,
-            p.translation ? h("div", { class: "ph-tr" }, "→ ", p.translation) : null,
-            p.note ? h("div", { class: "ph-note" }, p.note) : null,
-            p.sentence ? sentenceEl(p) : null,
-            h("div", { class: "ph-foot" }, sourceEl(p), h("span", { class: "spacer" }),
-              dictLinks(p.text, p.lang).map(([n, u]) => h("a", { class: "dict", href: u, target: "_blank" }, n))),
-            h("div", { class: "decide", style: "grid-template-columns:1fr 1fr" },
-              h("button", { class: "btn discard", onclick: () => answer(false) }, "Again", h("kbd", {}, "←")),
-              h("button", { class: "btn primary", onclick: () => answer(true) }, "Got it", h("kbd", {}, "→"))))
-        : h("div", { class: "decide", style: "grid-template-columns:1fr" },
-            h("button", { class: "btn primary", onclick: show }, "Show meaning", h("kbd", {}, "Space")))));
 }
 
 document.addEventListener("keydown", (e) => {

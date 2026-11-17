@@ -100,22 +100,6 @@ test("guessType recognises common sites", () => {
   assert.equal(core.guessType("https://example.com/", "Home"), "Other");
 });
 
-test("everything in History expires after 30 days; keepFrom gives a grace period", () => {
-  const now = Date.now();
-  assert.equal(core.expiresInDays({ saved: now }, now), 30);
-  assert.equal(core.expiresInDays({ saved: now - 31 * DAY }, now), 0);
-  assert.equal(core.expiresInDays({ saved: now - 300 * DAY, keepFrom: now - 2 * DAY }, now), 28);
-  const list = [
-    { kind: "saved", saved: now - 31 * DAY },
-    { kind: "auto", saved: now - DAY },
-    { kind: "tidied", saved: now - 300 * DAY },
-    { kind: "tidied", saved: now - 300 * DAY, keepFrom: now },
-  ];
-  assert.deepEqual(plain(core.freshHistory(list, now)).map((s) => s.kind), ["auto", "tidied"]);
-  assert.equal(core.isTemporary({ kind: "tidied" }), true);
-  assert.equal(core.isTemporary({ kind: "workspace" }), false);
-});
-
 test("migrateData: v1 -> v3", () => {
   const v1 = {
     items: [{ id: "a", url: "u", topic: "ai agents" }],
@@ -125,21 +109,19 @@ test("migrateData: v1 -> v3", () => {
     ],
   };
   const out = plain(core.migrateData(v1, 1000));
-  assert.equal(out.schema, 7);
+  assert.equal(out.schema, 8);
   assert.equal(out.items[0].read, false);
   assert.equal(out.items[0].stage, "inbox");
   assert.equal(out.items[0].path, "ai agents");
   assert.equal("topic" in out.items[0], false);
   assert.deepEqual(out.collections, ["ai agents"]);
-  assert.deepEqual(out.history.map((s) => s.kind), ["saved", "tidied"]);
-  assert.equal(out.history[1].keepFrom, 1000, "old tidied tabs get 30 days from the upgrade");
-  assert.equal("keepFrom" in out.history[0], false);
+  assert.equal("history" in out, false, "history is dropped at v8");
   assert.deepEqual(out.projects, []);
   assert.equal("library" in out, false);
   assert.equal(v1.items[0].topic, "ai agents", "input must not change");
 });
 
-test("migrateData: v2 workspaces become projects, sessions and archive become history", () => {
+test("migrateData: v2 workspaces become projects; sessions and archive are dropped", () => {
   const v2 = {
     schema: 2,
     items: [{ id: "a", stage: "kept", path: "AI" }],
@@ -152,15 +134,30 @@ test("migrateData: v2 workspaces become projects, sessions and archive become hi
   };
   const out = plain(core.migrateData(v2));
   assert.deepEqual(out.projects, [{ id: "w", name: "PCB clock", created: 10, updated: 20, tabs: [{ url: "a" }] }]);
-  assert.deepEqual(out.history.map((s) => [s.id, s.kind]), [["s", "auto"], ["t", "tidied"]]);
+  assert.equal("history" in out, false);
   assert.equal(out.items[0].path, "AI");
 });
 
-test("migrateData: v3 -> v4 only adds keepFrom to tidied entries", () => {
+test("migrateData: a v3 history is migrated without error and dropped", () => {
   const v3 = { schema: 3, history: [{ id: "t", kind: "tidied", saved: 5, tabs: [] }, { id: "a", kind: "auto", saved: 6, tabs: [] }] };
   const out = plain(core.migrateData(v3, 777));
-  assert.equal(out.schema, 7);
-  assert.deepEqual(out.history.map((s) => s.keepFrom), [777, undefined]);
+  assert.equal(out.schema, 8);
+  assert.equal("history" in out, false);
+});
+
+test("migrateData: a schema-7 object with history becomes schema 8 without it, other data intact", () => {
+  const v7 = {
+    schema: 7,
+    items: [{ id: "a", url: "https://a.test/", read: false }],
+    projects: [{ id: "w", name: "W", tabs: [] }],
+    history: [{ id: "h", kind: "auto", saved: 1, tabs: [{ url: "https://h.test/" }] }],
+  };
+  const out = plain(core.migrateData(v7));
+  assert.equal(out.schema, 8);
+  assert.equal("history" in out, false);
+  assert.deepEqual(out.items, v7.items);
+  assert.deepEqual(out.projects, v7.projects);
+  assert.equal(v7.history.length, 1, "input must not change");
 });
 
 test("migrateData: v4 -> v5 turns status into read", () => {
@@ -215,17 +212,21 @@ test("weekStart is Monday 00:00", () => {
   assert.equal(new Date(core.weekStart(new Date(2026, 10, 2, 0, 5).getTime())).getDate(), 2); // Monday itself
 });
 
-test("quizQueue: recent or 'again' words, not quotes, not quizzed in the last 3 days", () => {
-  const now = Date.now();
-  const list = [
-    { id: "new", kind: "word", created: now - DAY },
-    { id: "old", kind: "word", created: now - 20 * DAY },
-    { id: "again", kind: "phrase", created: now - 20 * DAY, again: true },
-    { id: "quote", kind: "quote", created: now },
-    { id: "done", kind: "word", created: now - DAY, quizzedAt: now - DAY },
-    { id: "stale", kind: "word", created: now - 2 * DAY, quizzedAt: now - 5 * DAY },
-  ];
-  assert.deepEqual(plain(core.quizQueue(list, now)).map((p) => p.id), ["again", "new", "stale"]);
-  const many = Array.from({ length: 15 }, (_, i) => ({ id: i, kind: "word", created: now - i * 1000 }));
-  assert.equal(core.quizQueue(many, now).length, 10);
+test("phraseList: by language (biggest first), filters, sorts; quotes never listed", () => {
+  const w = (id, lang, extra = {}) => ({ id, text: id, kind: "word", lang, created: Number(id.length), ...extra });
+  const list = [w("b", "it", { created: 1, tags: ["food"] }), w("a", "it", { created: 2, fav: true, seen: 3 }), w("c", "en", { created: 9 }),
+    { id: "q", text: "q", kind: "quote", lang: "en", created: 1 }, w("d", "it", { created: 3 })];
+  const ids = (o) => plain(core.phraseList(list, o).list).map((p) => p.id);
+  assert.deepEqual(ids({}), ["d", "a", "b", "c"]);
+  assert.deepEqual(ids({ sort: "az" }), ["a", "b", "d", "c"]);
+  assert.deepEqual(ids({ sort: "seen" }), ["a", "d", "b", "c"]);
+  assert.deepEqual(ids({ lang: "en" }), ["c"]);
+  assert.deepEqual(ids({ tag: "food" }), ["b"]);
+  assert.deepEqual(ids({ favOnly: true }), ["a"]);
+  assert.deepEqual(plain(core.phraseList(list, { lang: "en" }).counts), { it: 3, en: 1 });
+});
+
+test("parseTags: lowercase, no #, no repeats, at most 8", () => {
+  assert.deepEqual(plain(core.parseTags("Work, #Travel  work,")), ["work", "travel"]);
+  assert.equal(core.parseTags("a b c d e f g h i j").length, 8);
 });
