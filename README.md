@@ -10,11 +10,16 @@ sorting uses chrome's built-in ai (gemini nano). it runs on your computer, no ac
 
 ## install
 
-1. download or clone this repo
-2. open `chrome://extensions` and turn on developer mode
-3. click load unpacked and pick this folder
+easiest way (no git needed):
 
-needs chrome 138 or newer.
+1. download `pinax-extension.zip` from the [latest release](../../releases/latest) and unzip it
+2. open `chrome://extensions` and turn on developer mode (top right)
+3. click **load unpacked** and pick the unzipped folder
+4. pin it from the puzzle-piece menu
+
+or clone this repo and pick the repo folder in step 3. to update, download the new zip (or `git pull`) and press the reload arrow on the extension card.
+
+chrome only installs extensions outside its web store this way (developer mode). needs chrome 138 or newer on desktop.
 
 ## use
 
