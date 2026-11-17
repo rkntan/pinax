@@ -13,6 +13,9 @@
   <aside class="pins" aria-label="Pinned sites">
     <div id="pins" class="pin-list"></div>
     <button id="pin-add" class="pin-add" title="Pin a site">+</button>
+    <button id="settings-btn" class="gear" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
   </aside>
 
   <nav class="side">
@@ -55,16 +58,6 @@
 
     <div class="side-foot">
       <div id="ai-line" class="muted small"></div>
-      <label class="small check"><input id="resurface" type="checkbox"> Daily nudge at 10:00</label>
-      <label class="small check" title="Once a week Pinax asks GitHub if a newer release exists (only the release number comes back). Untick to stop. Nothing else is ever sent."><input id="update-check" type="checkbox"> Check for updates weekly</label>
-      <div id="update-line" class="small" hidden></div>
-      <div class="small">
-        <button id="export" class="link">Backup</button> ·
-        <button id="export-bookmarks" class="link" title="A bookmarks file any browser can import">Bookmarks</button> ·
-        <button id="export-csv" class="link" title="A spreadsheet of every saved page">CSV</button> ·
-        <a class="link" href="eval.html" target="_blank" title="Score the local AI on 50+ sample pages">Accuracy check</a> ·
-        <label class="link">Import<input id="import" type="file" accept="application/json" hidden></label>
-      </div>
     </div>
   </nav>
 
@@ -104,6 +97,7 @@
   <script src="views/phrasebook.js"></script>
   <script src="views/notes.js"></script>
   <script src="views/queue.js"></script>
+  <script src="views/settings.js"></script>
   <script src="views/quick.js"></script>
   <script src="library.js"></script>
 </body>

@@ -96,7 +96,7 @@ function sessionHit(s) {
   return !state.q || (s.name + " " + s.tabs.map((t) => t.title + " " + t.url).join(" ")).toLowerCase().includes(state.q);
 }
 
-// Tidy settings live here (moved out of the popup).
+// Tidy controls (shown in Settings).
 function tidyTools() {
   const days = h("select", {
     onchange: async (e) => { tidyPrefs.tidyDays = Number(e.target.value); await chrome.storage.local.set({ tidyDays: tidyPrefs.tidyDays }); },
@@ -137,11 +137,7 @@ function viewHistory() {
       h("button", { class: `chip${kind === k ? " on" : ""}`, onclick: () => { state.hkind = k; render(); } },
         `${label}${k === "all" || k === "tidied" ? "" : "s"} ${k === "all" ? all.length : counts[k] || 0}`)),
     h("span", { class: "spacer" }),
-    h("label", { class: "small check" },
-      h("input", { type: "checkbox", checked: autoSessionOn, onchange: (e) => { autoSessionOn = e.target.checked; chrome.storage.local.set({ autoSession: autoSessionOn }); } }),
-      "remember closed windows"),
-    h("div", { class: "break" }),
-    ...tidyTools());
+    h("button", { class: "link small", onclick: () => go("settings") }, "Tidy and history settings"));
 
   if (!list.length) {
     return emptyEl("Nothing in History", "Closed windows (2+ tabs), “Snapshot window” from the popup and tabs closed by Tidy land here for 30 days.");

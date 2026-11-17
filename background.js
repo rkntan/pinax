@@ -11,13 +11,6 @@ let itemsCache = null;
 const cachedItems = () => (itemsCache ||= getItems().catch((e) => { itemsCache = null; throw e; }));
 const badge = async () => refreshBadge(await cachedItems());
 
-function next10am() {
-  const d = new Date();
-  d.setHours(10, 0, 0, 0);
-  if (d <= new Date()) d.setDate(d.getDate() + 1);
-  return d.getTime();
-}
-
 async function syncAlarms() {
   chrome.alarms.clear("read-tick"); // the old 1-minute tick; read tracking now uses READ_CHECK
   await migrate();
@@ -29,9 +22,9 @@ async function syncAlarms() {
   if (!autoTidy) await chrome.alarms.clear(TIDY_ALARM);
   else if (!(await chrome.alarms.get(TIDY_ALARM))) chrome.alarms.create(TIDY_ALARM, { delayInMinutes: 1, periodInMinutes: 60 });
 
-  const { resurface = true } = await chrome.storage.local.get("resurface");
+  const { resurface = true, nudgeTime = DEFAULT_NUDGE } = await chrome.storage.local.get(["resurface", "nudgeTime"]);
   if (!resurface) await chrome.alarms.clear(RESURFACE_ALARM);
-  else if (!(await chrome.alarms.get(RESURFACE_ALARM))) chrome.alarms.create(RESURFACE_ALARM, { when: next10am(), periodInMinutes: 24 * 60 });
+  else if (!(await chrome.alarms.get(RESURFACE_ALARM))) chrome.alarms.create(RESURFACE_ALARM, { when: nextDailyTime(nudgeTime), periodInMinutes: 24 * 60 });
 
   // Re-create reminder alarms (they are lost if the extension is reloaded).
   for (const it of await getItems()) {
@@ -58,7 +51,8 @@ chrome.runtime.onStartup.addListener(syncAlarms);
 chrome.runtime.onMessage.addListener((m) => { if (m?.type === "sync-alarms") syncAlarms(); });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (changes.autoTidy || changes.resurface) syncAlarms();
+  if (changes.nudgeTime) chrome.alarms.clear(RESURFACE_ALARM).then(syncAlarms); // new time: schedule again
+  else if (changes.autoTidy || changes.resurface) syncAlarms();
   if (changes.items && area === "local") {
     const items = changes.items.newValue || [];
     itemsCache = Promise.resolve(items);

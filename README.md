@@ -27,9 +27,9 @@ chrome only installs extensions outside its web store this way (developer mode).
 - open the library with `alt+shift+l`
 - organise the tabs of a window into groups with `alt+shift+o`
 - highlight text on a page and keep notes
-- take your pages with you any time: library sidebar › **bookmarks** (a file any browser imports) or **csv** (spreadsheet)
+- take your pages with you any time: settings (the gear in the library) › export **bookmarks** (a file any browser imports) or **csv** (spreadsheet)
 
-all data stays in your browser. the only thing that reaches the internet is the weekly update check: it asks github for the latest release number and shows a link if there is a newer one. it never downloads or installs anything, and sends nothing else. untick **check for updates weekly** in the library sidebar to turn it off (then pinax makes no network requests at all).
+all data stays in your browser. the only thing that reaches the internet is the weekly update check: it asks github for the latest release number and shows a link if there is a newer one. it never downloads or installs anything, and sends nothing else. untick **check for updates weekly** in settings (the gear in the library) to turn it off (then pinax makes no network requests at all).
 
 you can also hear about new versions through github's **watch › custom › releases** on this repo.
 

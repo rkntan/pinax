@@ -45,6 +45,7 @@ async function renderNow() {
   $("n-history").textContent = data.history.filter(isTemporary).length || "";
   $("n-phrases").textContent = data.phrases.filter((p) => p.kind !== "quote" && p.created >= weekStart()).length || "";
   document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
+  $("settings-btn").classList.toggle("on", state.view === "settings");
   document.querySelectorAll("#density button").forEach((b) => b.classList.toggle("on", b.dataset.d === prefs.get("density", "rows")));
   $("density").style.visibility = ["inbox", "all", "col", "queue"].includes(state.view) ? "visible" : "hidden";
 
@@ -57,7 +58,7 @@ async function renderNow() {
     renderProjects();
   }
   reviewKeys = null;
-  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
+  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, history: viewHistory, settings: viewSettings, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
   $("content").replaceChildren((views[state.view] || viewInbox)());
   if (keepFocus) $(keepFocus)?.focus();
@@ -88,7 +89,7 @@ $("add").onsubmit = async (e) => {
 
 const BACKUP_KEYS = ["items", "collections", "pins", "projects", "history", "phrases", "notes"];
 
-$("export").onclick = async () => {
+async function exportBackup() {
   await migrate(); // the file says SCHEMA, so the data must be at SCHEMA
   const [d, settings] = await Promise.all([chrome.storage.local.get(BACKUP_KEYS), chrome.storage.local.get(SETTINGS_KEYS)]);
   const blob = new Blob([JSON.stringify({ app: "tab-organiser", version: SCHEMA, schema: SCHEMA, exported: Date.now(), ...d, settings }, null, 2)], { type: "application/json" });
@@ -96,7 +97,7 @@ $("export").onclick = async () => {
   a.click();
   URL.revokeObjectURL(a.href);
   showToast("Backup exported");
-};
+}
 
 // Plain files you can keep without Pinax: bookmarks for any browser, or a spreadsheet.
 async function exportPages(kind) {
@@ -106,11 +107,7 @@ async function exportPages(kind) {
   else saveFile(`pinax-bookmarks-${day}.html`, bookmarksHtml(d.items || [], d.pins || [], d.projects || []), "text/html;charset=utf-8");
   showToast(kind === "csv" ? "Spreadsheet exported" : "Bookmarks exported: import the file in any browser");
 }
-$("export-bookmarks").onclick = () => exportPages("bookmarks");
-$("export-csv").onclick = () => exportPages("csv");
-
-$("import").onchange = async (e) => {
-  const file = e.target.files[0];
+async function importBackup(file) {
   if (!file) return;
   try {
     // older backups are brought up to SCHEMA first; newer ones are refused before any write
@@ -118,37 +115,13 @@ $("import").onchange = async (e) => {
     try { raw = JSON.parse(await file.text()); } catch { throw new Error("not a Pinax backup"); }
     const next = mergeBackup(await chrome.storage.local.get(BACKUP_KEYS), raw);
     await chrome.storage.local.set(next);
-    if ("resurface" in next) $("resurface").checked = next.resurface;
     if ("autoSession" in next) autoSessionOn = next.autoSession;
     chrome.runtime.sendMessage({ type: "sync-alarms" }).catch(() => {}); // reminder alarms for imported pages
     showToast(`Imported. You now have ${next.items.length} pages, ${next.projects.length} projects and ${next.pins.length} pins.`);
   } catch (err) {
     showToast(`Nothing imported: ${err.message}.`);
   }
-  e.target.value = "";
-};
-
-$("resurface").onchange = (e) => chrome.storage.local.set({ resurface: e.target.checked });
-
-// Weekly update check (on unless you switch it off): shows "Pinax x.y is available" under the switch.
-async function showUpdate({ force = false } = {}) {
-  const line = $("update-line");
-  try {
-    const found = await checkForUpdate({ force });
-    line.hidden = !found && !force;
-    if (found) line.replaceChildren(h("a", { href: found.url, target: "_blank" }, `Pinax ${found.version} is available`));
-    else if (force) line.textContent = `Pinax ${chrome.runtime.getManifest().version} is the latest.`;
-  } catch {
-    line.hidden = !force;
-    if (force) line.textContent = "Couldn't reach GitHub.";
-  }
 }
-$("update-check").onchange = async (e) => {
-  const { updateCheck = {} } = await chrome.storage.local.get("updateCheck");
-  await chrome.storage.local.set({ updateCheck: { ...updateCheck, on: e.target.checked } });
-  if (e.target.checked) showUpdate({ force: true });
-  else $("update-line").hidden = true;
-};
 
 async function showAi() {
   const a = await aiAvailability();
@@ -210,7 +183,7 @@ function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const i = hash.indexOf(":");
   if (["col", "project", "ws"].includes(hash.slice(0, i))) [state.view, state.col] = [hash.slice(0, i).replace("ws", "project"), hash.slice(i + 1)];
-  else if (["inbox", "review", "queue", "all", "map", "history", "phrases", "notes"].includes(hash)) state.view = hash;
+  else if (["inbox", "review", "queue", "all", "map", "history", "phrases", "notes", "settings"].includes(hash)) state.view = hash;
   else if (hash === "sessions" || hash === "archive") state.view = "history"; // old links
 }
 // the popup reuses an open Library tab and just changes its #view
@@ -224,21 +197,10 @@ window.addEventListener("hashchange", () => {
 (async function init() {
   await migrate();
   readHash();
-  const { resurface = true, autoSession = true } = await chrome.storage.local.get(["resurface", "autoSession"]);
-  $("resurface").checked = resurface;
-  const { updateCheck } = await chrome.storage.local.get("updateCheck");
-  $("update-check").checked = updateCheck?.on !== false;
+  const { autoSession = true } = await chrome.storage.local.get("autoSession");
   autoSessionOn = autoSession;
   tidyPrefs = await tidySettings();
   await render();
   showAi();
-  storageWarning();
-  if (updateCheck?.on !== false) showUpdate();
+  checkUpdateQuietly();
 })();
-
-// No quota (unlimitedStorage); above 25 MB (a heavy year is ≈ 7.6 MB) suggest a backup under Export.
-const STORAGE_WARN_BYTES = 25 * 1024 * 1024;
-async function storageWarning() {
-  const bytes = await chrome.storage.local.getBytesInUse(null);
-  if (bytes > STORAGE_WARN_BYTES) $("export").parentElement.before(h("div", { class: "muted small" }, `Storage ${(bytes / 1048576).toFixed(1)} MB · export a backup`));
-}

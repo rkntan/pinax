@@ -6,7 +6,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 
 ## 0. Before you start
 
-- [ ] 0.1 Export a backup: Library → sidebar footer → **Backup** (keep the `.json` file).
+- [ ] 0.1 Export a backup: Library → gear (bottom of the left rail) → **Your pages → Backup** (keep the `.json` file).
 - [ ] 0.2 `chrome://extensions` → Pinax → **⟳ reload**. Version shows **1.0.0**, no red **Errors** button.
 - [ ] 0.3 `chrome://extensions/shortcuts`: Alt+Shift+S, Alt+Shift+W, Alt+Shift+O, Alt+Shift+L are all set (if one is empty, Chrome found a clash: set it by hand).
 - [ ] 0.4 Have a test window with ~10 tabs: 2 from the same site, a YouTube video, a GitHub repo, an arXiv paper, a page in Polish, and one duplicate tab.
@@ -123,12 +123,20 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 4b.4 If you have old collections like `AI › Agents`, the sidebar shows **Align N with standard…**; the preview lists each move; confirm; pages follow; **Undo** restores. Your own names (e.g. a project name) are left alone.
 - [ ] 4b.5 (v1.14) Keep an Inbox page in a different standard subject than suggested; save a similar page: the suggestion follows your choice more often.
 - [ ] 4b.6 (v1.14) A page that fits nothing shows up to two "Maybe …" chips; clicking one keeps it there.
-- [ ] 4b.7 (v1.14) Library footer › **Accuracy check** › Run check: needs the local AI ready; shows % right subject / exact and the misses first. Note the numbers; re-run after changing prompts.
+- [ ] 4b.7 (v1.14) Settings › **Local AI › Accuracy check** › Run check: needs the local AI ready; shows % right subject / exact and the misses first. Note the numbers; re-run after changing prompts.
 
-- [ ] 4b.8 (v1.15) Library footer: **Check for updates weekly** is ticked on a fresh install. Untick and tick again: a line says "Pinax x.y is the latest." (or "is available" with a link). Untick: the line disappears. With it unticked, DevTools › Network on the Library shows no request to api.github.com.
+- [ ] 4b.8 (v1.15) Settings › Updates: **Check for updates weekly** is ticked on a fresh install. Press **Check now**: a line says "Pinax x.y is the latest." (or "is available" with a link). Untick it: the gear loses its green dot. With it unticked, DevTools › Network on the Library shows no request to api.github.com.
 
-- [ ] 4b.9 (v1.16) Footer **Bookmarks** downloads a `.html` file: in `chrome://bookmarks` › ⋮ › Import bookmarks, it appears with your collections as folders, plus Inbox / Pins / Projects.
-- [ ] 4b.10 (v1.16) Footer **CSV** downloads a `.csv`: opens in a spreadsheet with a header row, accents readable, one row per page.
+- [ ] 4b.9 (v1.16) Settings › **Export bookmarks** downloads a `.html` file: in `chrome://bookmarks` › ⋮ › Import bookmarks, it appears with your collections as folders, plus Inbox / Pins / Projects.
+- [ ] 4b.10 (v1.16) Settings › **Export CSV** downloads a `.csv`: opens in a spreadsheet with a header row, accents readable, one row per page.
+
+## 4c. Settings page (v1.18)
+
+- [ ] 4c.1 The left rail has a gear at the bottom; clicking it opens **Settings** (gear highlighted). Sections: Reminders, Tabs and history, Updates, Your pages, Local AI, About. The sidebar footer only shows the AI status line.
+- [ ] 4c.2 Reminders: untick **Daily nudge**: the time box greys out. Tick it, set a time two minutes ahead: a page notification arrives then (and daily after).
+- [ ] 4c.3 Tabs and history: remember-closed-windows, idle days, automatic tidy and the tidy button work as before; History only has a link to these settings.
+- [ ] 4c.4 Your pages: Export bookmarks, Export CSV, Backup, Import backup all work from here; the storage size is shown.
+- [ ] 4c.5 About shows the installed version and the GitHub link.
 
 ## 5c. Inbox triage (v1.3)
 
@@ -180,8 +188,8 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 7.3 Filter chips (Closed window / Snapshot / Tidied) filter the list.
 - [ ] 7.4 Per tab: **Restore** opens it and removes it from the entry; **→ Inbox**, **→ Project**, **→ Collection** move it (it leaves the entry); **×** deletes with Undo.
 - [ ] 7.5 **Make project** turns an entry into a project and opens it.
-- [ ] 7.6 Tidy: set "idle for 1 day" → **Tidy N idle tabs now** closes idle tabs (never pinned, active or audio tabs); they appear as "Tidied".
-- [ ] 7.7 Untick "remember closed windows", close a window: nothing new appears. Tick it again.
+- [ ] 7.6 Settings › Tabs and history › Tidy: set "idle for 1 day" → **Tidy N idle tabs now** closes idle tabs (never pinned, active or audio tabs); they appear as "Tidied".
+- [ ] 7.7 Settings › untick "Remember closed windows", close a window: nothing new appears. Tick it again.
 
 ## 8. Reminders and notifications
 
@@ -196,7 +204,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 9.1 Library **Ctrl+K**: typing finds pages, collections, projects, sources, words; ↑↓ + Enter opens; Esc closes.
 - [ ] 9.2 **Alt+Shift+L** from any tab focuses the open Library (no second Library tab).
 - [ ] 9.3 Undo message disappears after ~8 s; Ctrl+Z after that does nothing.
-- [ ] 9.4 **Export** again, then **Import** the file from 0.1: message says how many pages/projects/pins you have; nothing is duplicated.
+- [ ] 9.4 **Backup** again, then **Import backup** the file from 0.1 (both in Settings › Your pages): message says how many pages/projects/pins you have; nothing is duplicated.
 - [ ] 9.5 Dark mode (Windows → Settings → Colours → Dark): popup and Library are readable.
 - [ ] 9.6 The export file has `"schema": 7` and a `settings` block; importing it into a fresh profile brings back your settings (daily nudge, auto-tidy, hidden docks) and reminders fire without restarting Chrome.
 - [ ] 9.7 Colours (v1.11): violet buttons look slightly deeper; highlights on a dark website (e.g. GitHub dark) show dark, readable text; the collapsed page dock shows a thin edge on dark sites.

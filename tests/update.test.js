@@ -75,3 +75,14 @@ test("no notice when you already have the latest version", async () => {
   const e = env({ stored: { updateCheck: { on: true } }, release: REL, version: "1.15.0" });
   assert.equal(await e.get("checkForUpdate")(), null);
 });
+
+test("nextDailyTime gives the next HH:MM after now, today or tomorrow, and falls back to 10:00", () => {
+  const next = load()("nextDailyTime");
+  const at = (iso) => new Date(iso);
+  const hm = (ms) => { const d = new Date(ms); return [d.getDate(), d.getHours(), d.getMinutes()]; };
+  assert.deepEqual(hm(next("08:30", at("2026-11-17T07:00:00"))), [17, 8, 30]);
+  assert.deepEqual(hm(next("08:30", at("2026-11-17T09:00:00"))), [18, 8, 30]);
+  assert.deepEqual(hm(next("08:30", at("2026-11-17T08:30:00"))), [18, 8, 30]); // strictly after now
+  assert.deepEqual(hm(next("garbage", at("2026-11-17T07:00:00"))), [17, 10, 0]);
+  assert.deepEqual(hm(next("25:99", at("2026-11-17T07:00:00"))), [17, 10, 0]);
+});

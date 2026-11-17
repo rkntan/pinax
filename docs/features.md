@@ -17,15 +17,19 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
 | **Phrasebook** | the words and phrases you add from pages |
 | **History** | temporary tab sets: closed windows, snapshots, tidied tabs (30 days) |
 | **Delete** / **Remove** | Delete destroys data; Remove takes something out of a container (a source from a project, a tag) |
-| **Reminder** / **Daily nudge** | the bell on one page / one kept page resurfaced at 10:00 |
+| **Reminder** / **Daily nudge** | the bell on one page / one kept page resurfaced once a day (time set in Settings, default 10:00) |
 
 ## Install / update
 1. `chrome://extensions` -> **Developer mode** on -> **Load unpacked** -> this folder.
    After changing files, click the reload arrow on the extension card.
 2. Pin it from the puzzle-piece menu.
 
+## Settings (v1.18)
+The gear at the bottom of the left rail opens one page for everything you can set: daily nudge on/off and its time,
+remember closed windows, tidy idle tabs, the weekly update check, exports and import, local AI status, version.
+
 ## Update check (v1.15; on by default since v1.17)
-- Library sidebar footer › **Check for updates weekly** (untick to turn it off). Pinax asks GitHub once a week for the
+- Settings › Updates › **Check for updates weekly** (untick to turn it off). A green dot on the gear means a newer release exists. Pinax asks GitHub once a week for the
   latest release number and shows "Pinax x.y is available" with a link. Nothing else is sent; no downloads or installs.
 - To update: download the new `pinax-extension.zip`, unzip over the old folder, press reload on the extension card.
 
@@ -52,7 +56,7 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   filings (title, site, standard subject) are kept, and the 8 most recent become examples in the next prompt. Only standard
   subjects count, so the AI never drifts off the list. A page that fits nothing shows up to two "Maybe …" chips (the
   likeliest subjects); one click files it there.
-- **Accuracy check**: Library sidebar footer › *Accuracy check* scores the local AI on 60 labelled sample pages (right
+- **Accuracy check**: Settings › Local AI › *Accuracy check* scores the local AI on 60 labelled sample pages (right
   subject %, right sub-subject %, unclear pages left alone) and lists the misses. Tick "use my saved filings" to see how much your habits help.
 - **Pins**: favourite sites as icons on the left of the Library and in the popup; drag to
   reorder; pin via the star (Pin to Library), the popup, or right-click › "Pin this site to Library".
@@ -135,13 +139,13 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   Courses can track units (2/5).
 - Reminders: tonight, tomorrow, Saturday, in a week, or every week. Chrome notification with
   **Open** / **Snooze 1 day**; the icon badge counts what is due.
-- **Daily nudge**: at 10:00 one forgotten kept page comes back ("From your collections"; switch off in the Library footer).
+- **Daily nudge**: once a day one forgotten kept page comes back ("From your collections"). Switch it off or pick the time in Settings (gear, bottom of the left rail).
 - **Library page** (popup -> Library ↗): filters, search, due strip, **Mind map** by topic.
 
 ## History (30 days)
-- One timeline, grouped by day: **closed windows** (2+ tabs, switch off in History: "remember closed windows"),
+- One timeline, grouped by day: **closed windows** (2+ tabs, switch off in Settings: "Remember closed windows"),
   **snapshots** ("Snapshot window" in the popup, named "3 Nov 14:20 · <AI name>") and **tidied** tabs.
-- **Tidy** (settings in History) closes tabs idle for N days; pinned, active, audio and non-web
+- **Tidy** (settings in Settings) closes tabs idle for N days; pinned, active, audio and non-web
   tabs are skipped. "Automatically" checks hourly.
 - Per entry: Restore all, Make project, Rename, Delete. Per tab: Restore, → Inbox, → Project,
   → Collection, Pin, × Delete. A tab moved somewhere leaves History.
@@ -162,12 +166,12 @@ Change the keys at `chrome://extensions/shortcuts`. When the AI sorts a page it 
 up to 2 tags, so related pages in different collections get linked in the mind map.
 
 ## Backup
-Library footer -> **Backup** / **Import** (JSON `pinax-backup-<date>.json`, merges without duplicates;
+Settings › Your pages › **Backup** / **Import backup** (JSON `pinax-backup-<date>.json`, merges without duplicates;
 older `tab-organiser-backup-*.json` files still import).
 All data stays in `chrome.storage.local` on this machine.
 
 ## Take your pages with you (v1.16)
-You never depend on Pinax: the footer also has **Bookmarks** and **CSV**.
+You never depend on Pinax: Settings › Your pages also has **Export bookmarks** and **Export CSV**.
 - **Bookmarks**: `pinax-bookmarks-<date>.html`, the standard bookmarks file. Import it in Chrome, Edge, Firefox or Safari
   (Bookmark manager › Import). Collections become nested folders; the Inbox, Pins and each project's useful sources get
   their own folders; tags and reasons are kept where the browser supports them.

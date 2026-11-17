@@ -144,6 +144,18 @@ function nextReviewTime(now = new Date()) {
   return d.getTime();
 }
 
+const DEFAULT_NUDGE = "10:00";
+
+// Pure: the next time a daily "HH:MM" comes round, strictly after `now` (bad input -> 10:00).
+function nextDailyTime(hhmm, now = new Date()) {
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(hhmm));
+  const [h, min] = m ? [Number(m[1]), Number(m[2])] : [10, 0];
+  const d = new Date(now);
+  d.setHours(h, min, 0, 0);
+  if (d <= now) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
 async function setReminder(id, key) {
   const r = presetTime(key);
   await chrome.alarms.clear("remind:" + id);
@@ -593,7 +605,7 @@ function itemsCsv(items) {
 const SCHEMA = 7;
 const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "history", "library", "phrases", "notes"];
 // user settings in chrome.storage.local (go into backups; caches and session data do not)
-const SETTINGS_KEYS = ["resurface", "autoSession", "autoTidy", "tidyDays", "dockHidden", "dockY"];
+const SETTINGS_KEYS = ["resurface", "nudgeTime", "autoSession", "autoTidy", "tidyDays", "dockHidden", "dockY"];
 
 function sessionKind(s) {
   return s.kind || (s.tidied ? "tidied" : "saved");
