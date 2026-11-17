@@ -162,7 +162,7 @@ async function shrinkImage(src) {
 let clipQueue = Promise.resolve();
 function clipToNote(tab, clip, imgSrc = "", readyUrl = "") {
   return (clipQueue = clipQueue.then(async () => {
-    let p = pickNoteProject(await getProjects(), (await getWorkingOn())[tab.windowId]);
+    let p = pickNoteProject(await getProjects(), (await getWorkingOn())[tab.windowId], await getNoteTarget());
     if (!p) p = await addProject("Research note", [], true);
     const dataUrl = readyUrl || (imgSrc ? await shrinkImage(imgSrc) : "");
     if (imgSrc && !dataUrl && !clip.src) return toast("Could not copy this image", "The site does not allow it.");

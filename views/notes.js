@@ -18,7 +18,8 @@ async function openWithNotes(n) {
 function highlightsEl(n, role = null) {
   const list = role ? n.highlights.filter((x) => (x.color || "yellow") === role) : n.highlights;
   return h("div", { class: "nhl" }, list.map((x) => h("blockquote", { style: `--c:${HL_COLORS[x.color] || HL_COLORS.yellow}` },
-    h("span", { class: "nhl-role" }, roleOf(x)), x.text, x.comment ? h("div", { class: "nhl-c" }, x.comment) : null)));
+    h("span", { class: "nhl-role" }, roleOf(x)), x.text, x.comment ? h("div", { class: "nhl-c" }, x.comment) : null,
+    h("button", { class: "link small", title: "Add to my research note", onclick: () => addHighlightToNote(n, x) }, "+ Note"))));
 }
 
 function noteCard(n, itemByKey) {
@@ -80,4 +81,12 @@ function viewNotes() {
   for (const x of data.items) if (!itemByKey.has(pageKey(x.url))) itemByKey.set(pageKey(x.url), x);
   const { shown, more } = pageOf("notes", list);
   return h("div", {}, h("div", { class: "notes" }, shown.map((n) => noteCard(n, itemByKey))), more);
+}
+
+// Puts a highlight into the note you are collecting in (else the project used last).
+async function addHighlightToNote(n, hl) {
+  const p = pickNoteProject(data.projects, null, await getNoteTarget());
+  if (!p) return showToast("Make a project first, then collect clips into it");
+  await addClip(p.id, { kind: "text", text: hl.text, caption: hl.comment || "", url: n.url, title: n.title });
+  showToast(`Added to “${p.name}”`);
 }

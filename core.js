@@ -729,7 +729,7 @@ function itemsCsv(items) {
 const SCHEMA = 8;
 const DATA_KEYS = ["schema", "items", "collections", "pins", "projects", "library", "phrases", "notes", "collectionOrder"];
 // user settings in chrome.storage.local (go into backups; caches and session data do not)
-const SETTINGS_KEYS = ["resurface", "nudgeTime", "dockHidden", "dockY"];
+const SETTINGS_KEYS = ["resurface", "nudgeTime", "dockHidden", "dockY", "noteTarget"];
 
 const byIdUnique = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
 
@@ -1376,10 +1376,18 @@ async function reopenProject(projectId) {
 const IMG_PREFIX = "img:";
 const CLIP_IMG_MAX = 1200; // longest side of a stored image, px
 
-// Pure: the project a new clip goes to: the window's tracked project, else the one used last.
-function pickNoteProject(projects, workingId) {
+// Pure: the project a new clip goes to: the one you chose ("collect here"), else the window's tracked project, else the one used last.
+function pickNoteProject(projects, workingId, targetId = null) {
   const live = projects.filter((p) => p.status !== "finished");
-  return live.find((p) => p.id === workingId) || [...live].sort((a, b) => b.updated - a.updated)[0] || null;
+  return live.find((p) => p.id === targetId) || live.find((p) => p.id === workingId) || [...live].sort((a, b) => b.updated - a.updated)[0] || null;
+}
+
+async function getNoteTarget() {
+  return (await chrome.storage.local.get("noteTarget")).noteTarget || null;
+}
+async function setNoteTarget(id) {
+  if (id) await chrome.storage.local.set({ noteTarget: id });
+  else await chrome.storage.local.remove("noteTarget");
 }
 
 async function addClip(projectId, clip, dataUrl = "") {

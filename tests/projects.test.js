@@ -155,3 +155,9 @@ test("noteObsidian writes properties and role callouts; notesZip makes one file 
   const zip = Buffer.from(core.notesZip([n, { ...n }]));
   assert.ok(zip.includes("Notes/A- page.md") && zip.includes("Notes/A- page 2.md"));
 });
+
+test("pickNoteProject: a chosen target beats the tracked project", () => {
+  const ps = [{ id: "a", updated: 1 }, { id: "b", updated: 5 }, { id: "c", updated: 9, status: "finished" }];
+  assert.equal(core.pickNoteProject(ps, "a", "b").id, "b");
+  assert.equal(core.pickNoteProject(ps, "a", "c").id, "a", "a finished target is ignored");
+});

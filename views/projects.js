@@ -150,9 +150,19 @@ function viewProject() {
     workingBtn.onclick = async () => { await setWorkingOn(win, on ? null : p.id); render(); };
   });
 
+  const targetBtn = h("button", { class: "btn", disabled: done }, "…");
+  getNoteTarget().then((t) => {
+    const on = t === p.id;
+    targetBtn.textContent = on ? "● Collecting clips here" : "Collect clips here";
+    targetBtn.title = on ? "Right-click clips and highlights go to this note. Click to stop." : "Send clips and highlights from any page to this project's note";
+    targetBtn.classList.toggle("primary", on);
+    targetBtn.onclick = async () => { await setNoteTarget(on ? null : p.id); render(); };
+  });
+
   setTools(
     done ? null : h("button", { class: "btn primary", disabled: !c.unread, onclick: () => readNext(p) }, c.unread ? `▶ Read next (${c.unread})` : "All read"),
     done ? null : workingBtn,
+    done ? null : targetBtn,
     h("button", { class: "btn", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, `Open tabs (${p.tabs.length})`),
     h("span", { class: "spacer" }),
     moreMenu([
