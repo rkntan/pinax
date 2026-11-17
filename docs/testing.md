@@ -98,7 +98,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 5f.4 **Word**: added to the Phrasebook with its sentence ("Added to Phrasebook"). **Copy**: quote + title + link on the clipboard.
 - [ ] 5f.5 Esc, a click elsewhere or scrolling closes the bar; it never appears when selecting inside a text box.
 - [ ] 5f.6 Side panel: each highlight shows its role; role chips (All / Key point / …) filter the list. Library › Notes has the same chips.
-- [ ] 5f.7 Panel switch "Work on every site": asks Chrome once; afterwards the bar works on any site. Switching it off goes back to sites you allowed.
+- [ ] 5f.7 Settings › Highlighting switch "Work on every site": asks Chrome once; afterwards the bar works on any site. Switching it off goes back to sites you allowed.
 
 ## 5g. Page dock, note card, continue reading (v1.8)
 

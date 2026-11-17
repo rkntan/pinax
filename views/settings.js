@@ -41,6 +41,7 @@ function viewSettings() {
 async function fillSettings(root) {
   const s = await chrome.storage.local.get(["resurface", "nudgeTime", "updateCheck"]);
   const resurface = s.resurface !== false;
+  const allSites = await chrome.permissions.contains({ origins: ["<all_urls>"] });
   const nudgeTime = /^\d\d:\d\d$/.test(s.nudgeTime) ? s.nudgeTime : DEFAULT_NUDGE;
 
   const time = h("input", {
@@ -74,6 +75,13 @@ async function fillSettings(root) {
     settingsSection("Reminders", "",
       toggleRow("Daily nudge", resurface, (on) => { time.disabled = !on; chrome.storage.local.set({ resurface: on }); }),
       h("label", { class: "row-inline" }, "at ", time)),
+
+    settingsSection("Highlighting", "Without this, the selection bubble and your highlights only work on sites you allowed one by one.",
+      toggleRow("Work on every site (Chrome asks once)", allSites, async (on) => {
+        const all = { origins: ["<all_urls>"] };
+        const ok = on ? await chrome.permissions.request(all) : !(await chrome.permissions.remove(all));
+        if (!ok) { await fillSettings(root); showToast(on ? "Chrome did not allow it" : "Could not turn it off"); }
+      })),
 
     settingsSection("Updates", "Once a week Pinax asks GitHub for the latest release number. Nothing else is sent, and nothing is installed for you.",
       toggleRow("Check for updates weekly", s.updateCheck?.on !== false, async (on) => {

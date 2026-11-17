@@ -116,7 +116,7 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
   (opens Notes in Chrome's side panel next to the page). Pick a colour, add comments, write your own
   notes (saved as you type). Long selections added with Alt+Shift+W become highlights too.
 - **Show on page** marks your highlights in the text again (found by the passage and the words
-  around it). Chrome asks once per site; "Work on every site" asks for all sites, only if
+  around it). Chrome asks once per site; Settings › "Work on every site" asks for all sites, only if
   you switch it on.
 - Library › **Notes** lists every annotated page; page details show their highlights; Ctrl+K
   and search look inside highlights and notes. Export one page or all as Markdown.

@@ -296,14 +296,6 @@ $("export").onclick = async () => {
 
 $("library").onclick = () => openLibraryTab("#notes");
 
-// Every site (one "all sites" permission) vs. sites you allow one by one (the default).
-$("auto").onchange = async (e) => {
-  const all = { origins: ["<all_urls>"] };
-  const ok = e.target.checked ? await chrome.permissions.request(all) : !(await chrome.permissions.remove(all));
-  e.target.checked = e.target.checked && ok;
-  msg(e.target.checked ? "The bubble and your highlights now work on every site" : "Works on sites you allowed one by one");
-};
-
 // follow the active tab of this panel's own window only
 chrome.tabs.onActivated.addListener((info) => { if (info.windowId === myWin) load(); });
 chrome.tabs.onUpdated.addListener((id, change, t) => {
@@ -320,6 +312,5 @@ chrome.storage.onChanged.addListener(async (c) => {
 
 (async function init() {
   myWin = (await chrome.windows.getCurrent()).id;
-  $("auto").checked = await chrome.permissions.contains({ origins: ["<all_urls>"] });
   await load();
 })();
