@@ -158,7 +158,7 @@ function selected() {
   return [...state.sel].filter((id) => ids.has(id));
 }
 
-function done(n, what) {
+function countMessage(n, what) {
   state.sel.clear();
   return `${what} ${n} page${n === 1 ? "" : "s"}`;
 }
@@ -172,20 +172,20 @@ function selBar() {
   return h("div", { class: "selbar" },
     h("b", {}, `${ids.length} selected`),
     pathIn,
-    h("button", { class: "qbtn keep", onclick: () => pathIn.value.trim() && withUndo(done(ids.length, "Kept"), ["items", "collections"], () => keepMany(ids, pathIn.value)) }, "Keep here"),
-    h("button", { class: "qbtn", title: "Each page into its AI suggestion", onclick: () => withUndo(done(ids.length, "Kept"), ["items", "collections"], () => keepSuggested(ids)) }, "Keep suggested"),
+    h("button", { class: "qbtn keep", onclick: () => pathIn.value.trim() && withUndo(countMessage(ids.length, "Kept"), ["items", "collections"], () => keepMany(ids, pathIn.value)) }, "Keep here"),
+    h("button", { class: "qbtn", title: "Each page into its AI suggestion", onclick: () => withUndo(countMessage(ids.length, "Kept"), ["items", "collections"], () => keepSuggested(ids)) }, "Keep suggested"),
     projects.length ? h("select", {
       onchange: async (e) => {
         const id = e.target.value;
         if (!id) return;
         for (const it of data.items.filter((x) => ids.includes(x.id))) await addSource(id, it);
-        flash(done(ids.length, "Added to project:"));
+        flash(countMessage(ids.length, "Added to project:"));
         render();
       },
     }, h("option", { value: "" }, "→ Project"), projects.map((p) => h("option", { value: p.id }, p.name))) : null,
-    h("button", { class: "qbtn", onclick: () => withUndo(done(ids.length, "Marked read:"), ["items"], () => markReadMany(ids, true)) }, "Read"),
-    h("button", { class: "qbtn", onclick: () => withUndo(done(ids.length, "Marked unread:"), ["items"], () => markReadMany(ids, false)) }, "Unread"),
-    h("button", { class: "qbtn danger", onclick: () => withUndo(done(ids.length, "Deleted"), ["items"], () => deleteMany(ids)) }, "Delete"),
+    h("button", { class: "qbtn", onclick: () => withUndo(countMessage(ids.length, "Marked read:"), ["items"], () => markReadMany(ids, true)) }, "Read"),
+    h("button", { class: "qbtn", onclick: () => withUndo(countMessage(ids.length, "Marked unread:"), ["items"], () => markReadMany(ids, false)) }, "Unread"),
+    h("button", { class: "qbtn danger", onclick: () => withUndo(countMessage(ids.length, "Deleted"), ["items"], () => deleteMany(ids)) }, "Delete"),
     h("button", { class: "link small", onclick: () => { state.sel.clear(); render(); } }, "Clear"));
 }
 
@@ -300,16 +300,16 @@ document.addEventListener("keydown", async (e) => {
   else if (k === "o" && it) window.open(it.url, "_blank");
   else if (k === "m" && targets.length) {
     const read = !data.items.find((x) => x.id === targets[0])?.read;
-    await withUndo(done(targets.length, read ? "Marked read:" : "Marked unread:"), ["items"], () => markReadMany(targets, read));
+    await withUndo(countMessage(targets.length, read ? "Marked read:" : "Marked unread:"), ["items"], () => markReadMany(targets, read));
   } else if ((k === "#" || k === "Delete") && targets.length) {
     const n = next();
-    await withUndo(done(targets.length, "Deleted"), ["items"], () => deleteMany(targets));
+    await withUndo(countMessage(targets.length, "Deleted"), ["items"], () => deleteMany(targets));
     state.focusId = n;
   } else if (k === "e" && targets.length) {
     const keepable = data.items.filter((x) => targets.includes(x.id) && x.stage === "inbox" && x.path && x.path !== UNSORTED);
     if (!keepable.length) { if (it) { state.open = it.id; render(); } return flash("No suggestion: type a collection in the details"); }
     const n = next();
-    await withUndo(done(keepable.length, "Kept"), ["items", "collections"], () => keepSuggested(keepable.map((x) => x.id)));
+    await withUndo(countMessage(keepable.length, "Kept"), ["items", "collections"], () => keepSuggested(keepable.map((x) => x.id)));
     state.focusId = n;
   } else return;
   e.preventDefault();

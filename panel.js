@@ -160,7 +160,7 @@ async function summarise(source, access = null) {
   const btn = source === "page" ? $("sum-page") : $("sum-hl");
   const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "✦ Thinking…";
+  btn.textContent = "Summarising…";
   try {
     let text = "";
     if (source === "page") {

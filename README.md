@@ -24,3 +24,5 @@ needs chrome 138 or newer.
 - highlight text on a page and keep notes
 
 all data stays in your browser. more details in [docs/features.md](docs/features.md).
+
+license: [MIT](LICENSE)

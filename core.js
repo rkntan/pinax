@@ -1257,7 +1257,7 @@ async function organiseWindow(windowId, onProgress) {
   if (tabs.length < 2) return { groups: [], how: "none", count: tabs.length };
   let groups, how;
   if (["available", "downloadable", "downloading"].includes(await aiAvailability())) {
-    onProgress?.("Thinking…");
+    onProgress?.("Grouping tabs…");
     try { groups = await aiGroups(tabs, onProgress); how = "AI"; }
     catch (e) { console.warn("AI failed, using sites", e); }
   }
