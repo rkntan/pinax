@@ -2616,6 +2616,7 @@ function installDock(cfg) {
       const on = !b.classList.contains("on");
       b.classList.toggle("on", on);
       setHidden(!on);
+      if (!on) { card.hidden = true; dock.classList.remove("open"); } // the written note too
       if (on) send({ type: "dock-show" }); // marks the page again if the dock was opened before they existed
     } else if (a === "panel") {
       send({ type: "dock-panel" });
