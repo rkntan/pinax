@@ -48,10 +48,13 @@ function env({ stored = {}, release, version = "1.14.0" }) {
 }
 const REL = { tag_name: "v1.15.0", html_url: "https://github.com/rkntan/pinax/releases/tag/v1.15.0" };
 
-test("the update check does nothing (and makes no request) until you switch it on", async () => {
-  const e = env({ release: REL });
-  assert.equal(await e.get("checkForUpdate")(), null);
-  assert.equal(e.calls.fetch, 0);
+test("the update check is on by default, and does nothing (no request) once you switch it off", async () => {
+  const on = env({ release: REL });
+  assert.equal(plain(await on.get("checkForUpdate")()).version, "1.15.0");
+  assert.equal(on.calls.fetch, 1);
+  const off = env({ stored: { updateCheck: { on: false } }, release: REL });
+  assert.equal(await off.get("checkForUpdate")(), null);
+  assert.equal(off.calls.fetch, 0);
 });
 
 test("when on, it asks GitHub once a week and reports a newer release", async () => {

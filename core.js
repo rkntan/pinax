@@ -61,8 +61,8 @@ async function aiSession(options) {
   try { return await base.clone(); } catch { return LanguageModel.create(AI_LANGS); }
 }
 
-// ---------- update check (opt-in, off by default) ----------
-// The only request Pinax can make to the internet: once a week, if you switch it on, it asks GitHub
+// ---------- update check (on by default, one tick box turns it off) ----------
+// The only request Pinax can make to the internet: once a week it asks GitHub
 // for the latest release. It only tells you; it never downloads or installs anything.
 
 const RELEASES_API = "https://api.github.com/repos/rkntan/pinax/releases/latest";
@@ -90,7 +90,7 @@ function parseRelease(json) {
 // Returns { version, url } if a newer release exists, else null. Throws on network errors.
 async function checkForUpdate({ force = false } = {}) {
   const { updateCheck = {} } = await chrome.storage.local.get("updateCheck");
-  if (!updateCheck.on && !force) return null;
+  if (updateCheck.on === false && !force) return null; // only an explicit "off" stops it
   const due = !updateCheck.lastCheck || Date.now() - updateCheck.lastCheck >= UPDATE_EVERY_MS;
   if (due || force) {
     const res = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });

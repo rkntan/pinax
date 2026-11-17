@@ -130,7 +130,7 @@ $("import").onchange = async (e) => {
 
 $("resurface").onchange = (e) => chrome.storage.local.set({ resurface: e.target.checked });
 
-// Opt-in update check: shows "Pinax x.y is available" under the switch.
+// Weekly update check (on unless you switch it off): shows "Pinax x.y is available" under the switch.
 async function showUpdate({ force = false } = {}) {
   const line = $("update-line");
   try {
@@ -227,13 +227,13 @@ window.addEventListener("hashchange", () => {
   const { resurface = true, autoSession = true } = await chrome.storage.local.get(["resurface", "autoSession"]);
   $("resurface").checked = resurface;
   const { updateCheck } = await chrome.storage.local.get("updateCheck");
-  $("update-check").checked = !!updateCheck?.on;
+  $("update-check").checked = updateCheck?.on !== false;
   autoSessionOn = autoSession;
   tidyPrefs = await tidySettings();
   await render();
   showAi();
   storageWarning();
-  if (updateCheck?.on) showUpdate();
+  if (updateCheck?.on !== false) showUpdate();
 })();
 
 // No quota (unlimitedStorage); above 25 MB (a heavy year is ≈ 7.6 MB) suggest a backup under Export.
