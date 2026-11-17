@@ -47,7 +47,7 @@ Chrome extension: organise tabs with Chrome's built-in Gemini Nano (no API key, 
   filings (title, site, standard subject) are kept, and the 8 most recent become examples in the next prompt. Only standard
   subjects count, so the AI never drifts off the list. A page that fits nothing shows up to two "Maybe …" chips (the
   likeliest subjects); one click files it there.
-- **Accuracy check**: Library sidebar footer › *Accuracy check* scores the local AI on 59 labelled sample pages (right
+- **Accuracy check**: Library sidebar footer › *Accuracy check* scores the local AI on 60 labelled sample pages (right
   subject %, right sub-subject %, unclear pages left alone) and lists the misses. Tick "use my saved filings" to see how much your habits help.
 - **Pins**: favourite sites as icons on the left of the Library and in the popup; drag to
   reorder; pin via the star (Pin to Library), the popup, or right-click › "Pin this site to Library".
