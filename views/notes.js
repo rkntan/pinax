@@ -49,10 +49,10 @@ function noteCard(n, itemByKey) {
         class: "link small", title: "Key ideas from your highlights and notes (local AI)",
         onclick: async (e) => {
           e.target.disabled = true;
-          e.target.textContent = "Summarising…";
-          try { await summariseNote(n, "highlights", "", flash); } catch (err) { flash(err.message); e.target.disabled = false; e.target.textContent = "Key ideas"; }
+          e.target.textContent = "✦ Summarising…";
+          try { await summariseNote(n, "highlights", "", flash); } catch (err) { flash(err.message); e.target.disabled = false; e.target.textContent = "✦ Key ideas"; }
         },
-      }, n.summary ? "Redo key ideas" : "Key ideas") : null,
+      }, n.summary ? "✦ Redo key ideas" : "✦ Key ideas") : null,
       it ? null : h("button", { class: "link small", onclick: () => saveForLater(n) }, "→ Inbox"),
       h("button", { class: "link small", onclick: () => downloadMd(n.title, noteMarkdown(n, "#")) }, "Export"),
       h("button", {

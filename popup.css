@@ -58,6 +58,7 @@ h2 { font-size: 13.5px; }
 /* this window */
 .tools { display: flex; gap: 8px; }
 #organise { flex: 1; min-width: 0; height: 38px; white-space: nowrap; }
+.spark { color: var(--lime-on-ink); }
 .btn.quiet { height: 38px; background: none; font-size: 12px; padding: 0 10px; }
 .btn.quiet:hover:not(:disabled) { color: var(--violet); }
 .btn[hidden] { display: none; }

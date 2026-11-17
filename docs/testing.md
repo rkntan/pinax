@@ -23,7 +23,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 2.1 Popup opens fast; the dot next to the title is green (local AI) or orange (hover tells why).
 - [ ] 2.2 The popup has no pins row and no footer counts (those live in the Library); ☆ still pins the current page.
 - [ ] 2.3 "This window" shows the tab and group counts and "✕ 1 duplicate"; clicking it closes the duplicate and the button disappears (no duplicates = no button).
-- [ ] 2.4 **Organise with AI**: tabs are grouped with names and colours; message says "N groups by AI" (or "by site").
+- [ ] 2.4 **✦ Organise with AI**: tabs are grouped with names and colours; message says "N groups by AI" (or "by site").
 - [ ] 2.5 **⋯ → Ungroup tabs** removes the groups. The ⋯ menu also has All tabs → Inbox, Park this window…, Track for a project…, Snapshot window; a click outside or Esc closes it.
 - [ ] 2.7 Popup looks: one white surface, thin lines between header / page / window, left and right edges line up; no empty space at the bottom when there is no message.
 - [ ] 2.6 Press **Alt+Shift+O** on a normal page: tabs get grouped, a "Tabs organised" notification appears.
@@ -144,10 +144,10 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 
 ## 5e. Notes v2: AI summaries (v1.5)
 
-- [ ] 5e.1 On a page with 3+ highlights, side panel → **Key ideas from my highlights**: bullet points appear under Summary (the first time Chrome may download its summariser).
-- [ ] 5e.2 **Summarise the page** gives a short summary of the whole article.
+- [ ] 5e.1 On a page with 3+ highlights, side panel → **✦ Key ideas from my highlights**: bullet points appear under Summary (the first time Chrome may download its summariser).
+- [ ] 5e.2 **✦ Summarise the page** gives a short summary of the whole article.
 - [ ] 5e.3 **Add to my notes** copies it into My notes; **Copy** and **Delete** work.
-- [ ] 5e.4 Library → Notes: the card shows the AI summary; **Key ideas** / **Redo** works from there; **Export** includes it.
+- [ ] 5e.4 Library → Notes: the card shows the AI summary; **✦ Key ideas** / **Redo** works from there; **Export** includes it.
 - [ ] 5e.5 Ctrl+K finds a word that only appears in a summary.
 - [ ] 5e.6 Mind map: saved pages with notes show ✎ (hover shows the first highlight); annotated pages you never saved are in a **Notes** branch (double-click opens Notes).
 
