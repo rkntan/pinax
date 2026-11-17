@@ -455,12 +455,20 @@ chrome.alarms.onAlarm.addListener((a) => { if (a.name === READ_CHECK) trackView(
 
 // ---------- page notes: highlight the selection, show highlights again ----------
 
+// Saves a highlight to the page's notes and, when a project is chosen or tracked here, to its note too.
+async function addHighlightHere(tab, data) {
+  const hl = await addHighlight(tab, data);
+  const p = explicitNoteProject(await getProjects(), (await getWorkingOn())[tab.windowId], await getNoteTarget());
+  if (p) await clipHighlight(p.id, hl, tab);
+  return hl;
+}
+
 async function highlightSelection(tab, fallbackText = "") {
   let got = null;
   try { got = await inPage(tab, readHighlight, [], false); } catch (e) { console.warn("cannot read this page", e); }
   if (!got?.text) got = { text: fallbackText, prefix: "", suffix: "" };
   if (!got.text) return toast("Nothing selected", "Select some text first.");
-  await addHighlight(tab, got);
+  await addHighlightHere(tab, got);
   remark(tab).catch(() => {}); // also puts the bubble and highlight bar on the page
 }
 
@@ -492,11 +500,11 @@ chrome.runtime.onMessage.addListener((m, sender) => {
         return;
       }
       // a whole passage is a highlight, not a word (as with the right-click menu)
-      await addHighlight(tab, { text: m.data.text, prefix: m.data.prefix || "", suffix: m.data.suffix || "" });
-    } else if (m.type === "pen-highlight") await addHighlight(tab, m.data);
+      await addHighlightHere(tab, { text: m.data.text, prefix: m.data.prefix || "", suffix: m.data.suffix || "" });
+    } else if (m.type === "pen-highlight") await addHighlightHere(tab, m.data);
     else if (m.type === "pen-delete") await deleteHighlight(tab.url, m.id);
     else if (m.type === "pen-color") await updateHighlight(tab.url, m.id, { color: m.color });
-    else if (m.type === "pen-comment") await updateHighlight(tab.url, m.id, { comment: m.comment });
+    else if (m.type === "pen-comment") { await updateHighlight(tab.url, m.id, { comment: m.comment }); await syncClipCaption(m.id, m.comment); }
     await remark(tab).catch((e) => console.warn("saved, but can't mark this page:", e.message));
   }).catch((e) => console.warn("pen", e));
 });

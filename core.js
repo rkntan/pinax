@@ -1242,15 +1242,19 @@ function projectMarkdown(p, quotes = [], now = Date.now(), imageFiles = {}) {
   ];
   if ((p.clips || []).length) {
     lines.push("## Notes", "");
-    for (const k of p.clips) {
-      const where = k.url ? `[${(k.title || hostOf(k.url)).replace(/[[\]]/g, "")}](${k.url})` : "";
-      if (k.kind === "image") {
-        const file = imageFiles[k.imgId] || k.src; // stored copy, else the original address
-        if (file) lines.push(`![${(k.caption || "").replace(/[[\]]/g, "")}](${file})`);
-        if (k.caption) lines.push("", k.caption);
-      } else lines.push(...String(k.text).split("\n").map((l) => `> ${l}`), ...(k.caption ? ["", k.caption] : []));
-      if (where) lines.push("", `Source: ${where}`);
-      lines.push("");
+    for (const col of boardColumns(p)) {
+      if (!col.clips.length) continue;
+      if (col.id) lines.push(`### ${col.name}`, "");
+      for (const k of col.clips) {
+        const links = [k, ...(k.also || [])].filter((x) => x.url).map((x) => `[${(x.title || hostOf(x.url)).replace(/[[\]]/g, "")}](${x.url})`);
+        if (k.kind === "image") {
+          const file = imageFiles[k.imgId] || k.src; // stored copy, else the original address
+          if (file) lines.push(`![${(k.caption || "").replace(/[[\]]/g, "")}](${file})`);
+          if (k.caption) lines.push("", k.caption);
+        } else lines.push(...String(k.text).split("\n").map((l) => `> ${l}`), ...(k.caption ? ["", k.caption] : []));
+        if (links.length) lines.push("", `Source: ${links.join(", ")}`);
+        lines.push("");
+      }
     }
   }
   lines.push("## Sources", "");
@@ -1382,6 +1386,12 @@ function pickNoteProject(projects, workingId, targetId = null) {
   return live.find((p) => p.id === targetId) || live.find((p) => p.id === workingId) || [...live].sort((a, b) => b.updated - a.updated)[0] || null;
 }
 
+// Pure: only a project you chose or are tracking in this window (no "last used" guess).
+function explicitNoteProject(projects, workingId, targetId = null) {
+  const live = projects.filter((p) => p.status !== "finished");
+  return live.find((p) => p.id === targetId) || live.find((p) => p.id === workingId) || null;
+}
+
 async function getNoteTarget() {
   return (await chrome.storage.local.get("noteTarget")).noteTarget || null;
 }
@@ -1398,6 +1408,84 @@ async function addClip(projectId, clip, dataUrl = "") {
   }
   await editProject(projectId, (p) => { (p.clips ||= []).push(c); });
   return c;
+}
+
+// Pure: the board's columns: "Unsorted" (id "") first, then your themes. A clip with a deleted theme falls back to Unsorted.
+function boardColumns(p) {
+  const themes = p.themes || [];
+  const known = new Set(themes.map((t) => t.id));
+  const cols = [{ id: "", name: "Unsorted", clips: [] }, ...themes.map((t) => ({ id: t.id, name: t.name, clips: [] }))];
+  for (const c of p.clips || []) (cols.find((x) => x.id === c.theme && known.has(c.theme)) || cols[0]).clips.push(c);
+  return cols;
+}
+
+// Moves a clip to a theme ("" = Unsorted), before another clip or at the end.
+async function moveClip(projectId, clipId, theme, beforeId = null) {
+  await editProject(projectId, (p) => {
+    const clips = p.clips || [];
+    const i = clips.findIndex((c) => c.id === clipId);
+    if (i < 0 || clipId === beforeId) return;
+    const [c] = clips.splice(i, 1);
+    c.theme = theme || "";
+    const j = beforeId ? clips.findIndex((x) => x.id === beforeId) : -1;
+    clips.splice(j < 0 ? clips.length : j, 0, c);
+  });
+}
+
+// Pure: puts one text clip into another (both sources are kept). False when either is an image.
+function mergeClipsInto(p, fromId, intoId) {
+  const from = (p.clips || []).find((c) => c.id === fromId), into = (p.clips || []).find((c) => c.id === intoId);
+  if (!from || !into || from === into || from.kind === "image" || into.kind === "image") return false;
+  into.text = [into.text, from.text].filter(Boolean).join("\n\n");
+  into.caption = [into.caption, from.caption].filter(Boolean).join(" · ");
+  const also = [...(into.also || [])];
+  for (const x of [{ url: from.url, title: from.title }, ...(from.also || [])]) {
+    if (x.url && pageKey(x.url) !== pageKey(into.url) && !also.some((y) => pageKey(y.url) === pageKey(x.url))) also.push(x);
+  }
+  if (also.length) into.also = also;
+  p.clips = p.clips.filter((c) => c !== from);
+  return true;
+}
+async function mergeClips(projectId, fromId, intoId) {
+  let ok = false;
+  await editProject(projectId, (p) => { ok = mergeClipsInto(p, fromId, intoId); });
+  return ok;
+}
+
+async function addTheme(projectId, name) {
+  const t = { id: crypto.randomUUID(), name: String(name).trim().slice(0, 40) };
+  await editProject(projectId, (p) => { (p.themes ||= []).push(t); });
+  return t;
+}
+async function renameTheme(projectId, id, name) {
+  await editProject(projectId, (p) => { const t = (p.themes || []).find((x) => x.id === id); if (t) t.name = String(name).trim().slice(0, 40) || t.name; });
+}
+async function deleteTheme(projectId, id) {
+  await editProject(projectId, (p) => { p.themes = (p.themes || []).filter((x) => x.id !== id); (p.clips || []).forEach((c) => { if (c.theme === id) c.theme = ""; }); });
+}
+
+// Your own thought: a clip with no source page.
+async function addOwnNote(projectId, text, theme = "") {
+  return addClip(projectId, { kind: "text", text: String(text).trim(), url: "", title: "", theme });
+}
+async function setClipText(projectId, clipId, text) {
+  await editProject(projectId, (p) => { const c = (p.clips || []).find((x) => x.id === clipId); if (c) c.text = text; });
+}
+
+// A highlight also lands in the project note (once; the clip remembers which highlight it came from).
+async function clipHighlight(projectId, hl, page) {
+  if (!hl) return;
+  await editProject(projectId, (p) => {
+    if ((p.clips ||= []).some((c) => c.hl === hl.id)) return;
+    p.clips.push({ id: crypto.randomUUID(), kind: "text", text: hl.text, caption: hl.comment || "", url: page.url, title: page.title || "", hl: hl.id, at: Date.now() });
+  });
+}
+
+// Keeps a clip's caption in step with its highlight's comment.
+async function syncClipCaption(hlId, comment) {
+  for (const p of await getProjects()) {
+    if ((p.clips || []).some((c) => c.hl === hlId)) await editProject(p.id, (x) => x.clips.forEach((c) => { if (c.hl === hlId) c.caption = comment || ""; }));
+  }
 }
 
 async function setClipCaption(projectId, clipId, caption) {

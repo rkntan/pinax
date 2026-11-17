@@ -87,14 +87,12 @@ h2 { font-size: 13.5px; }
 .srccard[hidden] { display: none; }
 .src-top { display: flex; align-items: baseline; gap: 6px; }
 .src-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.src-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.src-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .sbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 4px; font-size: 12px; font-weight: 600; }
 .sbtn:hover { border-color: var(--violet); color: var(--violet); }
 .sbtn.on { background: var(--violet-btn); color: var(--violet-ink); border-color: var(--violet-btn); }
 .sbtn.ok.on { background: var(--ok-btn); border-color: var(--ok-btn); }
 .sbtn.no.on { background: var(--muted-btn); border-color: var(--muted-btn); }
-.prune { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
-.prune[hidden] { display: none; }
 .srccard .input { font-size: 12px; padding: 5px 8px; }
 .src-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .src-bottom .btn { padding: 5px 12px; }

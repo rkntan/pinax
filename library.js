@@ -1,7 +1,9 @@
 // Library page shell: loading, rendering, routing, search, backup. Views live in views/*.js.
 
 function setHead(title, sub) {
-  $("title").textContent = title;
+  const t = $("title");
+  t.textContent = title;
+  t.onclick = null; t.title = ""; t.classList.remove("editable");
   $("subtitle").textContent = sub || "";
   document.title = `${title} · Library`;
 }
@@ -69,7 +71,12 @@ async function renderNow() {
 }
 
 document.querySelectorAll(".nav").forEach((b) => (b.onclick = () => go(b.dataset.view)));
-$("menu-btn").onclick = () => document.body.classList.toggle("nav-open");
+// Narrow windows: the sidebar is a drawer. Wide windows: it folds away and the choice is remembered.
+const narrow = matchMedia("(max-width: 860px)");
+function setSideOff(off) { document.body.classList.toggle("side-off", off); prefs.set("sideOff", off); }
+document.body.classList.toggle("side-off", !!prefs.get("sideOff", false));
+$("menu-btn").onclick = () => (narrow.matches ? document.body.classList.toggle("nav-open") : setSideOff(!document.body.classList.contains("side-off")));
+$("side-hide").onclick = () => (narrow.matches ? document.body.classList.remove("nav-open") : setSideOff(true));
 new ResizeObserver(() => document.documentElement.style.setProperty("--bar-h", `${document.querySelector(".bar").offsetHeight}px`)).observe(document.querySelector(".bar"));
 $("density").onclick = (e) => { const b = e.target.closest("button"); if (b) { prefs.set("density", b.dataset.d); render(); } };
 // Search redraws 150 ms after the last keystroke; Enter redraws at once.

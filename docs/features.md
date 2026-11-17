@@ -69,15 +69,15 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
 - Rows / Cards toggle for a compact or visual list.
 
 ## Projects: sources
-- **Working on** (popup › ⋯ › Track for a project, per window): every page you open in that window joins the project's
+- **Collecting** (popup › "Collecting into", or the project's Start collecting; per window): every page you open in that window joins the project's
   sources, under the page it was opened from (search result pages are skipped).
 - **Park this window** (popup › ⋯): all tabs become the project's sources, keeping who-opened-whom;
   optionally closes them and opens the project in the Library.
-- Project view: the sources as an indented tree, statuses ✓ Useful / Later (also to Inbox) /
-  ✕ Not needed (offers to prune the pages opened from it), comments, ▣ working tabs, progress bar.
+- Project view: the board of notes, then the sources as an indented tree: ✓ Used, ✕ Remove (removing keeps the pages opened from it), comments, ▣ working tabs, progress bar. Older Later / Not needed marks still show as they were. Notes lists pages grouped by project.
 - **Reading mode**: "Read next" in the Library, then in the popup: mark the page and the same
   tab moves on to the next unread source.
 - **Research note**: right-click selected text › "Add to my note", or an image › "Add image to my note". Clips go to the project tracked in this window (else the last used; "Research note" is created if none). Images are shrunk to JPEG (max 1200 px) in their own `img:<id>` keys, included in backups. Settings › "Projects (.zip)" exports a folder per project: `note.md` + `images/`.
+- **Start collecting** (project page): one switch. Pages you open in this window join the sources, and every highlight, clip or screenshot goes to the project board (once; comments stay in step). The board holds your notes as cards in themes: drag to arrange, drop on the middle of a card to merge. Notes cards show a chip for each project holding clips from that page. Click the project title to rename it.
 - More ways into the note: the selection bubble's **+ Note** (N), right-click › **Add a screenshot to my note…** (shortcut: set one in chrome://extensions/shortcuts; Chrome allows only 4 preset keys), **Add this moment to my note** on YouTube (clip links to that second). Right-click › **Copy citation for this page** gives an APA reference.
 - Settings › **Notes (.zip)**: one Obsidian-ready `.md` per page (properties block, highlights as role callouts).
 - **Finish**: keep useful sources in collections, handle what is left, export Markdown

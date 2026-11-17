@@ -320,42 +320,36 @@ function projectOptions(sel, current, noneLabel) {
   sel.value = current && projectList.some((p) => p.id === current) ? current : noneLabel ? "" : projectList[0]?.id || "__new";
 }
 
-let wantTrack = false; // ⋯ → Track for a project… shows the row before anything is tracked
+// One choice: the project this window collects into (pages you open, highlights, clips). "Not collecting" stops both.
+async function startCollecting(id) {
+  await setWorkingOn(tab.windowId, id || null);
+  await setNoteTarget(id || null);
+}
 
 async function showWorking() {
   const current = (await getWorkingOn())[tab.windowId] || "";
-  projectOptions($("working"), current, "Not tracking");
+  projectOptions($("working"), current, "Not collecting");
   $("working").classList.toggle("on", !!$("working").value);
-  $("working-row").hidden = !current && !wantTrack;
-  $("track").textContent = current ? "Change tracked project…" : "Track for a project…";
 }
-
-$("track").onclick = async () => {
-  wantTrack = true;
-  $("park-form").hidden = true;
-  await showWorking();
-  $("working").focus();
-};
 
 $("working").onchange = async () => {
   const v = $("working").value;
   $("working-new").hidden = v !== "__new";
   if (v === "__new") return $("working-new").focus();
-  await setWorkingOn(tab.windowId, v || null);
-  if (!v) wantTrack = false;
-  msg(v ? "New pages in this window join the project's sources" : "Stopped tracking");
+  await startCollecting(v);
+  msg(v ? "Pages you open here and your highlights go into the project" : "Stopped collecting");
   showWorking();
 };
 
 $("working-new").onkeydown = async (e) => {
   if (e.key !== "Enter" || !$("working-new").value.trim()) return;
   const p = await addProject($("working-new").value.trim(), [], true);
-  await setWorkingOn(tab.windowId, p.id);
+  await startCollecting(p.id);
   $("working-new").hidden = true;
   $("working-new").value = "";
   await showPage();
   showWorking();
-  msg(`Tracking “${p.name}”`);
+  msg(`Collecting into “${p.name}”`);
 };
 
 $("park").onclick = () => {
@@ -385,8 +379,8 @@ $("park-form").onsubmit = async (e) => {
     await chrome.tabs.create({ url: chrome.runtime.getURL(`library.html#project:${id}`), windowId: tab.windowId });
     await chrome.tabs.remove(tabs.filter((t) => isWeb(t) && !t.pinned).map((t) => t.id));
   } else {
-    await setWorkingOn(tab.windowId, id);
-    msg(`Parked ${n} page${n === 1 ? "" : "s"}; tracking this window`);
+    await startCollecting(id);
+    msg(`Parked ${n} page${n === 1 ? "" : "s"}; collecting from this window`);
     $("park-form").hidden = true;
     showWorking();
   }
@@ -405,7 +399,7 @@ async function showSource() {
   $("src-prog").textContent = ` · ${c.sorted}/${c.total} sorted`;
   $("src-note").value = s.note || "";
   $("src-auto").checked = ui.get("autoNext", true);
-  document.querySelectorAll(".sbtn").forEach((b) => b.classList.toggle("on", b.dataset.st === s.status));
+  document.querySelectorAll(".sbtn[data-st]").forEach((b) => b.classList.toggle("on", b.dataset.st === s.status));
   $("src-next").disabled = !nextUnread(p.sources, s.id);
 }
 
@@ -418,33 +412,25 @@ async function openNext() {
   window.close();
 }
 
-document.querySelectorAll(".sbtn").forEach((b) => (b.onclick = async () => {
+document.querySelectorAll(".sbtn[data-st]").forEach((b) => (b.onclick = async () => {
   if (!reading) return;
   const { project: p, source: s } = reading;
   const note = $("src-note").value.trim();
   if (note !== (s.note || "")) await setSourceNote(p.id, s.id, note);
-  if (b.dataset.st === "skip") {
-    const kids = descendants(p.sources, s.id).filter((id) => p.sources.find((x) => x.id === id)?.status === "unread").length;
-    if (kids) {
-      // ask inline (popups can't show confirm boxes reliably)
-      $("prune").hidden = false;
-      $("prune").firstElementChild.textContent = `${kids} unread page${kids > 1 ? "s were" : " was"} opened from it.`;
-      $("prune-one").onclick = () => mark("skip", false);
-      $("prune-all").onclick = () => mark("skip", true);
-      return;
-    }
-  }
-  mark(b.dataset.st, false);
+  await setSourceStatus(p.id, s.id, s.status === b.dataset.st ? "unread" : b.dataset.st, false);
+  if ($("src-auto").checked && s.status !== b.dataset.st) return openNext();
+  showSource();
 }));
 
-async function mark(status, prune) {
+$("src-remove").onclick = async () => {
+  if (!reading) return;
   const { project: p, source: s } = reading;
-  await setSourceStatus(p.id, s.id, status, prune);
-  $("prune").hidden = true;
-  if ($("src-auto").checked) return openNext();
-  msg(`Marked: ${status === "skip" ? "not needed" : status}`);
+  const next = nextUnread(p.sources, s.id);
+  await removeSource(p.id, s.id);
+  if ($("src-auto").checked && next) { await chrome.tabs.update(tab.id, { url: next.url }); return window.close(); }
+  msg("Removed from the project");
   showSource();
-}
+};
 
 $("src-note").onchange = () => reading && setSourceNote(reading.project.id, reading.source.id, $("src-note").value.trim());
 $("src-auto").onchange = () => ui.set("autoNext", $("src-auto").checked);

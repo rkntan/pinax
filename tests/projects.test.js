@@ -161,3 +161,33 @@ test("pickNoteProject: a chosen target beats the tracked project", () => {
   assert.equal(core.pickNoteProject(ps, "a", "b").id, "b");
   assert.equal(core.pickNoteProject(ps, "a", "c").id, "a", "a finished target is ignored");
 });
+
+test("boardColumns: Unsorted first, themes after, a deleted theme falls back", () => {
+  const p = { themes: [{ id: "t1", name: "Basics" }], clips: [{ id: "a", theme: "t1" }, { id: "b" }, { id: "c", theme: "gone" }] };
+  const cols = plain(core.boardColumns(p));
+  assert.deepEqual(cols.map((c) => `${c.name}:${c.clips.map((x) => x.id)}`), ["Unsorted:b,c", "Basics:a"]);
+});
+
+test("mergeClipsInto joins text, keeps both sources, refuses images", () => {
+  const p = { clips: [
+    { id: "a", kind: "text", text: "One", caption: "", url: "https://a.test/1", title: "A" },
+    { id: "b", kind: "text", text: "Two", caption: "why", url: "https://b.test/2", title: "B" },
+    { id: "i", kind: "image", text: "", url: "https://c.test/3" },
+  ] };
+  assert.equal(core.mergeClipsInto(p, "b", "a"), true);
+  assert.equal(p.clips.length, 2);
+  assert.equal(p.clips[0].text, "One\n\nTwo");
+  assert.equal(p.clips[0].caption, "why");
+  assert.deepEqual(plain(p.clips[0].also), [{ url: "https://b.test/2", title: "B" }]);
+  assert.equal(core.mergeClipsInto(p, "i", "a"), false);
+});
+
+test("projectMarkdown groups notes under their theme and lists merged sources", () => {
+  const p = { name: "Z", sources: [], themes: [{ id: "t", name: "Basics" }], clips: [
+    { id: "a", kind: "text", text: "Loose", url: "" },
+    { id: "b", kind: "text", text: "Core", theme: "t", url: "https://a.test/1", title: "A", also: [{ url: "https://b.test/2", title: "B" }] },
+  ] };
+  const md = core.projectMarkdown(p);
+  assert.ok(md.indexOf("> Loose") < md.indexOf("### Basics"));
+  assert.ok(md.includes("Source: [A](https://a.test/1), [B](https://b.test/2)"));
+});

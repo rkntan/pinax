@@ -190,7 +190,7 @@ function hlEl(hl) {
     ? el("textarea", {
         rows: 2,
         placeholder: "Your comment…",
-        onblur: async (e) => { editing = null; await updateHighlight(tab.url, hl.id, { comment: e.target.value.trim() }); },
+        onblur: async (e) => { editing = null; await updateHighlight(tab.url, hl.id, { comment: e.target.value.trim() }); await syncClipCaption(hl.id, e.target.value.trim()); },
         onkeydown: (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.target.blur(); } },
       })
     : hl.comment ? el("div", { class: "hl-comment", title: "Edit", onclick: () => { editing = hl.id; render(); } }, hl.comment) : null;

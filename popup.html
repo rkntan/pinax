@@ -18,14 +18,8 @@
   <section id="src-card" class="srccard" hidden>
     <div class="src-top"><span class="small muted">Reading for</span> <b id="src-proj"></b><span id="src-prog" class="small muted"></span></div>
     <div class="src-btns">
-      <button data-st="useful" class="sbtn ok">✓ Useful</button>
-      <button data-st="later" class="sbtn">Later</button>
-      <button data-st="skip" class="sbtn no">✕ Not needed</button>
-    </div>
-    <div id="prune" class="prune" hidden>
-      <span class="small"></span>
-      <button id="prune-one" class="sbtn">Only this</button>
-      <button id="prune-all" class="sbtn no">This + those</button>
+      <button data-st="useful" class="sbtn ok">✓ Used</button>
+      <button id="src-remove" class="sbtn no">✕ Remove</button>
     </div>
     <input id="src-note" class="input" aria-label="Comment" placeholder="Comment: why it matters (optional)">
     <div class="src-bottom">
@@ -83,13 +77,12 @@
         <div id="more-menu" class="menu up" role="menu" hidden>
           <button id="all-inbox">All tabs → Inbox</button>
           <button id="park">Park this window…</button>
-          <button id="track">Track for a project…</button>
           <button id="ungroup">Ungroup tabs</button>
         </div>
       </div>
     </div>
-    <div id="working-row" class="working" hidden>
-      <span class="small muted">Working on</span>
+    <div id="working-row" class="working">
+      <span class="small muted">Collecting into</span>
       <select id="working" aria-label="Working project"></select>
       <input id="working-new" class="input" aria-label="New project name" placeholder="New project name, Enter" hidden>
     </div>
