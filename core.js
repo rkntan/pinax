@@ -1133,12 +1133,6 @@ async function enrichPhrase(id, tools) {
   await updatePhrase(id, patch);
 }
 
-// You corrected the language: keep it (no more guessing) and write the meaning again.
-async function setPhraseLang(id, lang) {
-  await updatePhrase(id, { lang, langLocked: true, detected: false, translation: "", ai: null, needsAi: true });
-  return enrichPhrase(id);
-}
-
 async function enrichPendingPhrases(onProgress) {
   const ready = (await aiAvailability()) === "available";
   const pending = (await getPhrases()).filter((x) => x.needsAi && (ready || !x.detected));

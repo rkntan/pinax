@@ -27,7 +27,7 @@ h2 { font-size: 13px; }
 .hl textarea { width: 100%; margin-top: 4px; font: 12px var(--body); border: 1px solid var(--violet); border-radius: 6px; padding: 4px 6px; resize: vertical; background: var(--surface); color: var(--ink); }
 .empty { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 
-#text { width: 100%; min-height: 180px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; font: 13px/1.5 var(--body); background: var(--bg); color: var(--ink); outline: none; }
+#text { width: 100%; min-height: 180px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; font: 13px/1.5 var(--body); background: var(--bg); color: var(--ink); }
 #text:focus { border-color: var(--violet); background: var(--surface); }
 
 .actions .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }

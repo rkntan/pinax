@@ -1,5 +1,5 @@
 // Projects: research / work with a trail of sources (who opened whom), statuses, notes,
-// reading mode, finishing, and working tabs ("Open all", formerly "workspaces").
+// reading mode, finishing, and working tabs ("Open tabs", formerly "workspaces").
 
 const STATUS_LABEL = { unread: "Unread", useful: "Useful", later: "Later", skip: "Not needed" };
 

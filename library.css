@@ -2,7 +2,7 @@ body { display: grid; grid-template-columns: 60px 232px minmax(0, 1fr); height: 
 
 /* ---------- pins dock ---------- */
 .pins { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 0; background: var(--ink); overflow: hidden; }
-.pin-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: none; padding: 2px 0; scroll-snap-type: y proximity; }
+.pin-list { min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: none; padding: 2px 0; scroll-snap-type: y proximity; }
 .pin-list::-webkit-scrollbar { display: none; }
 .pin { position: relative; width: 40px; height: 40px; border-radius: 11px; background: var(--surface); display: grid; place-items: center; cursor: pointer; flex: none; scroll-snap-align: start; transition: transform 0.12s; border: 2px solid transparent; }
 .pin:hover { transform: scale(1.08); }
@@ -30,7 +30,7 @@ body { display: grid; grid-template-columns: 60px 232px minmax(0, 1fr); height: 
 .mini { border: none; background: none; color: var(--muted); font-size: 15px; line-height: 1; padding: 0 2px; min-width: 24px; min-height: 24px; }
 .mini:hover { color: var(--violet); }
 .tree { margin-bottom: 8px; }
-.node-row { cursor: pointer; }
+.node-row { cursor: pointer; position: relative; }
 .caret { width: 14px; flex: none; color: var(--muted); font-size: 10px; text-align: center; }
 .node-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree .empty-tree { padding: 4px 8px; font-size: 12px; color: var(--muted); }
@@ -326,7 +326,6 @@ a.title:hover { color: var(--violet); }
 .gear { position: relative; margin-top: auto; width: 40px; height: 40px; border-radius: 11px; border: none; background: none; color: rgba(255, 255, 255, 0.7); display: grid; place-items: center; flex: none; cursor: pointer; }
 .gear:hover, .gear.on { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .gear.has-update::after { content: ""; position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--lime); border: 2px solid var(--ink); }
-.pin-list { min-height: 0; }
 .settings { max-width: 640px; display: flex; flex-direction: column; gap: 22px; padding-bottom: 40px; }
 .set-sec h3 { margin: 0 0 2px; font-size: 15px; }
 .set-sec p { margin: 0 0 8px; }
@@ -339,7 +338,6 @@ a.title:hover { color: var(--violet); }
 .tabset .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
 
 /* ---------- collection tree: drag, row menu, inline edit, new panel ---------- */
-.node-row { position: relative; }
 .node-row .row-menu { border: none; background: none; color: var(--muted); font-size: 14px; line-height: 1; padding: 0 4px; border-radius: 5px; opacity: 0; flex: none; }
 .node-row:hover .row-menu, .node-row .row-menu:focus-visible, .row-menu[aria-expanded="true"] { opacity: 1; }
 .node-row .row-menu:hover { background: var(--lav); color: var(--violet); }
