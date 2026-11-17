@@ -46,13 +46,11 @@ function viewMap() {
     mapFitted = false;
     render();
   };
-  setHead("Mind map", "click a branch to open it · drag to move · scroll to zoom");
+  setHead("Mind map", "");
   setTools(
     h("button", { class: "link small", onclick: () => toggleAll(true) }, "Expand all"),
     h("button", { class: "link small", onclick: () => toggleAll(false) }, "Collapse all"),
-    h("button", { class: "link small", onclick: () => { mapFitted = false; render(); } }, "Fit"),
-    h("span", { class: "spacer" }),
-    h("span", { class: "small muted" }, "dotted line = pages sharing a tag"));
+    h("button", { class: "link small", title: "Click a branch to open it · drag to move · scroll to zoom · dotted line = pages sharing a tag", onclick: () => { mapFitted = false; render(); } }, "Fit"));
 
   // layout: y from leaf order, x from depth
   let row = 0;

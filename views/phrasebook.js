@@ -65,8 +65,10 @@ function wordCard(p, fresh) {
       sourceEl(p),
       h("span", { class: "spacer" }),
       dictLinks(p.text, p.lang).map(([name, url]) => h("a", { class: "dict", href: url, target: "_blank" }, name)),
-      h("button", { class: "link small", title: "Edit this card", onclick: () => { state.editing = p.id; render(); } }, "Edit"),
-      h("button", { class: "link small", title: "Delete", onclick: () => withUndo(`Deleted “${p.text}”`, ["phrases"], () => deletePhrase(p.id)) }, "×")));
+      moreMenu([
+        { label: "Edit", onclick: () => { state.editing = p.id; render(); } },
+        { label: "Delete", danger: true, onclick: () => withUndo(`Deleted “${p.text}”`, ["phrases"], () => deletePhrase(p.id)) },
+      ])));
 }
 
 // The card as a form: fix the language, rewrite the meaning, add tags.
@@ -183,10 +185,9 @@ function viewPhrasebook() {
     h("span", { class: "spacer" }),
     vocab.length ? sort : null,
     add);
-  const bar = null;
 
   if (!shownList.length) {
-    return h("div", {}, bar, emptyEl(all.length ? "Nothing here" : "No words yet",
+    return h("div", {}, emptyEl(all.length ? "Nothing here" : "No words yet",
       "Select a word on any page and press Alt+Shift+W."));
   }
   // the 10 newest words saved this week get highlighted
@@ -194,7 +195,7 @@ function viewPhrasebook() {
   const folded = new Set(prefs.get("phFolded", []));
   const { shown, more } = pageOf("words", shownList.filter((p) => !folded.has(p.lang)));
   const order = [...new Set(shownList.map((p) => p.lang))];
-  return h("div", {}, bar, langSections(order, counts, shown, (p) => wordCard(p, fresh.has(p.id))), more);
+  return h("div", {}, langSections(order, counts, shown, (p) => wordCard(p, fresh.has(p.id))), more);
 }
 
 function exportWords() {

@@ -18,7 +18,7 @@ async function thisWindowId() {
 // Useful / Later / Not needed / Next for it.
 async function readNext(p, afterId = null) {
   const s = nextUnread(p.sources, afterId);
-  if (!s) return alert("Nothing unread left in this project.");
+  if (!s) return showToast("Nothing unread left in this project");
   await chrome.tabs.create({ url: s.url, active: true });
 }
 
@@ -59,9 +59,11 @@ function sourceRow(p, node, collapsed) {
       h("button", { class: `sb ok${s.status === "useful" ? " on" : ""}`, title: "Useful", onclick: () => mark("useful") }, "✓"),
       h("button", { class: `sb${s.status === "later" ? " on" : ""}`, title: "Later (also saves to the Inbox)", onclick: () => mark("later") }, "Later"),
       h("button", { class: `sb no${s.status === "skip" ? " on" : ""}`, title: "Not needed", onclick: () => mark("skip") }, "✕"),
-      h("button", { class: `sb${working ? " on" : ""}`, title: working ? "Remove from working tabs" : "Add to working tabs", onclick: () => toggleWorkingTab(p.id, s) }, "▣"),
-      h("button", { class: "sb", title: "Comment", onclick: editNote }, "✎"),
-      h("button", { class: "sb", title: "Remove from project", onclick: () => withUndo("Removed from project", ["projects"], () => removeSource(p.id, s.id)) }, "−")));
+      moreMenu([
+        { label: working ? "Remove from working tabs" : "Add to working tabs", onclick: () => toggleWorkingTab(p.id, s) },
+        { label: s.note ? "Edit comment" : "Add comment", onclick: editNote },
+        { label: "Remove from project", danger: true, onclick: () => withUndo("Removed from project", ["projects"], () => removeSource(p.id, s.id)) },
+      ])));
 }
 
 function finishView(p) {
@@ -131,29 +133,23 @@ function viewProject() {
   setTools(
     done ? null : h("button", { class: "btn primary", disabled: !c.unread, onclick: () => readNext(p) }, c.unread ? `▶ Read next (${c.unread})` : "All read"),
     done ? null : workingBtn,
-    h("button", { class: "btn", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, `Open working tabs (${p.tabs.length})`),
+    h("button", { class: "btn", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, `Open tabs (${p.tabs.length})`),
     h("span", { class: "spacer" }),
-    done ? null : h("button", {
-      class: "link small",
-      onclick: async () => {
+    moreMenu([
+      done ? null : { label: "+ This window's tabs", onclick: async () => {
         const tabs = await thisWindowTabs();
-        if (!tabs.length) return alert("No web tabs in this window besides the Library.");
+        if (!tabs.length) return showToast("No web tabs in this window besides the Library");
         const n = await parkTabs(p.id, tabs);
-        alert(`Added ${n} page${n === 1 ? "" : "s"} from this window to the sources.`);
-      },
-    }, "+ This window's tabs"),
-    done ? null : h("button", {
-      class: "link small",
-      onclick: async () => {
+        showToast(`Added ${n} page${n === 1 ? "" : "s"} from this window`);
+      } },
+      done ? null : { label: "+ Page", onclick: async () => {
         const url = prompt("Add a page (paste its address):", "https://");
         if (url && /^https?:\/\/.+/.test(url)) await addSource(p.id, { url, title: hostOf(url) });
-      },
-    }, "+ Page"),
-    done
-      ? h("button", { class: "link small", onclick: () => reopenProject(p.id) }, "Reopen")
-      : h("button", { class: "link small", onclick: () => { state.finishing = p.id; render(); } }, "Finish…"),
-    h("button", { class: "link small", onclick: () => { const n = prompt("Name", p.name); if (n) editProject(p.id, (x) => (x.name = n.trim())); } }, "Rename"),
-    h("button", { class: "link small", onclick: async () => { if (confirm(`Delete project "${p.name}"?`)) { await withUndo(`Deleted project “${p.name}”`, ["projects"], () => deleteProject(p.id)); go("inbox"); } } }, "Delete"));
+      } },
+      done ? { label: "Reopen", onclick: () => reopenProject(p.id) } : { label: "Finish…", onclick: () => { state.finishing = p.id; render(); } },
+      { label: "Rename", onclick: () => { const n = prompt("Name", p.name); if (n) editProject(p.id, (x) => (x.name = n.trim())); } },
+      { label: "Delete", danger: true, onclick: async () => { await withUndo(`Deleted project “${p.name}”`, ["projects"], () => deleteProject(p.id)); go("inbox"); } },
+    ]));
 
   if (state.finishing === p.id) return finishView(p);
 
@@ -219,14 +215,16 @@ function workingTabsEl(p) {
         flash(`Kept in ${pathLabel(cleanPath(path))}`);
       },
     }, h("option", { value: "" }, "→ Collection"), cols.map((c) => h("option", { value: c }, pathLabel(c))), h("option", { value: "__new" }, "+ New…")),
-    h("button", { class: "link small", onclick: () => { pinSite(t); flash("Pinned"); } }, "Pin"),
-    h("button", { class: "link small", title: "Remove this tab", onclick: () => withUndo("Tab removed", ["projects"], () => editProject(p.id, (x) => x.tabs.splice(i, 1))) }, "×"));
+    moreMenu([
+      { label: "Pin to Library", onclick: () => { pinSite(t); flash("Pinned"); } },
+      { label: "Remove tab", danger: true, onclick: () => withUndo("Tab removed", ["projects"], () => editProject(p.id, (x) => x.tabs.splice(i, 1))) },
+    ]));
 
   return h("div", { class: "tabset" },
     h("div", { class: "tabset-head" },
       h("h3", {}, p.name),
       h("span", { class: "muted small" }, `${p.tabs.length} tab${p.tabs.length === 1 ? "" : "s"}`),
-      h("button", { class: "btn primary", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, "Open all")),
+      h("button", { class: "btn primary", disabled: !p.tabs.length, onclick: () => restoreTabs(p.tabs) }, "Open tabs")),
     Object.keys(counts).length ? h("div", { class: "chips" }, Object.entries(counts).map(([g, n]) => h("span", { class: "chip" }, `${g} ${n}`))) : null,
     h("div", { class: "tablist" }, p.tabs.map(row)));
 }
@@ -242,7 +240,7 @@ function renderProjects() {
       h("button", { class: `nav${state.view === "project" && state.col === p.id ? " on" : ""}`, onclick: () => { state.finishing = null; state.sfilter = "all"; go("project", p.id); }, title: p.name },
         h("span", { class: "node-name" }, (p.status === "finished" ? "✓ " : "") + p.name),
         h("span", { class: "n" }, c.total ? `${c.sorted}/${c.total}` : String(p.tabs.length || ""))),
-      p.tabs.length ? h("button", { class: "ws-open", title: "Open working tabs in a new window", onclick: () => restoreTabs(p.tabs) }, "Open") : null);
+      p.tabs.length ? h("button", { class: "ws-open", title: "Open working tabs in a new window", onclick: () => restoreTabs(p.tabs) }, "Open tabs") : null);
     // drop a page row here to add it as a source
     dropTarget(row, (id) => { const it = data.items.find((x) => x.id === id); if (it) addSource(p.id, it); });
     box.append(row);

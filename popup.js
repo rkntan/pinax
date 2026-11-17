@@ -71,7 +71,7 @@ async function showPage() {
 function setDest(d) {
   dest = d;
   ui.set("dest", d);
-  document.querySelectorAll("#dest button").forEach((b) => b.classList.toggle("on", b.dataset.dest === d));
+  document.querySelectorAll("#dest button").forEach((b) => { const on = b.dataset.dest === d; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); });
   document.querySelectorAll(".dest-body").forEach((el) => (el.hidden = el.dataset.for !== d));
   updateSaveLabel();
 }

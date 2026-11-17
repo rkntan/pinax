@@ -48,9 +48,10 @@ async function renderNow() {
   document.querySelectorAll("#density button").forEach((b) => b.classList.toggle("on", b.dataset.d === prefs.get("density", "rows")));
   // the top bar only shows what the page can use: layout and "paste a link" for page lists, search except in Settings/Review
   const pageList = ["inbox", "all", "col", "queue"].includes(state.view);
+  $("title").title = pageList ? KEYS_HINT : "";
   $("density").hidden = !pageList;
   $("add").hidden = !pageList;
-  $("search").hidden = ["settings", "review"].includes(state.view);
+  $("search").hidden = ["settings", "review", "collections"].includes(state.view);
 
   listOrder = [];
   // the sidebar only changes with the data or the active view / collection / project
@@ -61,13 +62,15 @@ async function renderNow() {
     renderProjects();
   }
   reviewKeys = null;
-  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, settings: viewSettings, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook };
+  const views = { inbox: viewInbox, all: viewAll, col: viewCollection, review: viewReview, map: viewMap, settings: viewSettings, notes: viewNotes, queue: viewQueue, project: viewProject, phrases: viewPhrasebook, collections: viewCollections };
   const keepFocus = state.view === "review" ? null : document.activeElement?.id;
   $("content").replaceChildren((views[state.view] || viewInbox)());
   if (keepFocus) $(keepFocus)?.focus();
 }
 
 document.querySelectorAll(".nav").forEach((b) => (b.onclick = () => go(b.dataset.view)));
+$("menu-btn").onclick = () => document.body.classList.toggle("nav-open");
+new ResizeObserver(() => document.documentElement.style.setProperty("--bar-h", `${document.querySelector(".bar").offsetHeight}px`)).observe(document.querySelector(".bar"));
 $("density").onclick = (e) => { const b = e.target.closest("button"); if (b) { prefs.set("density", b.dataset.d); render(); } };
 // Search redraws 150 ms after the last keystroke; Enter redraws at once.
 let searchTimer = null;
@@ -184,7 +187,7 @@ function readHash() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const i = hash.indexOf(":");
   if (["col", "project", "ws"].includes(hash.slice(0, i))) [state.view, state.col] = [hash.slice(0, i).replace("ws", "project"), hash.slice(i + 1)];
-  else if (["inbox", "review", "queue", "all", "map", "phrases", "notes", "settings"].includes(hash)) state.view = hash;
+  else if (["inbox", "review", "queue", "all", "map", "phrases", "notes", "settings", "collections"].includes(hash)) state.view = hash;
   else state.view = "inbox"; // unknown or old links
 }
 // the popup reuses an open Library tab and just changes its #view

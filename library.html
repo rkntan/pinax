@@ -37,11 +37,10 @@
     </div>
     <div id="ws-list" class="nav-group"></div>
 
-    <div class="nav-head">
-      <span>Collections</span>
-      <button id="col-add" class="mini" title="New collection">+</button>
+    <div class="ws-row">
+      <button class="nav" data-view="collections">Collections <span class="n" id="n-cols"></span></button>
+      <button id="col-add" class="mini" title="New collection" aria-label="New collection">+</button>
     </div>
-    <div id="col-new"></div>
     <div id="tree" class="tree"></div>
 
     <div class="nav-group">
@@ -63,13 +62,14 @@
 
   <main>
     <div class="bar">
+      <button id="menu-btn" class="btn menu-btn" aria-label="Menu" title="Menu">☰</button>
       <div class="crumbs">
         <h2 id="title">Inbox</h2>
         <span id="subtitle" class="muted small"></span>
       </div>
-      <input id="search" class="input" type="search" placeholder="Search   (Ctrl+K to jump)" spellcheck="false">
+      <input id="search" class="input" type="search" aria-label="Search" placeholder="Search   (Ctrl+K to jump)" spellcheck="false">
       <form id="add" class="add">
-        <input id="add-url" class="input" type="url" placeholder="Paste a link" required>
+        <input id="add-url" class="input" type="url" aria-label="Link to save" placeholder="Paste a link" required>
         <button class="btn primary">Save</button>
       </form>
       <div class="seg" id="density" title="Layout">

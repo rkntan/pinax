@@ -40,7 +40,7 @@ function pageOf(key, list, keep = -1) {
   if (left <= 0) return { shown: list, more: null };
   return {
     shown: list.slice(0, n),
-    more: h("div", { class: "more", style: "margin:10px 2px" },
+    more: h("div", { class: "show-more" },
       h("button", { class: "link small", title: `${left} not shown yet`, onclick: () => { state.limit[key] = n + LIST_STEP; render(); } }, `Show ${Math.min(LIST_STEP, left)} more`)),
   };
 }
@@ -85,6 +85,7 @@ function go(view, col = "") {
   state.bundle = null;
   state.focusId = null;
   state.limit = {};
+  if (typeof document !== "undefined") document.body?.classList.remove("nav-open");
   history.replaceState(null, "", "#" + (view === "col" || view === "project" ? `${view}:${encodeURIComponent(col)}` : view));
   render();
 }
@@ -102,17 +103,17 @@ async function withUndo(label, keys, fn) {
   });
 }
 
-// The toolbar row under the page title. Skips empty slots: replaceChildren(null) would print the word "null".
 // A "⋯" dropdown for rarely used actions: [{ label, onclick, disabled, title, danger }]
 function moreMenu(actions) {
   const box = h("details", { class: "more" }, h("summary", { title: "More", "aria-label": "More actions" }, "⋯"));
   const close = (e) => { if (!box.contains(e.target)) { box.open = false; document.removeEventListener("click", close); } };
   box.addEventListener("toggle", () => box.open && setTimeout(() => document.addEventListener("click", close)));
-  box.append(h("div", { class: "more-menu" }, actions.map((a) =>
+  box.append(h("div", { class: "more-menu" }, actions.filter(Boolean).map((a) =>
     h("button", { class: `link small${a.danger ? " danger" : ""}`, disabled: a.disabled, title: a.title || null, onclick: () => { box.open = false; a.onclick(); } }, a.label))));
   return box;
 }
-const setTools =(...kids) => $("tools").replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
+// The toolbar row under the page title. Skips empty slots: replaceChildren(null) would print the word "null".
+const setTools = (...kids) => $("tools").replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 
 // Short message at the bottom of the sidebar.
 let flashBase = null, flashTimer = null;

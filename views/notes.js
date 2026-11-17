@@ -45,23 +45,18 @@ function noteCard(n, itemByKey) {
       h("span", { class: "muted small" }, `${n.highlights.length} highlight${n.highlights.length === 1 ? "" : "s"}${n.text.trim() ? " · notes" : ""}`),
       h("span", { class: "spacer" }),
       h("button", { class: "btn", onclick: () => openWithNotes(n) }, "Open with Notes"),
-      n.highlights.length || n.text.trim() ? h("button", {
-        class: "link small", title: "Key ideas from your highlights and notes (local AI)",
-        onclick: async (e) => {
-          e.target.disabled = true;
-          e.target.textContent = "✦ Summarising…";
-          try { await summariseNote(n, "highlights", "", flash); } catch (err) { flash(err.message); e.target.disabled = false; e.target.textContent = "✦ Key ideas"; }
-        },
-      }, n.summary ? "✦ Redo key ideas" : "✦ Key ideas") : null,
-      it ? null : h("button", { class: "link small", onclick: () => saveForLater(n) }, "→ Inbox"),
-      h("button", {
-        class: "link small",
-        onclick: () => withUndo(`Notes deleted for “${n.title}”`, ["notes"], async () => {
+      moreMenu([
+        n.highlights.length || n.text.trim() ? { label: n.summary ? "Redo key ideas (local AI)" : "Key ideas (local AI)", onclick: async () => {
+          flash("Summarising…");
+          try { await summariseNote(n, "highlights", "", flash); } catch (err) { flash(err.message); }
+        } } : null,
+        it ? null : { label: "Save to Inbox", onclick: () => saveForLater(n) },
+        { label: "Delete notes", danger: true, onclick: () => withUndo(`Notes deleted for “${n.title}”`, ["notes"], async () => {
           const all = await getNotes();
           delete all[n.url];
           await setNotes(all);
-        }),
-      }, "Delete")));
+        }) },
+      ])));
 }
 
 function exportAllNotes() {
@@ -81,7 +76,7 @@ function viewNotes() {
     ...(roles.length > 1
       ? [["", "All"], ...roles].map(([k, label, c]) => h("button", { class: `chip${(state.role || "") === k ? " on" : ""}`, onclick: () => { state.role = k || null; render(); } },
           k ? h("i", { class: "dot", style: `background:${HL_COLORS[k]}` }) : null, c ? `${label} ${c}` : label))
-      : [h("span", { class: "small muted" }, "Select text on any page you allowed: a small bar lets you highlight it as Key point, Idea, Question or Check.")]),
+      : []),
     h("span", { class: "spacer" }));
   if (!list.length) {
     return emptyEl(all.length ? "No matches" : "No notes yet", "Highlight a passage on any page.");

@@ -27,7 +27,7 @@
       <button id="prune-one" class="sbtn">Only this</button>
       <button id="prune-all" class="sbtn no">This + those</button>
     </div>
-    <input id="src-note" class="input" placeholder="Comment: why it matters (optional)">
+    <input id="src-note" class="input" aria-label="Comment" placeholder="Comment: why it matters (optional)">
     <div class="src-bottom">
       <label class="small check"><input id="src-auto" type="checkbox" checked> then open the next one here</label>
       <button id="src-next" class="btn">Next ▶</button>
@@ -48,7 +48,7 @@
     <div class="go">
       <div class="split menu-wrap" id="split">
         <button id="save" class="btn primary">Save to Inbox</button>
-        <button id="dest-btn" class="btn primary caret" aria-haspopup="menu" aria-label="Keep"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="dest-btn" class="btn primary caret" aria-haspopup="menu" aria-label="Where to"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div id="dest" class="menu left" role="menu" hidden>
           <span class="menu-label">Where to</span>
           <button data-dest="inbox" role="menuitemradio">Inbox</button>
@@ -63,12 +63,12 @@
     </div>
 
     <div class="dest-body" data-for="collection" hidden>
-      <input id="col-input" class="input" list="paths" placeholder="Collection, e.g. AI › Agents › Papers" spellcheck="false">
+      <input id="col-input" class="input" aria-label="Collection" list="paths" placeholder="Collection, e.g. AI › Agents › Papers" spellcheck="false">
       <datalist id="paths"></datalist>
     </div>
     <div class="dest-body" data-for="project" hidden>
-      <select id="ws-select"></select>
-      <input id="ws-new" class="input" placeholder="New project name" hidden>
+      <select id="ws-select" aria-label="Project"></select>
+      <input id="ws-new" class="input" aria-label="New project name" placeholder="New project name" hidden>
     </div>
   </section>
 
@@ -90,12 +90,12 @@
     </div>
     <div id="working-row" class="working" hidden>
       <span class="small muted">Working on</span>
-      <select id="working"></select>
-      <input id="working-new" class="input" placeholder="New project name, Enter" hidden>
+      <select id="working" aria-label="Working project"></select>
+      <input id="working-new" class="input" aria-label="New project name" placeholder="New project name, Enter" hidden>
     </div>
     <form id="park-form" class="park-form" hidden>
-      <select id="park-proj"></select>
-      <input id="park-name" class="input" placeholder="New project name">
+      <select id="park-proj" aria-label="Project"></select>
+      <input id="park-name" class="input" aria-label="New project name" placeholder="New project name">
       <div class="park-go">
         <label class="small check"><input id="park-close" type="checkbox" checked> close the tabs</label>
         <button class="btn primary">Park</button>

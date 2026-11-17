@@ -1,4 +1,4 @@
-// Collections tree in the sidebar and the collection view.
+// Collections: the slim sidebar list, the Collections page (organising) and the single-collection view.
 
 function buildTree() {
   const all = new Set(data.cols);
@@ -111,8 +111,7 @@ async function addSubCol(parent, typed) {
 }
 
 async function deleteCol(path) {
-  if (!confirm(`Delete collection "${pathLabel(path)}"? Its pages move up one level.`)) return;
-  await withUndo(`Deleted ${pathLabel(path)}`, COL_KEYS, () => deleteCollection(path));
+  await withUndo(`Deleted ${pathLabel(path)} (its pages moved up one level)`, COL_KEYS, () => deleteCollection(path));
   if (state.view === "col" && isInside(state.col, path)) go("inbox");
 }
 
@@ -128,7 +127,8 @@ function beginEdit(kind, path) {
   for (let i = 1; i < parts.length + (kind === "sub" ? 1 : 0); i++) collapsed.delete(parts.slice(0, i).join("/"));
   prefs.set("collapsed", [...collapsed]);
   treeEdit = { kind, path, text: kind === "rename" ? lastSegment(path) : "" };
-  renderTree();
+  if (state.view !== "collections") go("collections");
+  else redrawCols();
 }
 
 function editInput() {
@@ -139,16 +139,16 @@ function editInput() {
     onclick: (e) => e.stopPropagation(),
     oninput: () => (treeEdit.text = input.value),
     onkeydown: async (e) => {
-      if (e.key === "Escape") { e.stopPropagation(); treeEdit = null; renderTree(); }
+      if (e.key === "Escape") { e.stopPropagation(); treeEdit = null; redrawCols(); }
       else if (e.key === "Enter") {
         e.preventDefault();
         const { kind, path } = treeEdit, v = input.value;
         treeEdit = null;
-        renderTree();
+        redrawCols();
         if (kind === "rename") await renameCol(path, v); else await addSubCol(path, v);
       }
     },
-    onblur: () => { if (!drawing && treeEdit) { treeEdit = null; renderTree(); } },
+    onblur: () => { if (!drawing && treeEdit) { treeEdit = null; redrawCols(); } },
   });
   return input;
 }
@@ -205,7 +205,7 @@ function rowMenu(anchor, path) {
 let dragCol = null; // path being dragged (dataTransfer cannot be read while hovering)
 function endColDrag() {
   dragCol = null;
-  $("tree").classList.remove("dragging-col");
+  document.body.classList.remove("dragging-col");
   document.querySelectorAll(".drop-ok, .drop-before, .drop-after").forEach((el) => el.classList.remove("drop-ok", "drop-before", "drop-after"));
 }
 document.addEventListener("dragend", endColDrag, true);
@@ -247,63 +247,103 @@ function colDropOnRow(row, path, siblings) {
   });
 }
 
+// One collection row. `slim` (the sidebar) is a plain link that also takes dropped pages;
+// the full row (Collections page) also drags, nests, renames and has a ⋯ menu.
+function colRow(child, depth, names, collapsed, slim) {
+  const kids = Object.keys(child.children).length;
+  const isOpen = !collapsed.has(child.path);
+  const renaming = !slim && treeEdit?.kind === "rename" && treeEdit.path === child.path;
+  const row = h("div", {
+    class: `node-row${state.view === "col" && (slim ? isInside(state.col, child.path) : state.col === child.path) ? " on" : ""}`,
+    style: slim ? null : `padding-left:${8 + depth * 14}px`,
+    draggable: slim || renaming ? null : "true",
+    onclick: () => go("col", child.path),
+    title: pathLabel(child.path),
+    ondragstart: slim ? null : (e) => {
+      dragCol = child.path;
+      e.dataTransfer.setData("text/col", child.path);
+      e.dataTransfer.effectAllowed = "move";
+      document.body.classList.add("dragging-col");
+    },
+  },
+    slim ? null : h("span", {
+      class: "caret",
+      onclick: (e) => {
+        if (!kids) return;
+        e.stopPropagation();
+        isOpen ? collapsed.add(child.path) : collapsed.delete(child.path);
+        prefs.set("collapsed", [...collapsed]);
+        redrawCols();
+      },
+    }, kids ? (isOpen ? "▾" : "▸") : "•"),
+    renaming ? editInput() : h("span", { class: "node-name" }, child.name),
+    h("span", { class: "n" }, String(countIn(child.path) || "")),
+    slim ? null : h("button", {
+      class: "row-menu", title: "Collection actions", "aria-label": `Actions for ${child.name}`, "aria-haspopup": "menu",
+      onclick: (e) => { e.stopPropagation(); rowMenu(e.currentTarget, child.path); },
+    }, "⋯"));
+  dropTarget(row, (id) => keepItem(id, child.path));
+  if (!slim) colDropOnRow(row, child.path, names);
+  return row;
+}
+
+// Sidebar: only the top-level subjects, for quick jumping. Organising lives on the Collections page.
 function renderTree() {
   const box = $("tree");
-  drawing = true;
-  box.replaceChildren();
-  const collapsed = new Set(prefs.get("collapsed", []));
   const root = buildTree();
   knownPaths = flatPaths(root);
   if (treeEdit && !knownPaths.includes(treeEdit.path)) treeEdit = null; // the collection went away
-  const draw = (node, depth) => {
-    const names = orderedChildren(node.path || "", Object.keys(node.children), data.order);
-    for (const name of names) {
+  const collapsed = new Set(prefs.get("collapsed", []));
+  const names = orderedChildren("", Object.keys(root.children), data.order);
+  box.replaceChildren(...names.map((name) => colRow(root.children[name], 0, names, collapsed, true)));
+  if (!names.length) box.append(h("div", { class: "empty-tree" }, "No collections yet."));
+  $("n-cols").textContent = knownPaths.length || "";
+  // the picker offers every standard subject too, so typing "Elec" suggests it before you have used it
+  $("paths").replaceChildren(...[...new Set([...data.cols, ...data.items.map((i) => i.path), ...taxonomyPaths()])]
+    .filter((p) => p && p !== UNSORTED).sort().map((p) => h("option", { value: pathLabel(p) })));
+}
+
+// Redraw after a tree edit: the sidebar, and the page when you are on it.
+function redrawCols() {
+  renderTree();
+  if (state.view === "collections") render();
+}
+
+// The Collections page: one card per top-level subject with its whole subtree.
+function viewCollections() {
+  const root = buildTree();
+  knownPaths = flatPaths(root);
+  if (treeEdit && !knownPaths.includes(treeEdit.path)) treeEdit = null;
+  drawing = true;
+  const collapsed = new Set(prefs.get("collapsed", []));
+  const names = orderedChildren("", Object.keys(root.children), data.order);
+  const newRow = (depth) => h("div", { class: "node-row new-row", style: `padding-left:${8 + depth * 14}px` }, h("span", { class: "caret" }, "•"), editInput());
+  const drawKids = (node, depth, into) => {
+    const sibs = orderedChildren(node.path, Object.keys(node.children), data.order);
+    for (const name of sibs) {
       const child = node.children[name];
-      const kids = Object.keys(child.children).length;
-      const isOpen = !collapsed.has(child.path);
-      const renaming = treeEdit?.kind === "rename" && treeEdit.path === child.path;
-      const row = h("div", {
-        class: `node-row${state.view === "col" && state.col === child.path ? " on" : ""}`,
-        style: `padding-left:${8 + depth * 14}px`,
-        draggable: renaming ? null : "true",
-        onclick: () => go("col", child.path),
-        title: pathLabel(child.path),
-        ondragstart: (e) => {
-          dragCol = child.path;
-          e.dataTransfer.setData("text/col", child.path);
-          e.dataTransfer.effectAllowed = "move";
-          box.classList.add("dragging-col");
-        },
-      },
-        h("span", {
-          class: "caret",
-          onclick: (e) => {
-            if (!kids) return;
-            e.stopPropagation();
-            isOpen ? collapsed.add(child.path) : collapsed.delete(child.path);
-            prefs.set("collapsed", [...collapsed]);
-            renderTree();
-          },
-        }, kids ? (isOpen ? "▾" : "▸") : "•"),
-        renaming ? editInput() : h("span", { class: "node-name" }, child.name),
-        h("span", { class: "n" }, String(countIn(child.path) || "")),
-        h("button", {
-          class: "row-menu", title: "Collection actions", "aria-label": `Actions for ${child.name}`, "aria-haspopup": "menu",
-          onclick: (e) => { e.stopPropagation(); rowMenu(e.currentTarget, child.path); },
-        }, "⋯"));
-      dropTarget(row, (id) => keepItem(id, child.path));
-      colDropOnRow(row, child.path, names);
-      box.append(row);
-      // the new-name row sits first among the children
-      if (treeEdit?.kind === "sub" && treeEdit.path === child.path) {
-        box.append(h("div", { class: "node-row new-row", style: `padding-left:${8 + (depth + 1) * 14}px` },
-          h("span", { class: "caret" }, "•"), editInput()));
-      }
-      if (kids && isOpen) draw(child, depth + 1);
+      into.append(colRow(child, depth, sibs, collapsed, false));
+      if (treeEdit?.kind === "sub" && treeEdit.path === child.path) into.append(newRow(depth + 1));
+      if (Object.keys(child.children).length && !collapsed.has(child.path)) drawKids(child, depth + 1, into);
     }
   };
-  draw(root, 0);
-  if (!box.children.length) box.append(h("div", { class: "empty-tree" }, "No collections yet. Keep pages from the Inbox or press +."));
+  const cards = names.map((name) => {
+    const top = root.children[name];
+    const card = h("div", { class: "col-card" }, colRow(top, 0, names, collapsed, false));
+    if (treeEdit?.kind === "sub" && treeEdit.path === top.path) card.append(newRow(1));
+    if (Object.keys(top.children).length && !collapsed.has(top.path)) drawKids(top, 1, card);
+    return card;
+  });
+  const pages = data.items.filter((it) => it.stage === "kept").length;
+  setHead("Collections", `${knownPaths.length} collection${knownPaths.length === 1 ? "" : "s"} · ${pages} kept page${pages === 1 ? "" : "s"}`);
+  const plan = alignPlan(data.items, data.cols);
+  const n = Object.keys(plan).length;
+  setTools(
+    h("button", { class: "btn primary", onclick: openNewPanel }, "+ New collection"),
+    n ? h("button", {
+      class: "btn", title: Object.entries(plan).slice(0, 12).map(([a, b]) => `${pathLabel(a)} → ${pathLabel(b)}`).join(" · ") + (n > 12 ? " …" : "") + ". Deeper levels merge into the subject. Undo is offered.",
+      onclick: () => withUndo(`Aligned ${n} collection${n > 1 ? "s" : ""}`, COL_KEYS, alignCollections),
+    }, `Align ${n} with standard subjects`) : null);
   // shown only while a collection is dragged: the way to un-nest one
   const strip = h("div", { class: "top-drop" }, "Drop here for top level");
   strip.addEventListener("dragover", (e) => {
@@ -319,30 +359,20 @@ function renderTree() {
     e.preventDefault();
     moveCol(from, "");
   });
-  box.append(strip);
-  // old free-form collections that fit the standard list: offer to move them over (with Undo)
-  const plan = alignPlan(data.items, data.cols);
-  const n = Object.keys(plan).length;
-  if (n) {
-    box.append(h("button", {
-      class: "link small", style: "margin:8px", title: "Move old collections onto the standard subject list",
-      onclick: async () => {
-        const lines = Object.entries(plan).slice(0, 12).map(([a, b]) => `${pathLabel(a)}  →  ${pathLabel(b)}`).join("\n");
-        if (!confirm(`Move ${n} collection${n > 1 ? "s" : ""} onto the standard subjects?\n\n${lines}${n > 12 ? "\n…" : ""}\n\nDeeper levels merge into the subject. You can Undo.`)) return;
-        await withUndo(`Aligned ${n} collection${n > 1 ? "s" : ""}`, COL_KEYS, alignCollections);
-      },
-    }, `Align ${n} with standard…`));
-  }
-  // the picker offers every standard subject too, so typing "Elec" suggests it before you have used it
-  $("paths").replaceChildren(...[...new Set([...data.cols, ...data.items.map((i) => i.path), ...taxonomyPaths()])]
-    .filter((p) => p && p !== UNSORTED).sort().map((p) => h("option", { value: pathLabel(p) })));
-  const input = box.querySelector(".tree-input");
-  if (input) { input.focus(); input.select(); input.scrollIntoView({ block: "nearest" }); }
-  drawing = false;
+  const page = h("div", { class: "col-page" },
+    h("div", { id: "col-new" }),
+    strip,
+    cards.length ? h("div", { class: "col-grid" }, cards) : emptyEl("No collections yet", "Keep pages from the Inbox, or press + New collection."));
+  setTimeout(() => {
+    drawing = false;
+    const input = page.querySelector(".tree-input");
+    if (input) { input.focus(); input.select(); input.scrollIntoView({ block: "nearest" }); }
+  });
+  return page;
 }
 
 // ---------- "+ New" panel under the Collections header ----------
-function closeNewPanel() { $("col-new").replaceChildren(); }
+function closeNewPanel() { $("col-new")?.replaceChildren(); }
 
 async function createCol(path) {
   if (!knownPaths.includes(path)) await withUndo(`Added ${pathLabel(path)}`, COL_KEYS, () => addCollection(path));
@@ -352,6 +382,7 @@ async function createCol(path) {
 
 function openNewPanel() {
   const box = $("col-new");
+  if (!box) { go("collections"); return setTimeout(openNewPanel); }
   if (box.firstChild) return closeNewPanel(); // the + button toggles
   const input = h("input", { type: "text", list: "paths", maxlength: "130", placeholder: "e.g. AI › Agents", "aria-label": "New collection name" });
   const parent = h("select", { "aria-label": "Parent collection" },
@@ -393,15 +424,11 @@ function viewCollection() {
   setHead(pathLabel(path), `${base.length} page${base.length === 1 ? "" : "s"}`);
   setTools(
     ...subs.map((s) => h("button", { class: "chip", onclick: () => go("col", s.path) }, `${s.name} ${countIn(s.path)}`)),
-    subs.length ? h("span", { style: "width:8px" }) : null,
+    subs.length ? h("span", { class: "sep" }) : null,
     ...typeChips(base),
     h("span", { class: "spacer" }),
     statusSeg(),
-    moreMenu([
-      { label: "+ Sub-collection", onclick: () => beginEdit("sub", path), disabled: collectionDepth(path) >= 3, title: collectionDepth(path) >= 3 ? "Collections go 3 levels deep" : null },
-      { label: "Rename", onclick: () => beginEdit("rename", path), disabled: isLockedName(path), title: isLockedName(path) ? "Standard subjects keep their names" : "Use the ⋯ menu in the sidebar to move or merge" },
-      { label: "Delete", onclick: () => deleteCol(path), danger: true },
-    ]));
+    h("button", { class: "icon-btn", title: "Collection actions", "aria-label": "Collection actions", onclick: (e) => rowMenu(e.currentTarget, path) }, "⋯"));
   const list = base.filter(byType);
   if (!list.length) return emptyEl("Empty collection", "Drag pages here from the Inbox.");
   // group direct pages first, then each sub-collection

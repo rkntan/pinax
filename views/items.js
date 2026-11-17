@@ -23,13 +23,14 @@ function progressEl(it) {
       h("button", { class: "icon-btn", title: "Finished one unit", onclick: () => step(1) }, "+"));
   }
   if (it.type !== "Course") return null;
-  return h("button", {
-    class: "link",
-    onclick: () => {
-      const n = parseInt(prompt("How many units / lessons does this course have?", "5"), 10);
+  return h("input", {
+    class: "input", type: "number", min: "1", style: "width:150px", placeholder: "Units / lessons: Enter", "aria-label": "Number of units or lessons",
+    onkeydown: (e) => {
+      if (e.key !== "Enter") return;
+      const n = parseInt(e.target.value, 10);
       if (n > 0) updateItem(it.id, { progress: { done: 0, total: n } });
     },
-  }, "Track units");
+  });
 }
 
 function detailEl(it) {
@@ -104,7 +105,7 @@ function rowEl(it, pinned) {
         inbox && !suggested ? (it.alts || []).map((a) => h("button", {
           class: "chip suggest", title: `Maybe: keep in ${pathLabel(a)}`, onclick: () => keepItem(it.id, a),
         }, `Maybe ${pathLabel(a).split(" › ").pop()}`)) : null,
-        h("span", { class: "type" }, h("i", { class: "dot", style: "background:var(--type)" }), it.type),
+        h("i", { class: "dot", style: "background:var(--type)", title: it.type }),
         suggested ? h("button", { class: "qbtn keep", title: `Keep in ${pathLabel(it.path)}`, onclick: () => keepItem(it.id, it.path) }, "Keep") : null,
         h("button", {
           class: `star${pinned ? " on" : ""}`,
@@ -245,21 +246,16 @@ function viewInbox() {
   const list = base.filter(byType).filter(f ? BUNDLE_FILTER[f.kind](f) : () => true);
   const waiting = forReview(data.items).length;
   const suggested = base.filter((it) => it.path && it.path !== UNSORTED);
-  setHead("Inbox", `${base.length} waiting · AI suggests a collection, you decide`);
+  setHead("Inbox", `${base.length} waiting`);
   setTools(
     ...(f ? [h("button", { class: "chip on", title: "Show all", onclick: () => { state.bundle = null; render(); } }, `${bundleLabel(f)} ×`)] : typeChips(base)),
     h("span", { class: "spacer" }),
-    suggested.length > 1 && !f ? h("button", {
-      class: "btn", title: "Each page into its AI-suggested collection",
-      onclick: () => withUndo(`Kept ${suggested.length} pages`, ["items", "collections"], () => keepSuggested(suggested.map((x) => x.id))),
-    }, `Keep all ${suggested.length} as suggested`) : null,
     waiting ? h("button", { class: "btn primary", onclick: () => go("review") }, `Review ${waiting} one by one`) : null);
   if (!base.length) return emptyEl("Inbox is clear", "Save a page with Alt+Shift+S.");
   return h("div", {},
     f || base.length < 3 ? null : bundlesEl(),
     selBar(),
-    list.length ? listEl(list, "inbox") : emptyEl("Nothing here", ""),
-    h("p", { class: "keys-hint small muted" }, KEYS_HINT));
+    list.length ? listEl(list, "inbox") : emptyEl("Nothing here", ""));
 }
 
 function viewAll() {
@@ -270,9 +266,8 @@ function viewAll() {
   const rest = base.filter(byType);
   return h("div", {},
     selBar(),
-    due.length ? [h("h3", { class: "section-title" }, h("span", { class: "chip lime" }, "Due now"), String(due.length)), listEl(due, "due"), h("br")] : null,
-    rest.length ? listEl(rest, "all") : emptyEl("Nothing here", ""),
-    h("p", { class: "keys-hint small muted" }, KEYS_HINT));
+    due.length ? [sectionEl("Due now", due.length), listEl(due, "due")] : null,
+    rest.length ? listEl(rest, "all") : emptyEl("Nothing here", ""));
 }
 
 // Gmail-style keys in page lists (Inbox, All pages, collections, queue).

@@ -19,10 +19,13 @@ function viewQueue() {
   if (!all.length) return emptyEl("Nothing unread", "Pages count as read after 2 minutes of viewing.");
   if (!list.length) return emptyEl(`Nothing fits in ${fmtMinutes(state.budget)}`, "Try a longer slot. Pages get their length when you save them from an open tab.");
 
-  const started = list.filter((it) => resumePct(it)).sort((a, b) => b.pos.at - a.pos.at);
-  const first = started[0] || list[0];
-  const withLen = list.filter((it) => it.minutes);
-  const unknown = list.filter((it) => !it.minutes);
+  const startedAll = list.filter((it) => resumePct(it)).sort((a, b) => b.pos.at - a.pos.at);
+  const first = startedAll[0] || list[0];
+  // the "Up next" card is the first page, so it is not repeated as a row below
+  const rest = list.filter((it) => it !== first);
+  const started = startedAll.filter((it) => it !== first);
+  const withLen = rest.filter((it) => it.minutes);
+  const unknown = rest.filter((it) => !it.minutes);
   return h("div", {},
     h("div", { class: "queue-next" },
       h("img", { src: faviconFor(first.url, 32), alt: "" }),
@@ -32,9 +35,8 @@ function viewQueue() {
           : `Up next · ${lengthLabel(first) || "length unknown"} · ${first.stage === "kept" ? pathLabel(first.path) : "Inbox"}`),
         h("b", {}, first.title)),
       h("button", { class: "btn primary", onclick: () => window.open(first.url, "_blank") }, resumePct(first) ? "▶ Continue" : "▶ Read now")),
-    started.length > 1 ? [sectionEl("Continue reading", started.length), listEl(started, "started")] : null,
+    started.length ? [sectionEl("Continue reading", started.length), listEl(started, "started")] : null,
     selBar(),
     withLen.length ? listEl(withLen, "len") : null,
-    unknown.length ? [sectionEl("Length unknown", unknown.length), listEl(unknown, "unknown")] : null,
-    h("p", { class: "keys-hint small muted" }, `${KEYS_HINT} · a page leaves the queue once read (2 min of viewing, or M)`));
+    unknown.length ? [sectionEl("Length unknown", unknown.length), listEl(unknown, "unknown")] : null);
 }
