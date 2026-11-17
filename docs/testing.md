@@ -141,7 +141,7 @@ open `chrome://extensions` → Pinax → **Errors**, or right-click the popup / 
 - [ ] 4c.4 Your pages: Export bookmarks, Export CSV, Backup, Import backup all work from here; the storage size is shown.
 - [ ] 4c.5 About shows the installed version and the GitHub link.
 
-- [ ] 4c.6 (v1.19) Settings › **Subjects** lists the 13 standard subjects (the 14th, Other, means "unsorted"); opening one shows its sub-subjects; subjects holding kept pages show a count and open that collection when clicked.
+- [ ] 4c.6 (v1.22) Settings has no Subjects list any more: suggested collections live on the Collections page (+ New › Suggested collections).
 - [ ] 4c.7 (v1.19) In any "Keep in" box, typing a few letters (e.g. `Elec`) suggests standard paths such as `Electronics & Hardware › PCB & Circuit Design` before you have used them.
 
 ## 4d. Collections (v1.21)

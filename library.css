@@ -333,13 +333,6 @@ a.title:hover { color: var(--violet); }
 .set-rows { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .set-rows .btn { cursor: pointer; }
 .row-inline { display: inline-flex; align-items: center; gap: 6px; }
-.subjects { width: 100%; max-width: 420px; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.subjects details { border-bottom: 1px solid var(--line); }
-.subjects details:last-child { border-bottom: none; }
-.subjects summary { cursor: pointer; padding: 7px 12px; }
-.subj-row { display: inline-flex; width: calc(100% - 20px); justify-content: space-between; gap: 12px; }
-.subj-kids { padding: 0 12px 8px 28px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
-.subj-kids .subj-row { width: 100%; }
 .tabset { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 8px; }
 .tabset-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tabset-head h3 { font-size: 14px; margin-right: auto; }

@@ -194,7 +194,7 @@ function rowMenu(anchor, path) {
     menuItem("New sub-collection", () => { closeMenu(); beginEdit("sub", path); },
       collectionDepth(path) >= 3 ? { disabled: true, title: "Collections go 3 levels deep" } : {}),
     menuItem("Rename", () => { closeMenu(); beginEdit("rename", path); },
-      locked ? { disabled: true, title: "Standard subjects keep their names" } : {}),
+      locked ? { disabled: true, title: "Suggested collections keep their names" } : {}),
     menuItem("Move to…", () => showTargets(anchor, path, false)),
     menuItem("Merge into…", () => showTargets(anchor, path, true)),
     menuItem("Delete", () => { closeMenu(); deleteCol(path); }),
@@ -343,7 +343,7 @@ function viewCollections() {
     n ? h("button", {
       class: "btn", title: Object.entries(plan).slice(0, 12).map(([a, b]) => `${pathLabel(a)} → ${pathLabel(b)}`).join(" · ") + (n > 12 ? " …" : "") + ". Deeper levels merge into the subject. Undo is offered.",
       onclick: () => withUndo(`Aligned ${n} collection${n > 1 ? "s" : ""}`, COL_KEYS, alignCollections),
-    }, `Align ${n} with standard subjects`) : null);
+    }, `Align ${n} with suggested collections`) : null);
   // shown only while a collection is dragged: the way to un-nest one
   const strip = h("div", { class: "top-drop" }, "Drop here for top level");
   strip.addEventListener("dragover", (e) => {
@@ -404,7 +404,7 @@ function openNewPanel() {
   const panel = h("div", { class: "new-panel", onkeydown: (e) => { if (e.key === "Escape") { e.stopPropagation(); closeNewPanel(); } } },
     input,
     h("label", { class: "new-parent" }, h("span", {}, "Parent"), parent),
-    h("details", { class: "std-list" }, h("summary", {}, "Standard subjects"), h("div", { class: "std-body" }, subjects)),
+    h("details", { class: "std-list" }, h("summary", {}, "Suggested collections"), h("div", { class: "std-body" }, subjects)),
     h("div", { class: "new-actions" },
       h("button", { class: "link small", onclick: closeNewPanel }, "Cancel"),
       h("button", { class: "btn primary", onclick: submit }, "Create")));

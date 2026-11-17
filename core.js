@@ -591,7 +591,7 @@ async function reorderCollection(parentPath, siblings, name, beforeName) {
 }
 
 async function renameCollection(from, to) {
-  if (isLockedName(from)) throw new Error("Standard subjects keep their names. Move or reorder them instead.");
+  if (isLockedName(from)) throw new Error("Suggested collections keep their names. Move or reorder them instead.");
   const target = cleanPath(to);
   if (parentOf(target) !== parentOf(from) && lastSegment(target) === lastSegment(from)) {
     const r = await moveCollectionTo(from, parentOf(target));
