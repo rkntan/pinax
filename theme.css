@@ -42,6 +42,16 @@
   --head: "Space Grotesk", "Segoe UI", sans-serif;
   --body: "Inter", "Segoe UI", system-ui, sans-serif;
   --radius: 10px;
+  --on-ink: rgba(255, 255, 255, 0.7);
+  --on-ink-strong: #ffffff;
+  --on-ink-line: rgba(255, 255, 255, 0.45);
+  --on-ink-hover: rgba(255, 255, 255, 0.12);
+  --on-violet-line: rgba(255, 255, 255, 0.35);
+  --rail: var(--ink);
+  --scrim: rgba(19, 5, 55, 0.35);
+  --shadow-sm: 0 4px 14px rgba(19, 5, 55, 0.14);
+  --shadow-md: 0 10px 30px rgba(19, 5, 55, 0.2);
+  --shadow-lg: 0 20px 60px rgba(19, 5, 55, 0.35);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -55,6 +65,11 @@
     --violet: #9d78ff;
     --lav: #241b45;
     --lime-on-ink: #4d6600;
+    --rail: #07050f;
+    --scrim: rgba(0, 0, 0, 0.55);
+    --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
     --ok: #12b886;
     --muted-btn: #6b6780;
     --warn: #e8590c;

@@ -29,6 +29,11 @@ Single source of truth for look and feel. All tokens live in `theme.css` (`:root
 | `--warn` | `#b04409` | `#e8590c` | Warning status |
 | `--danger` | `#e0262c` | `#ff5a5f` | Destructive actions, errors |
 | `--muted-btn` | ink 58% | `#6b6780` | Disabled-looking / quiet buttons |
+| `--rail` | ink | `#07050f` | Pin rail background |
+| `--on-ink`, `--on-ink-strong`, `--on-ink-line`, `--on-ink-hover` | white 70% / white / white 45% / white 12% | same | Text, borders and hover on the dark pin rail |
+| `--on-violet-line` | white 35% | same | Divider inside a violet button |
+| `--scrim` | ink 35% | black 55% | Backdrop behind dialogs |
+| `--shadow-sm` / `-md` / `-lg` | soft ink shadow | stronger black | Menus / toast, cards and drawers / quick search |
 
 ### Type colours (`.t-<Type>` sets `--type`)
 

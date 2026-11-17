@@ -30,7 +30,7 @@ h2 { font-size: 13.5px; }
 .split { flex: 1; min-width: 0; display: flex; }
 #save { flex: 1; min-width: 0; display: block; height: 38px; padding: 0 12px; border-radius: 9px 0 0 9px; font-size: 13.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.caret { width: 34px; height: 38px; padding: 0; border-radius: 0 9px 9px 0; border-left: 1px solid rgba(255, 255, 255, 0.35) !important; }
+.caret { width: 34px; height: 38px; padding: 0; border-radius: 0 9px 9px 0; border-left: 1px solid var(--on-violet-line) !important; }
 .split.done #save, .split.done .caret { background: var(--lav); border-color: var(--lav); color: var(--violet); }
 .split.done .caret { border-left-color: color-mix(in srgb, var(--violet) 25%, transparent) !important; }
 .split.done #save:disabled { opacity: 1; }
@@ -44,7 +44,7 @@ h2 { font-size: 13.5px; }
 /* dropdown menus (Save to, reminder, more) */
 .menu-wrap { position: relative; }
 .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; min-width: 180px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(19, 5, 55, 0.18); padding: 4px; display: flex; flex-direction: column; }
+  box-shadow: var(--shadow-md); padding: 4px; display: flex; flex-direction: column; }
 .menu.left { left: 0; right: auto; }
 .menu.up { top: auto; bottom: calc(100% + 6px); }
 .menu[hidden] { display: none; }
