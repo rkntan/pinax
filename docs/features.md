@@ -78,7 +78,7 @@ Every "Keep in" box also suggests the standard subjects as you type, so you can 
 - **Reading mode**: "Read next" in the Library, then in the popup: mark the page and the same
   tab moves on to the next unread source.
 - **Research note**: right-click selected text › "Add to my note", or an image › "Add image to my note". Clips go to the project tracked in this window (else the last used; "Research note" is created if none). Images are shrunk to JPEG (max 1200 px) in their own `img:<id>` keys, included in backups. Settings › "Projects (.zip)" exports a folder per project: `note.md` + `images/`.
-- More ways into the note: the selection bubble's **+ Note** (N), right-click › **Add a screenshot to my note…** or **Alt+Shift+C** (drag a region), **Add this moment to my note** on YouTube (clip links to that second). Right-click › **Copy citation for this page** gives an APA reference.
+- More ways into the note: the selection bubble's **+ Note** (N), right-click › **Add a screenshot to my note…** (shortcut: set one in chrome://extensions/shortcuts; Chrome allows only 4 preset keys), **Add this moment to my note** on YouTube (clip links to that second). Right-click › **Copy citation for this page** gives an APA reference.
 - Settings › **Notes (.zip)**: one Obsidian-ready `.md` per page (properties block, highlights as role callouts).
 - **Finish**: keep useful sources in collections, handle what is left, export Markdown
   (title, link, comment, highlights). Finished projects are read-only and can be reopened.

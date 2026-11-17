@@ -32,7 +32,6 @@
       "description": "Open the Library"
     },
     "clip-shot": {
-      "suggested_key": { "default": "Alt+Shift+C" },
       "description": "Drag a region of the page into my research note"
     },
     "highlight": {
